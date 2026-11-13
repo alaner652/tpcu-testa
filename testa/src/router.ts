@@ -24,6 +24,7 @@ export const router = createRouter({
         { path: 'exams', name: 'exams', component: () => import('@/pages/ExamsPage.vue') },
         { path: 'exams/:id', name: 'exam', component: () => import('@/pages/ExamDetailPage.vue') },
         { path: 'grading', name: 'grading', component: () => import('@/pages/GradingPage.vue') },
+        { path: 'members', name: 'members', component: () => import('@/pages/MembersPage.vue') },
         { path: 'admin', name: 'admin', component: () => import('@/pages/AdminPage.vue'), meta: { admin: true } },
         { path: 'student', name: 'student', component: () => import('@/pages/StudentExamsPage.vue'), meta: { student: true } },
       ],

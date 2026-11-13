@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, watch } from 'vue'
-import { Copy, Plus, X } from 'lucide-vue-next'
+import { Copy, Plus } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import UnitMembers from '@/components/app/UnitMembers.vue'
 import Button from '@/components/ui/Button.vue'
 import Switch from '@/components/ui/Switch.vue'
 import { UNIT_ROLE_LABEL, useAuth, type UnitRole } from '@/composables/useAuth'
@@ -29,14 +30,6 @@ interface Unit {
   name: string
   type: 'ADMISSION' | 'CLASS'
   active: boolean
-}
-interface UnitMember {
-  id: number
-  staffId: number
-  email: string
-  name: string
-  active: boolean
-  role: UnitRole
 }
 interface AuditEntry {
   id: number
@@ -159,18 +152,6 @@ const rolesText = (s: Staff) => {
 const units = ref<Unit[]>([])
 const newUnit = ref('')
 const openUnit = ref<number | null>(null)
-const members = ref<UnitMember[]>([])
-/** MVP 把四種角色合併成兩種常用組合，也可以單獨指派 */
-const ROLE_CHOICES: { value: string; label: string; roles: UnitRole[] }[] = [
-  { value: 'officer', label: '承辦人（負責人＋監考）', roles: ['OWNER', 'PROCTOR'] },
-  { value: 'teacher', label: '教師（出題＋評分）', roles: ['AUTHOR', 'GRADER'] },
-  { value: 'OWNER', label: '只有負責人', roles: ['OWNER'] },
-  { value: 'AUTHOR', label: '只有出題', roles: ['AUTHOR'] },
-  { value: 'PROCTOR', label: '只有監考', roles: ['PROCTOR'] },
-  { value: 'GRADER', label: '只有評分', roles: ['GRADER'] },
-]
-const memberDraft = reactive({ email: '', choice: 'teacher' })
-
 async function loadUnits() {
   try {
     units.value = await api<Unit[]>('/units')
@@ -212,60 +193,7 @@ async function toggleUnit(u: Unit) {
   }
 }
 
-async function toggleMembers(u: Unit) {
-  if (openUnit.value === u.id) return void (openUnit.value = null)
-  try {
-    members.value = await api<UnitMember[]>(`/units/${u.id}/members`)
-    openUnit.value = u.id
-  } catch (e) {
-    fail(e)
-  }
-}
-
-/** 同一位教職員的多個角色排在同一列 */
-const grouped = () => {
-  const map = new Map<number, { name: string; email: string; active: boolean; roles: UnitMember[] }>()
-  for (const m of members.value) {
-    const row = map.get(m.staffId) ?? { name: m.name, email: m.email, active: m.active, roles: [] }
-    row.roles.push(m)
-    map.set(m.staffId, row)
-  }
-  return [...map.values()]
-}
-
-async function addMember(u: Unit) {
-  const email = memberDraft.email.trim()
-  if (!email) return
-  const choice = ROLE_CHOICES.find((c) => c.value === memberDraft.choice)!
-  const have = new Set(members.value.filter((m) => m.email === email.toLowerCase()).map((m) => m.role))
-  try {
-    for (const role of choice.roles) {
-      if (!have.has(role)) await api(`/units/${u.id}/members`, { method: 'POST', body: { email, role } })
-    }
-    memberDraft.email = ''
-    toast.success(`已將 ${email} 加入「${u.name}」`)
-  } catch (e) {
-    fail(e)
-  }
-  members.value = await api<UnitMember[]>(`/units/${u.id}/members`).catch(() => members.value)
-}
-
-async function removeRole(u: Unit, m: UnitMember) {
-  const ok = await confirm({
-    title: `移除 ${m.name} 的「${UNIT_ROLE_LABEL[m.role]}」角色？`,
-    description: `移除後立即生效，${m.name} 在「${u.name}」不能再做這個角色的工作。`,
-    confirmLabel: '移除',
-    tone: 'danger',
-  })
-  if (!ok) return
-  try {
-    await api(`/units/${u.id}/members/${m.id}`, { method: 'DELETE' })
-    members.value = members.value.filter((x) => x.id !== m.id)
-    toast.success(`已移除 ${m.name} 的「${UNIT_ROLE_LABEL[m.role]}」角色`)
-  } catch (e) {
-    fail(e)
-  }
-}
+const toggleMembers = (u: Unit) => (openUnit.value = openUnit.value === u.id ? null : u.id)
 
 // ── 操作紀錄 ─────────────────────────────────────────
 const ACTION_LABEL: Record<string, string> = {
@@ -285,6 +213,26 @@ const ACTION_LABEL: Record<string, string> = {
   UNIT_DISABLED: '停用單位',
   UNIT_ROLE_GRANTED: '指派角色',
   UNIT_ROLE_REVOKED: '移除角色',
+  BANK_CREATED: '建立題庫',
+  BANK_DELETED: '刪除題庫',
+  EXAM_CREATED: '建立考試',
+  EXAM_PUBLISHED: '發布考試',
+  EXAM_WITHDRAWN: '取消發布',
+  EXAM_ENDED: '結束考試',
+  EXAM_DELETED: '刪除考試',
+  CANDIDATES_IMPORTED: '匯入考生名單',
+  CANDIDATE_CODE_RESET: '重設登入碼',
+  CANDIDATE_REMOVED: '移除考生',
+  CANDIDATE_LOGIN: '考生登入',
+  CANDIDATE_LOGIN_FAILED: '考生登入失敗',
+  CANDIDATE_LOGOUT: '考生登出',
+  ATTEMPT_STARTED: '開始作答',
+  ATTEMPT_SUBMITTED: '交卷',
+  GRADER_ASSIGNED: '指派評分者',
+  GRADER_UNASSIGNED: '取消指派評分者',
+  GRADING_REOPENED: '重開評分',
+  RESULTS_PUBLISHED: '公布成績',
+  RESULTS_EXPORTED: '匯出成績',
 }
 const DETAIL_LABEL: Record<string, string> = {
   bad_password: '密碼錯誤',
@@ -292,6 +240,10 @@ const DETAIL_LABEL: Record<string, string> = {
   locked: '帳號鎖定中',
   inactive: '帳號已停用',
   system_admin: '系統管理員',
+  unknown_ticket: '准考證號不在名單上',
+  bad_code: '登入碼錯誤',
+  replaced_session: '在別處重新登入，舊連線已登出',
+  auto: '系統自動收卷',
   ...UNIT_ROLE_LABEL,
 }
 const audit = ref<AuditEntry[]>([])
@@ -453,38 +405,7 @@ watch(tab, load)
           </div>
 
           <div v-if="openUnit === u.id" class="border-t border-line bg-sunken/60 px-5 py-4 sm:px-6">
-            <p v-if="!members.length" class="text-[15px] text-ink-2">這個單位還沒有成員。先加入一位承辦人。</p>
-            <ul v-else class="space-y-2">
-              <li v-for="row in grouped()" :key="row.email" class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                <p class="min-w-0 basis-52 text-[15px]">
-                  <span class="font-medium">{{ row.name }}</span>
-                  <span class="ml-2 text-sm text-ink-2">{{ row.email }}</span>
-                  <span v-if="!row.active" class="ml-2 text-sm text-grade">帳號已停用</span>
-                </p>
-                <span
-                  v-for="m in row.roles"
-                  :key="m.id"
-                  class="inline-flex h-8 items-center gap-1 rounded-full bg-paper pr-1 pl-3 text-sm shadow-card"
-                >
-                  {{ UNIT_ROLE_LABEL[m.role] }}
-                  <button
-                    type="button"
-                    class="flex size-6 items-center justify-center rounded-full text-ink-3 hover:bg-grade-soft hover:text-grade"
-                    :aria-label="`移除 ${row.name} 的${UNIT_ROLE_LABEL[m.role]}角色`"
-                    @click="removeRole(u, m)"
-                  >
-                    <X class="size-3.5" />
-                  </button>
-                </span>
-              </li>
-            </ul>
-            <form class="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_14rem_auto]" novalidate @submit.prevent="addMember(u)">
-              <input v-model="memberDraft.email" type="email" class="field bg-paper" placeholder="教職員的 Email" aria-label="教職員的 Email" />
-              <select v-model="memberDraft.choice" class="field bg-paper" aria-label="角色">
-                <option v-for="c in ROLE_CHOICES" :key="c.value" :value="c.value">{{ c.label }}</option>
-              </select>
-              <Button variant="primary" size="md" class="h-11 rounded-full" type="submit" :disabled="!memberDraft.email.trim()">加入</Button>
-            </form>
+            <UnitMembers :unit="u" />
           </div>
         </li>
         <li v-if="!units.length && !loadError" class="px-5 py-6 text-[15px] text-ink-2 sm:px-6">還沒有任何單位。先新增一個，例如「招生組」。</li>
@@ -497,8 +418,8 @@ watch(tab, load)
       <ul class="divide-y divide-line border-t border-line">
         <li v-for="a in audit" :key="a.id" class="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 px-5 py-3 text-[15px] sm:px-6">
           <span class="w-36 shrink-0 text-sm text-ink-2 tabular-nums">{{ when(a.at) }}</span>
-          <span class="w-28 shrink-0 font-medium" :class="a.action === 'LOGIN_FAILED' && 'text-grade'">{{ ACTION_LABEL[a.action] ?? a.action }}</span>
-          <span class="min-w-0 flex-1 basis-48 truncate">{{ a.actorLabel ?? '系統' }}</span>
+          <span class="w-28 shrink-0 font-medium" :class="a.action.endsWith('LOGIN_FAILED') && 'text-grade'">{{ ACTION_LABEL[a.action] ?? a.action }}</span>
+          <span class="min-w-0 flex-1 basis-48 truncate">{{ a.actorLabel ?? '系統' }}<template v-if="a.actorType === 'CANDIDATE'">（考生）</template></span>
           <span class="min-w-0 flex-1 basis-48 text-sm text-ink-2">{{ auditTarget(a) }}</span>
         </li>
       </ul>

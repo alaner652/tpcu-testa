@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { ClipboardCheck, FileText, House, LibraryBig, Settings } from 'lucide-vue-next'
+import { ClipboardCheck, FileText, House, LibraryBig, Settings, Users } from 'lucide-vue-next'
 import Logo from '@/components/app/Logo.vue'
 import UserMenu from '@/components/app/UserMenu.vue'
 import { useAuth, type UnitRole } from '@/composables/useAuth'
@@ -19,6 +19,7 @@ const staffLinks = computed(() => [
   ...(can('AUTHOR', 'OWNER') ? [{ to: '/banks', label: '題庫', icon: LibraryBig, exact: false, badge: 0 }] : []),
   ...(can('OWNER', 'PROCTOR') ? [{ to: '/exams', label: '考試', icon: FileText, exact: false, badge: 0 }] : []),
   ...(can('GRADER') ? [{ to: '/grading', label: '閱卷', icon: ClipboardCheck, exact: false, badge: pending.value }] : []),
+  ...(can('OWNER') ? [{ to: '/members', label: '成員', icon: Users, exact: false, badge: 0 }] : []),
   ...(isAdmin.value ? [{ to: '/admin', label: '管理', icon: Settings, exact: false, badge: 0 }] : []),
 ])
 </script>
