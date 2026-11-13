@@ -1,0 +1,22 @@
+name: testa
+# 開發用：只啟動資料庫。後端用 `cd server && ./mvnw spring-boot:run`，前端用 `cd testa && npm run dev`。
+# 正式部署的 Compose（Nginx + 後端 + 資料庫）在開發順序第 7 步再補。
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: testa
+      POSTGRES_USER: testa
+      POSTGRES_PASSWORD: ${TESTA_DB_PASSWORD:-testa-dev}
+    ports:
+      - "127.0.0.1:${TESTA_DB_PORT:-5432}:5432"
+    volumes:
+      - testa-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testa -d testa"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  testa-db:

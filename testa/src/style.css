@@ -1,0 +1,196 @@
+@import 'tailwindcss';
+@import 'katex/dist/katex.min.css';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Testa design tokens
+ * 取材自教室：黑板綠（品牌、正確答案）、紅筆（配分）、黃粉筆（待確認）、鉛筆（考生作答、文字）。
+ */
+:root {
+  --desk: #e8f0eb; /* 畫布：帶品牌色的背景 */
+  --paper: #ffffff; /* 題卡 */
+  --sunken: #f1f5f2; /* 輸入區、hover */
+  --ink: #17211d; /* 鉛筆：文字、考生塗黑的圈 */
+  --ink-2: #4a5751;
+  --ink-3: #66736c;
+  --line: #dde6e0;
+  --line-strong: #b9c7bf;
+  --brand: #1b6a51; /* 黑板綠：品牌、主要動作、正確答案 */
+  --brand-strong: #14523e;
+  --brand-soft: #dcede4;
+  --brand-fg: #ffffff;
+  --grade: #c2362b; /* 紅筆：配分、未完成、刪除 */
+  --grade-soft: #fbedeb;
+  --marker: #fbe7a1; /* 黃粉筆：待確認 */
+  --marker-ink: #5f4a00;
+  --sh-card: 0 1px 2px rgb(20 60 44 / 0.08);
+  --sh-lift: 0 2px 4px rgb(20 60 44 / 0.06), 0 14px 32px -12px rgb(20 60 44 / 0.28);
+  color-scheme: light;
+}
+
+.dark {
+  --desk: #0d1412;
+  --paper: #17201d;
+  --sunken: #1e2925;
+  --ink: #e6ece9;
+  --ink-2: #a8b5ae;
+  --ink-3: #86948d;
+  --line: #27332e;
+  --line-strong: #3d4c45;
+  --brand: #63cba5;
+  --brand-strong: #86dcbb;
+  --brand-soft: #173a2e;
+  --brand-fg: #0b1512;
+  --grade: #f08377;
+  --grade-soft: #3a201d;
+  --marker: #4a3f14;
+  --marker-ink: #ecd97f;
+  --sh-card: 0 0 0 1px var(--line);
+  --sh-lift: 0 0 0 1px var(--line-strong), 0 16px 36px -12px rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-desk: var(--desk);
+  --color-paper: var(--paper);
+  --color-sunken: var(--sunken);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-brand: var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-fg: var(--brand-fg);
+  --color-grade: var(--grade);
+  --color-grade-soft: var(--grade-soft);
+  --color-marker: var(--marker);
+  --color-marker-ink: var(--marker-ink);
+
+  --font-sans: 'IBM Plex Sans', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* 圓角依層級區分：題卡最大，控制項次之 */
+  --radius-card: 14px;
+  --radius-control: 8px;
+
+  --shadow-card: var(--sh-card);
+  --shadow-lift: var(--sh-lift);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-desk text-ink font-sans antialiased;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+  button {
+    cursor: pointer;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--brand) 22%, transparent);
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--ink-3);
+    opacity: 0.75;
+  }
+}
+
+/* 題目內容：編輯與作答共用同一種排版 */
+.exam-text {
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.exam-text .katex {
+  font-size: 1.12em;
+}
+.exam-text .katex-display {
+  margin: 0.6em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* 拖曳狀態 */
+.drag-ghost {
+  background: var(--brand-soft) !important;
+}
+.drag-ghost > * {
+  opacity: 0.35;
+}
+
+.thin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* 提示訊息：沿用石墨色，與介面其他深色元素一致 */
+[data-sonner-toaster] {
+  --normal-bg: var(--ink) !important;
+  --normal-text: var(--paper) !important;
+  --normal-border: transparent !important;
+  font-family: var(--font-sans) !important;
+}
+[data-sonner-toast] [data-description] {
+  color: color-mix(in srgb, var(--paper) 70%, transparent) !important;
+}
+[data-sonner-toast] [data-button] {
+  background: transparent !important;
+  color: var(--paper) !important;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 500;
+}
+
+/* 共用的填色輸入框（登入、考試、後台表單） */
+@layer components {
+  .field {
+    @apply h-11 w-full rounded-control border-[1.5px] border-transparent bg-sunken px-3.5 text-base text-ink transition-colors outline-none hover:border-line-strong focus:border-brand;
+  }
+  .card {
+    @apply overflow-hidden bg-paper shadow-card md:rounded-card;
+  }
+}
+
+/* 列印（登入單）：只印內容，拿掉導覽、分頁籤、按鈕與提示 */
+@media print {
+  html,
+  body,
+  #app,
+  #app > *,
+  main {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  header,
+  nav,
+  [role='tablist'],
+  [data-sonner-toaster],
+  .no-print {
+    display: none !important;
+  }
+  .ticket {
+    break-inside: avoid;
+  }
+}

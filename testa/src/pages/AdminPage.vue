@@ -1,0 +1,536 @@
+<script setup lang="ts">
+import { onMounted, reactive, ref, watch } from 'vue'
+import { Copy, Plus, X } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
+import Button from '@/components/ui/Button.vue'
+import Switch from '@/components/ui/Switch.vue'
+import { UNIT_ROLE_LABEL, useAuth, type UnitRole } from '@/composables/useAuth'
+import { useConfirm } from '@/composables/useConfirm'
+import { useWorkspace } from '@/composables/useWorkspace'
+import { api } from '@/lib/api'
+
+/**
+ * 後台管理（系統管理員）：教職員帳號、單位與角色、操作紀錄。
+ * 系統管理員只管帳號與單位，看不到題庫、答卷、分數。
+ */
+interface Staff {
+  id: number
+  email: string
+  name: string
+  systemAdmin: boolean
+  active: boolean
+  mustChangePassword: boolean
+  locked: boolean
+  lastLoginAt: string | null
+  roles: { unitId: number; unitName: string; role: UnitRole }[]
+}
+interface Unit {
+  id: number
+  name: string
+  type: 'ADMISSION' | 'CLASS'
+  active: boolean
+}
+interface UnitMember {
+  id: number
+  staffId: number
+  email: string
+  name: string
+  active: boolean
+  role: UnitRole
+}
+interface AuditEntry {
+  id: number
+  at: string
+  actorType: string
+  actorLabel: string | null
+  action: string
+  targetType: string | null
+  targetId: string | null
+  unitId: number | null
+  reason: string | null
+  detail: string | null
+  ip: string | null
+}
+
+const { user } = useAuth()
+const { settings } = useWorkspace()
+const { confirm } = useConfirm()
+
+const TABS = [
+  { value: 'staff', label: '使用者' },
+  { value: 'units', label: '單位' },
+  { value: 'audit', label: '操作紀錄' },
+  { value: 'settings', label: '系統設定' },
+] as const
+const tab = ref<(typeof TABS)[number]['value']>('staff')
+
+const loadError = ref('')
+const fail = (e: unknown) => toast.error((e as Error).message)
+
+// ── 使用者 ───────────────────────────────────────────
+const staff = ref<Staff[]>([])
+const creating = ref(false)
+const draft = reactive({ email: '', name: '', systemAdmin: false })
+const createError = ref('')
+const saving = ref(false)
+/** 剛產生的臨時密碼，只顯示這一次 */
+const issued = ref<{ name: string; email: string; password: string } | null>(null)
+
+async function loadStaff() {
+  try {
+    staff.value = await api<Staff[]>('/admin/staff')
+    loadError.value = ''
+  } catch (e) {
+    loadError.value = (e as Error).message
+  }
+}
+
+async function createStaff() {
+  if (saving.value) return
+  if (!draft.email.trim() || !draft.name.trim()) return void (createError.value = '請輸入 Email 與姓名。')
+  saving.value = true
+  try {
+    const res = await api<{ staff: Staff; temporaryPassword: string }>('/admin/staff', { method: 'POST', body: draft })
+    issued.value = { name: res.staff.name, email: res.staff.email, password: res.temporaryPassword }
+    Object.assign(draft, { email: '', name: '', systemAdmin: false })
+    createError.value = ''
+    creating.value = false
+    await loadStaff()
+  } catch (e) {
+    createError.value = (e as Error).message
+  } finally {
+    saving.value = false
+  }
+}
+
+async function toggleActive(s: Staff) {
+  if (s.active) {
+    const ok = await confirm({
+      title: `停用 ${s.name} 的帳號？`,
+      description: '停用後對方會立刻被登出，也無法再登入。題庫與考試紀錄會保留，之後可以重新啟用。',
+      confirmLabel: '停用',
+      tone: 'danger',
+    })
+    if (!ok) return
+  }
+  try {
+    await api(`/admin/staff/${s.id}`, { method: 'PATCH', body: { active: !s.active } })
+    toast.success(s.active ? `已停用 ${s.name} 的帳號` : `已啟用 ${s.name} 的帳號`)
+    await loadStaff()
+  } catch (e) {
+    fail(e)
+  }
+}
+
+async function resetPassword(s: Staff) {
+  const ok = await confirm({
+    title: `重設 ${s.name} 的密碼？`,
+    description: '系統會產生一組臨時密碼。對方會立刻被登出，下次登入後必須換成自己的密碼。',
+    confirmLabel: '重設密碼',
+    tone: 'danger',
+  })
+  if (!ok) return
+  try {
+    const res = await api<{ temporaryPassword: string }>(`/admin/staff/${s.id}/reset-password`, { method: 'POST' })
+    issued.value = { name: s.name, email: s.email, password: res.temporaryPassword }
+    await loadStaff()
+  } catch (e) {
+    fail(e)
+  }
+}
+
+async function copyPassword() {
+  if (!issued.value) return
+  try {
+    await navigator.clipboard.writeText(issued.value.password)
+    toast.success('已複製臨時密碼')
+  } catch {
+    toast.error('無法複製，請手動抄寫')
+  }
+}
+
+const rolesText = (s: Staff) => {
+  const byUnit = new Map<string, string[]>()
+  for (const r of s.roles) byUnit.set(r.unitName, [...(byUnit.get(r.unitName) ?? []), UNIT_ROLE_LABEL[r.role]])
+  return [...byUnit].map(([unit, roles]) => `${unit}（${roles.join('、')}）`).join('，')
+}
+
+// ── 單位 ─────────────────────────────────────────────
+const units = ref<Unit[]>([])
+const newUnit = ref('')
+const openUnit = ref<number | null>(null)
+const members = ref<UnitMember[]>([])
+/** MVP 把四種角色合併成兩種常用組合，也可以單獨指派 */
+const ROLE_CHOICES: { value: string; label: string; roles: UnitRole[] }[] = [
+  { value: 'officer', label: '承辦人（負責人＋監考）', roles: ['OWNER', 'PROCTOR'] },
+  { value: 'teacher', label: '教師（出題＋評分）', roles: ['AUTHOR', 'GRADER'] },
+  { value: 'OWNER', label: '只有負責人', roles: ['OWNER'] },
+  { value: 'AUTHOR', label: '只有出題', roles: ['AUTHOR'] },
+  { value: 'PROCTOR', label: '只有監考', roles: ['PROCTOR'] },
+  { value: 'GRADER', label: '只有評分', roles: ['GRADER'] },
+]
+const memberDraft = reactive({ email: '', choice: 'teacher' })
+
+async function loadUnits() {
+  try {
+    units.value = await api<Unit[]>('/units')
+    loadError.value = ''
+  } catch (e) {
+    loadError.value = (e as Error).message
+  }
+}
+
+async function addUnit() {
+  const name = newUnit.value.trim()
+  if (!name) return
+  try {
+    await api('/units', { method: 'POST', body: { name, type: 'ADMISSION' } })
+    newUnit.value = ''
+    toast.success(`已新增單位「${name}」`)
+    await loadUnits()
+  } catch (e) {
+    fail(e)
+  }
+}
+
+async function toggleUnit(u: Unit) {
+  if (u.active) {
+    const ok = await confirm({
+      title: `停用單位「${u.name}」？`,
+      description: '停用後，這個單位的成員會暫時失去在此單位的所有權限。資料會保留，之後可以重新啟用。',
+      confirmLabel: '停用',
+      tone: 'danger',
+    })
+    if (!ok) return
+  }
+  try {
+    await api(`/units/${u.id}`, { method: 'PATCH', body: { active: !u.active } })
+    toast.success(u.active ? `已停用單位「${u.name}」` : `已啟用單位「${u.name}」`)
+    await loadUnits()
+  } catch (e) {
+    fail(e)
+  }
+}
+
+async function toggleMembers(u: Unit) {
+  if (openUnit.value === u.id) return void (openUnit.value = null)
+  try {
+    members.value = await api<UnitMember[]>(`/units/${u.id}/members`)
+    openUnit.value = u.id
+  } catch (e) {
+    fail(e)
+  }
+}
+
+/** 同一位教職員的多個角色排在同一列 */
+const grouped = () => {
+  const map = new Map<number, { name: string; email: string; active: boolean; roles: UnitMember[] }>()
+  for (const m of members.value) {
+    const row = map.get(m.staffId) ?? { name: m.name, email: m.email, active: m.active, roles: [] }
+    row.roles.push(m)
+    map.set(m.staffId, row)
+  }
+  return [...map.values()]
+}
+
+async function addMember(u: Unit) {
+  const email = memberDraft.email.trim()
+  if (!email) return
+  const choice = ROLE_CHOICES.find((c) => c.value === memberDraft.choice)!
+  const have = new Set(members.value.filter((m) => m.email === email.toLowerCase()).map((m) => m.role))
+  try {
+    for (const role of choice.roles) {
+      if (!have.has(role)) await api(`/units/${u.id}/members`, { method: 'POST', body: { email, role } })
+    }
+    memberDraft.email = ''
+    toast.success(`已將 ${email} 加入「${u.name}」`)
+  } catch (e) {
+    fail(e)
+  }
+  members.value = await api<UnitMember[]>(`/units/${u.id}/members`).catch(() => members.value)
+}
+
+async function removeRole(u: Unit, m: UnitMember) {
+  const ok = await confirm({
+    title: `移除 ${m.name} 的「${UNIT_ROLE_LABEL[m.role]}」角色？`,
+    description: `移除後立即生效，${m.name} 在「${u.name}」不能再做這個角色的工作。`,
+    confirmLabel: '移除',
+    tone: 'danger',
+  })
+  if (!ok) return
+  try {
+    await api(`/units/${u.id}/members/${m.id}`, { method: 'DELETE' })
+    members.value = members.value.filter((x) => x.id !== m.id)
+    toast.success(`已移除 ${m.name} 的「${UNIT_ROLE_LABEL[m.role]}」角色`)
+  } catch (e) {
+    fail(e)
+  }
+}
+
+// ── 操作紀錄 ─────────────────────────────────────────
+const ACTION_LABEL: Record<string, string> = {
+  LOGIN: '登入',
+  LOGIN_FAILED: '登入失敗',
+  LOGOUT: '登出',
+  PASSWORD_CHANGED: '變更密碼',
+  PASSWORD_RESET: '重設密碼',
+  STAFF_CREATED: '建立帳號',
+  STAFF_ENABLED: '啟用帳號',
+  STAFF_DISABLED: '停用帳號',
+  SYSTEM_ADMIN_GRANTED: '設為系統管理員',
+  SYSTEM_ADMIN_REVOKED: '取消系統管理員',
+  UNIT_CREATED: '建立單位',
+  UNIT_RENAMED: '單位改名',
+  UNIT_ENABLED: '啟用單位',
+  UNIT_DISABLED: '停用單位',
+  UNIT_ROLE_GRANTED: '指派角色',
+  UNIT_ROLE_REVOKED: '移除角色',
+}
+const DETAIL_LABEL: Record<string, string> = {
+  bad_password: '密碼錯誤',
+  unknown_account: '帳號不存在',
+  locked: '帳號鎖定中',
+  inactive: '帳號已停用',
+  system_admin: '系統管理員',
+  ...UNIT_ROLE_LABEL,
+}
+const audit = ref<AuditEntry[]>([])
+const auditTotal = ref(0)
+const auditPage = ref(0)
+
+async function loadAudit(page = 0) {
+  try {
+    const res = await api<{ items: AuditEntry[]; total: number }>(`/admin/audit-logs?page=${page}&size=50`)
+    audit.value = page === 0 ? res.items : [...audit.value, ...res.items]
+    auditTotal.value = res.total
+    auditPage.value = page
+    loadError.value = ''
+  } catch (e) {
+    loadError.value = (e as Error).message
+  }
+}
+
+const when = (iso: string) =>
+  new Date(iso).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+
+const auditTarget = (a: AuditEntry) => {
+  const parts: string[] = []
+  if (a.targetType === 'staff') {
+    const s = staff.value.find((x) => String(x.id) === a.targetId)
+    parts.push(s ? s.name : `帳號 #${a.targetId}`)
+  }
+  if (a.unitId) parts.push(units.value.find((u) => u.id === a.unitId)?.name ?? `單位 #${a.unitId}`)
+  if (a.detail) parts.push(DETAIL_LABEL[a.detail] ?? a.detail)
+  if (a.reason) parts.push(`理由：${a.reason}`)
+  return parts.join('，')
+}
+
+function load() {
+  loadError.value = ''
+  if (tab.value === 'staff') loadStaff()
+  else if (tab.value === 'units') loadUnits()
+  else if (tab.value === 'audit') {
+    loadAudit()
+    // 操作紀錄要把 id 對回姓名與單位名稱
+    if (!staff.value.length) loadStaff()
+    if (!units.value.length) loadUnits()
+  }
+}
+onMounted(load)
+watch(tab, load)
+</script>
+
+<template>
+  <div>
+    <h1 class="mb-4 px-4 text-[26px] font-bold sm:text-[30px] md:px-0">後台管理</h1>
+
+    <div role="tablist" class="mb-4 flex gap-1 overflow-x-auto px-4 md:px-0">
+      <button
+        v-for="t in TABS"
+        :key="t.value"
+        type="button"
+        role="tab"
+        :aria-selected="tab === t.value"
+        class="h-10 shrink-0 rounded-full px-4 text-[15px] transition-colors"
+        :class="tab === t.value ? 'bg-brand font-medium text-brand-fg' : 'text-ink-2 hover:bg-ink/[0.06] hover:text-ink'"
+        @click="tab = t.value"
+      >
+        {{ t.label }}
+      </button>
+    </div>
+
+    <p v-if="loadError" class="card mb-4 flex items-center gap-3 px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
+      <span class="min-w-0 flex-1">{{ loadError }}</span>
+      <Button variant="outline" class="rounded-full" @click="load">重試</Button>
+    </p>
+
+    <!-- 使用者 -->
+    <section v-if="tab === 'staff'" class="card">
+      <div class="flex items-center justify-between gap-3 px-5 py-4 sm:px-6">
+        <p class="text-[15px] text-ink-2">{{ staff.length }} 位教職員</p>
+        <Button v-if="!creating" variant="primary" class="rounded-full" @click="creating = true"><Plus />新增帳號</Button>
+      </div>
+
+      <div v-if="issued" class="border-t border-line bg-marker/40 px-5 py-4 sm:px-6" role="status">
+        <p class="text-[15px] font-medium">{{ issued.name }}（{{ issued.email }}）的臨時密碼</p>
+        <div class="mt-2 flex flex-wrap items-center gap-2">
+          <code class="rounded-control bg-paper px-3 py-1.5 text-lg font-semibold tracking-wider select-all">{{ issued.password }}</code>
+          <Button variant="outline" class="rounded-full" @click="copyPassword"><Copy />複製</Button>
+          <Button class="rounded-full" @click="issued = null">我已經記下來了</Button>
+        </div>
+        <p class="mt-2 text-sm text-ink-2">這組密碼只會顯示這一次，請親自交給對方。對方登入後必須先換成自己的密碼。</p>
+      </div>
+
+      <form v-if="creating" class="border-t border-line bg-sunken/60 px-5 py-4 sm:px-6" novalidate @submit.prevent="createStaff">
+        <div class="grid gap-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto_auto]">
+          <input v-model="draft.email" type="email" class="field bg-paper" placeholder="Email（登入帳號）" aria-label="Email" />
+          <input v-model="draft.name" class="field bg-paper" placeholder="姓名" aria-label="姓名" />
+          <Button variant="primary" size="md" class="h-11 rounded-full" type="submit" :disabled="saving">建立帳號</Button>
+          <Button size="md" class="h-11 rounded-full" @click="((creating = false), (createError = ''))">取消</Button>
+        </div>
+        <label class="mt-3 flex items-center gap-2 text-[15px]">
+          <input v-model="draft.systemAdmin" type="checkbox" class="size-4 accent-brand" />
+          設為系統管理員（可以管理所有帳號與單位）
+        </label>
+        <p class="mt-2 text-sm text-ink-2">建立後到「單位」分頁，把這位教職員加入單位並指派角色。</p>
+        <p v-if="createError" class="mt-2 text-sm text-grade" role="alert">{{ createError }}</p>
+      </form>
+
+      <ul class="divide-y divide-line border-t border-line">
+        <li v-for="s in staff" :key="s.id" class="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5 sm:px-6" :class="!s.active && 'opacity-60'">
+          <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[15px] font-semibold text-brand-strong">
+            {{ s.name.slice(0, 1).toUpperCase() }}
+          </span>
+          <div class="min-w-0 flex-1 basis-56">
+            <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-medium">
+              <span class="truncate">{{ s.name }}</span>
+              <span v-if="s.systemAdmin" class="shrink-0 rounded-full bg-brand px-2 py-0.5 text-xs font-normal text-brand-fg">系統管理員</span>
+              <span v-if="!s.active" class="shrink-0 rounded-full bg-sunken px-2 py-0.5 text-xs font-normal text-ink-2">已停用</span>
+              <span v-if="s.locked" class="shrink-0 rounded-full bg-grade-soft px-2 py-0.5 text-xs font-normal text-grade">密碼輸錯鎖定中</span>
+              <span v-if="s.mustChangePassword" class="shrink-0 rounded-full bg-marker px-2 py-0.5 text-xs font-normal text-marker-ink">尚未換掉臨時密碼</span>
+            </p>
+            <p class="truncate text-sm text-ink-2">{{ s.email }}</p>
+            <p class="text-sm text-ink-2">{{ rolesText(s) || (s.systemAdmin ? '' : '尚未加入任何單位') }}</p>
+          </div>
+          <template v-if="s.email !== user?.email">
+            <Button variant="outline" class="rounded-full" @click="resetPassword(s)">重設密碼</Button>
+            <Button
+              variant="outline"
+              :class="s.active ? 'w-16 rounded-full hover:border-grade hover:text-grade' : 'w-16 rounded-full'"
+              @click="toggleActive(s)"
+            >
+              {{ s.active ? '停用' : '啟用' }}
+            </Button>
+          </template>
+          <span v-else class="text-sm text-ink-3">這是你自己</span>
+        </li>
+      </ul>
+    </section>
+
+    <!-- 單位 -->
+    <section v-else-if="tab === 'units'" class="card">
+      <form class="flex gap-2 px-5 py-4 sm:px-6" @submit.prevent="addUnit">
+        <input v-model="newUnit" class="field" placeholder="新單位名稱，例如：招生組" aria-label="新單位名稱" />
+        <Button variant="primary" size="md" class="h-11 rounded-full" type="submit" :disabled="!newUnit.trim()"><Plus />新增</Button>
+      </form>
+      <ul class="divide-y divide-line border-t border-line">
+        <li v-for="u in units" :key="u.id">
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5 sm:px-6" :class="!u.active && 'opacity-60'">
+            <p class="flex min-w-0 flex-1 basis-40 items-center gap-2 text-base font-medium">
+              <span class="truncate">{{ u.name }}</span>
+              <span v-if="!u.active" class="shrink-0 rounded-full bg-sunken px-2 py-0.5 text-xs font-normal text-ink-2">已停用</span>
+            </p>
+            <Button variant="outline" class="rounded-full" :aria-expanded="openUnit === u.id" @click="toggleMembers(u)">
+              {{ openUnit === u.id ? '收合' : '成員與角色' }}
+            </Button>
+            <Button
+              variant="outline"
+              :class="u.active ? 'w-16 rounded-full hover:border-grade hover:text-grade' : 'w-16 rounded-full'"
+              @click="toggleUnit(u)"
+            >
+              {{ u.active ? '停用' : '啟用' }}
+            </Button>
+          </div>
+
+          <div v-if="openUnit === u.id" class="border-t border-line bg-sunken/60 px-5 py-4 sm:px-6">
+            <p v-if="!members.length" class="text-[15px] text-ink-2">這個單位還沒有成員。先加入一位承辦人。</p>
+            <ul v-else class="space-y-2">
+              <li v-for="row in grouped()" :key="row.email" class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <p class="min-w-0 basis-52 text-[15px]">
+                  <span class="font-medium">{{ row.name }}</span>
+                  <span class="ml-2 text-sm text-ink-2">{{ row.email }}</span>
+                  <span v-if="!row.active" class="ml-2 text-sm text-grade">帳號已停用</span>
+                </p>
+                <span
+                  v-for="m in row.roles"
+                  :key="m.id"
+                  class="inline-flex h-8 items-center gap-1 rounded-full bg-paper pr-1 pl-3 text-sm shadow-card"
+                >
+                  {{ UNIT_ROLE_LABEL[m.role] }}
+                  <button
+                    type="button"
+                    class="flex size-6 items-center justify-center rounded-full text-ink-3 hover:bg-grade-soft hover:text-grade"
+                    :aria-label="`移除 ${row.name} 的${UNIT_ROLE_LABEL[m.role]}角色`"
+                    @click="removeRole(u, m)"
+                  >
+                    <X class="size-3.5" />
+                  </button>
+                </span>
+              </li>
+            </ul>
+            <form class="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_14rem_auto]" novalidate @submit.prevent="addMember(u)">
+              <input v-model="memberDraft.email" type="email" class="field bg-paper" placeholder="教職員的 Email" aria-label="教職員的 Email" />
+              <select v-model="memberDraft.choice" class="field bg-paper" aria-label="角色">
+                <option v-for="c in ROLE_CHOICES" :key="c.value" :value="c.value">{{ c.label }}</option>
+              </select>
+              <Button variant="primary" size="md" class="h-11 rounded-full" type="submit" :disabled="!memberDraft.email.trim()">加入</Button>
+            </form>
+          </div>
+        </li>
+        <li v-if="!units.length && !loadError" class="px-5 py-6 text-[15px] text-ink-2 sm:px-6">還沒有任何單位。先新增一個，例如「招生組」。</li>
+      </ul>
+    </section>
+
+    <!-- 操作紀錄 -->
+    <section v-else-if="tab === 'audit'" class="card">
+      <p class="px-5 py-4 text-[15px] text-ink-2 sm:px-6">共 {{ auditTotal }} 筆。紀錄只會增加，任何人都不能修改或刪除。</p>
+      <ul class="divide-y divide-line border-t border-line">
+        <li v-for="a in audit" :key="a.id" class="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 px-5 py-3 text-[15px] sm:px-6">
+          <span class="w-36 shrink-0 text-sm text-ink-2 tabular-nums">{{ when(a.at) }}</span>
+          <span class="w-28 shrink-0 font-medium" :class="a.action === 'LOGIN_FAILED' && 'text-grade'">{{ ACTION_LABEL[a.action] ?? a.action }}</span>
+          <span class="min-w-0 flex-1 basis-48 truncate">{{ a.actorLabel ?? '系統' }}</span>
+          <span class="min-w-0 flex-1 basis-48 text-sm text-ink-2">{{ auditTarget(a) }}</span>
+        </li>
+      </ul>
+      <div v-if="audit.length < auditTotal" class="border-t border-line px-5 py-3 text-center sm:px-6">
+        <Button variant="outline" class="rounded-full" @click="loadAudit(auditPage + 1)">載入更早的紀錄</Button>
+      </div>
+    </section>
+
+    <!-- 系統設定（尚未接後端） -->
+    <section v-else class="card divide-y divide-line">
+      <p class="px-5 py-4 text-sm text-ink-2 sm:px-6">這一頁還是示範，設定不會儲存到伺服器。</p>
+      <label class="block px-5 py-5 sm:px-6">
+        <span class="mb-1.5 block text-[15px] font-medium">平台名稱</span>
+        <input v-model="settings.siteName" class="field max-w-sm" @change="toast.success('已儲存平台名稱')" />
+      </label>
+      <label
+        v-for="item in [
+          { key: 'aiImport', title: 'AI 匯入題庫', text: '允許教師上傳 Word、PDF 讓 AI 拆成題目。' },
+          { key: 'aiGrading', title: 'AI 輔助評分', text: '閱卷時顯示 AI 的建議分數，最終分數仍由教師決定。' },
+        ] as const"
+        :key="item.key"
+        class="flex items-center gap-4 px-5 py-5 sm:px-6"
+      >
+        <span class="min-w-0 flex-1">
+          <span class="block text-[15px] font-medium">{{ item.title }}</span>
+          <span class="block text-sm text-ink-2">{{ item.text }}</span>
+        </span>
+        <Switch
+          :model-value="settings[item.key]"
+          @update:model-value="(v: boolean) => ((settings[item.key] = v), toast.success(`已${v ? '開啟' : '關閉'}「${item.title}」`))"
+        />
+      </label>
+    </section>
+  </div>
+</template>

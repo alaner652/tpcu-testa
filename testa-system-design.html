@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Testa 考試平台:系統設計與架構構想</title>
+<style>
+:root{
+  --bg:#F5F7F5; --paper:#FFFFFF; --ink:#1C2321; --quiet:#5C6864; --line:#DCE3DF;
+  --brand:#1B6A51; --brand-soft:#E3F0EA; --grade:#C2412D; --grade-soft:#FBE9E5;
+  --marker:#B7860B; --marker-soft:#FBF3DC;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#121816;--paper:#1A2220;--ink:#E8EEEB;--quiet:#9BA8A3;--line:#2C3835;
+  --brand:#5FC3A0;--brand-soft:#1D3A30;--grade:#F08A78;--grade-soft:#3A211D;
+  --marker:#E5C15A;--marker-soft:#3A311A;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  line-height:1.75;font-size:16px}
+main{max-width:820px;margin:0 auto;padding:32px 20px 80px}
+header.top{border-left:6px solid var(--brand);padding:4px 0 4px 16px;margin-bottom:28px}
+h1{font-size:28px;line-height:1.3;margin:0 0 6px}
+header.top p{margin:0;color:var(--quiet);font-size:14px}
+.lead{font-size:17px;margin:0 0 28px}
+h2{font-size:21px;margin:48px 0 12px;padding-top:20px;border-top:1px solid var(--line)}
+h2 span{color:var(--brand);margin-right:8px;font-variant-numeric:tabular-nums}
+h3{font-size:16px;margin:24px 0 8px}
+p{margin:0 0 12px}
+ul,ol{margin:0 0 12px;padding-left:22px}
+li{margin:4px 0}
+nav{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:14px 18px;margin-bottom:8px}
+nav ol{margin:0;columns:2;column-gap:24px;font-size:14px}
+nav a{color:var(--brand);text-decoration:none}
+@media (max-width:520px){nav ol{columns:1}}
+.tablewrap{overflow-x:auto;margin:0 0 16px;border:1px solid var(--line);border-radius:12px;background:var(--paper)}
+table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:480px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--brand-soft);font-weight:600}
+tr:last-child td{border-bottom:0}
+.note{background:var(--marker-soft);border-left:4px solid var(--marker);border-radius:8px;padding:10px 14px;font-size:14.5px;margin:0 0 16px}
+.warn{background:var(--grade-soft);border-left:4px solid var(--grade);border-radius:8px;padding:10px 14px;font-size:14.5px;margin:0 0 16px}
+
+/* diagrams */
+.fig{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px;margin:0 0 8px}
+.figtitle{font-weight:600;margin:0 0 14px;font-size:15px}
+.cap{color:var(--quiet);font-size:13.5px;margin:0 0 20px}
+.layer{border:1.5px solid var(--line);border-radius:12px;padding:12px}
+.layer.main{border-color:var(--brand);background:var(--brand-soft)}
+.layer .lname{font-weight:600;font-size:14.5px;margin-bottom:8px}
+.layer .lname small{font-weight:400;color:var(--quiet);margin-left:6px}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+.chip{flex:1 1 130px;border:1px solid var(--line);background:var(--paper);border-radius:8px;padding:8px 10px;font-size:13.5px;line-height:1.45}
+.chip b{display:block;font-size:14px}
+.chip span{color:var(--quiet)}
+.arrow{text-align:center;color:var(--quiet);font-size:13px;padding:6px 0;line-height:1.3}
+.arrow::before{content:"↓";display:block;font-size:18px;color:var(--brand)}
+.steps{list-style:none;padding:0;margin:0;counter-reset:s}
+.steps li{counter-increment:s;position:relative;padding:0 0 16px 44px;margin:0}
+.steps li::before{content:counter(s);position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;
+  background:var(--brand);color:var(--paper);font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:center}
+.steps li::after{content:"";position:absolute;left:14px;top:32px;bottom:2px;width:2px;background:var(--line)}
+.steps li:last-child{padding-bottom:0}
+.steps li:last-child::after{display:none}
+.steps b{display:block}
+.steps span{color:var(--quiet);font-size:14px}
+.who{display:inline-block;font-size:12px;border-radius:99px;padding:1px 9px;margin-left:6px;background:var(--brand-soft);color:var(--brand);font-weight:600;vertical-align:middle}
+.who.sys{background:var(--marker-soft);color:var(--marker)}
+.who.cand{background:var(--grade-soft);color:var(--grade)}
+.three{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+.three div{border:1.5px solid var(--brand);border-radius:10px;padding:10px;text-align:center;font-size:13.5px;background:var(--brand-soft)}
+.three div b{display:block;font-size:20px}
+.calc{border:1.5px dashed var(--grade);border-radius:10px;padding:10px;text-align:center;font-size:14.5px}
+.calc b{color:var(--grade);font-size:18px}
+.ents{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.ent{border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:13px}
+.ent h4{margin:0;padding:7px 10px;background:var(--brand-soft);font-size:14px}
+.ent.new h4{background:var(--grade-soft)}
+.ent ul{list-style:none;margin:0;padding:8px 10px}
+.ent li{margin:1px 0;line-height:1.5}
+.ent li i{color:var(--brand);font-style:normal}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:620px){.two{grid-template-columns:1fr}}
+svg.dia{display:block;width:100%;max-width:560px;height:auto;margin:0 auto;font-family:inherit}
+svg.dia .bx{fill:var(--paper);stroke:var(--quiet);stroke-width:1.25}
+svg.dia .bm{fill:var(--brand-soft);stroke:var(--brand);stroke-width:2}
+svg.dia .bn{fill:var(--grade-soft);stroke:var(--grade);stroke-width:1.5}
+svg.dia .bd{fill:none;stroke:var(--marker);stroke-width:1.5;stroke-dasharray:5 4}
+svg.dia text{fill:var(--ink);font-size:13px;text-anchor:middle}
+svg.dia .t{font-weight:600;font-size:14px}
+svg.dia .q{fill:var(--quiet);font-size:11.5px}
+svg.dia .ar{stroke:var(--brand);stroke-width:1.5;fill:none}
+svg.dia .ad{stroke:var(--marker);stroke-width:1.5;fill:none;stroke-dasharray:5 4}
+svg.dia .ln{stroke:var(--quiet);stroke-width:1.25;fill:none}
+svg.dia .hd{fill:var(--brand)}
+details.fig summary{cursor:pointer;font-weight:600;font-size:14.5px;color:var(--brand)}
+details.fig[open] summary{margin-bottom:14px}
+.todo{list-style:none;padding:0}
+.todo li{padding:10px 12px 10px 40px;position:relative;background:var(--paper);border:1px solid var(--line);border-radius:10px;margin:0 0 8px}
+.todo li::before{content:"";position:absolute;left:14px;top:15px;width:14px;height:14px;border:2px solid var(--brand);border-radius:4px}
+footer{margin-top:48px;color:var(--quiet);font-size:13px}
+@media print{body{background:#fff}.fig,.tablewrap,nav{break-inside:avoid}}
+</style>
+</head>
+<body>
+<main>
+
+<header class="top">
+  <h1>Testa 考試平台:系統設計與架構構想</h1>
+  <p>2026-11-13,吳宸麒,草稿 v0.2</p>
+</header>
+
+<p class="lead">Testa 是學校自建的線上考試系統,第一個用途是讓未入學的校外考生以白名單方式應考。第一版(MVP)做到「出題、發考、作答、三人評分、公布成績」一條龍,前端 Vue、後端 Java。</p>
+
+<nav>
+  <ol>
+    <li><a href="#s1">目的與範圍</a></li>
+    <li><a href="#s2">角色與權限</a></li>
+    <li><a href="#s3">系統架構</a></li>
+    <li><a href="#s4">一場考試的完整流程</a></li>
+    <li><a href="#s5">三人評分設計</a></li>
+    <li><a href="#s6">資料模型</a></li>
+    <li><a href="#s7">部署方案</a></li>
+    <li><a href="#s8">安全與稽核</a></li>
+    <li><a href="#s9">MVP 範圍與開發順序</a></li>
+    <li><a href="#s10">待確認事項</a></li>
+  </ol>
+</nav>
+
+<h2 id="s1"><span>1</span>目的與範圍</h2>
+<ul>
+  <li><b>現階段用途:</b>招生單位對校外考生的入學考試。</li>
+  <li><b>兩種施測方式都要能用:</b>純線上(考生用自己的電腦)與電腦教室區網(考生在教室,監考在場)。同一套系統,只差部署位置與監考方式。</li>
+  <li><b>MVP 登入三種:</b>考生、教師、管理員。管理員定位為系統維護者,不碰考卷內容。</li>
+  <li><b>評分:</b>申論題由三位評分者各自獨立評分,取平均。</li>
+  <li><b>技術:</b>前端 Vue 3 + TypeScript,後端 Java(Spring Boot)。</li>
+  <li><b>保留項目:</b>班級學生長期帳號、Email/簡訊邀請、更細的單位內角色。資料結構先預留,介面先不做。</li>
+</ul>
+<p class="note"><b>設計原則:</b>老師的學習成本優先。每種角色登入後只看到兩三個選單,不可逆的動作一律跳出確認。</p>
+
+<h2 id="s2"><span>2</span>角色與權限</h2>
+<p>角色分三層,而且「角色跟著單位走」:同一個人在不同單位可以有不同角色。招生組和班級只是不同的「單位」,權限設計共用。</p>
+
+<div class="fig">
+  <p class="figtitle">三層角色:系統、單位、考生互相隔離</p>
+  <div class="layer">
+    <div class="lname">第一層:系統管理員 <small>資訊單位,人數很少</small></div>
+    <div class="row">
+      <div class="chip"><b>管帳號與單位</b><span>建立單位、開教職員帳號</span></div>
+      <div class="chip"><b>管系統</b><span>系統設定、備份、操作紀錄</span></div>
+      <div class="chip"><b>看不到</b><span>題庫、答卷、分數</span></div>
+    </div>
+  </div>
+  <div class="arrow">建立單位、指派單位負責人</div>
+  <div class="layer main">
+    <div class="lname">第二層:單位內角色 <small>例:招生組,之後的某個班級</small></div>
+    <div class="row">
+      <div class="chip"><b>單位負責人</b><span>建立考試、匯入名單、指派角色、公布成績</span></div>
+      <div class="chip"><b>出題者</b><span>建立與編輯題庫</span></div>
+      <div class="chip"><b>監考</b><span>登入單、即時狀態、重設登入碼</span></div>
+      <div class="chip"><b>評分者</b><span>只看被指派的匿名答卷</span></div>
+    </div>
+  </div>
+  <div class="arrow">匯入白名單、發登入單</div>
+  <div class="layer">
+    <div class="lname">第三層:考生</div>
+    <div class="row">
+      <div class="chip"><b>校外考生</b><span>沒有帳號。准考證號加登入碼,只屬於一場考試</span></div>
+      <div class="chip"><b>班級學生(保留)</b><span>長期帳號,屬於某個班級</span></div>
+    </div>
+  </div>
+</div>
+<p class="cap">系統管理員碰不到考卷,評分者看不到考生身分,考生只看得到自己的考試。</p>
+
+<h3>MVP 先合併成四種</h3>
+<div class="tablewrap"><table>
+  <tr><th>MVP 角色</th><th>對應的完整角色</th><th>登入方式</th><th>登入後看到</th></tr>
+  <tr><td>系統管理員</td><td>系統管理員</td><td>帳號密碼</td><td>使用者、單位、系統設定、操作紀錄</td></tr>
+  <tr><td>承辦人</td><td>單位負責人 + 監考</td><td>帳號密碼</td><td>考試、名單、登入單、監考、成績</td></tr>
+  <tr><td>教師</td><td>出題者 + 評分者</td><td>帳號密碼</td><td>題庫、評分</td></tr>
+  <tr><td>校外考生</td><td>校外考生</td><td>准考證號 + 登入碼</td><td>自己的考試</td></tr>
+</table></div>
+<p>承辦人與教師都走「教職員登入」,所以登入畫面仍然是考生、教職員兩個入口。如果組長希望只有三種角色,承辦人的工作可以併給教師,代價是名單與成績的權限會開得比較寬。</p>
+
+<h2 id="s3"><span>3</span>系統架構</h2>
+<div class="fig">
+  <p class="figtitle">系統架構圖:一台伺服器就能跑</p>
+  <svg class="dia" viewBox="0 0 460 530" role="img" aria-label="系統架構圖:瀏覽器經 Nginx 到 Spring Boot 後端,再到 PostgreSQL">
+    <defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="hd" d="M0 0L10 5L0 10z"/></marker></defs>
+    <rect class="bx" x="15" y="10" width="100" height="50" rx="8"/><text class="t" x="65" y="32">考生</text><text class="q" x="65" y="49">瀏覽器</text>
+    <rect class="bx" x="125" y="10" width="100" height="50" rx="8"/><text class="t" x="175" y="32">教師</text><text class="q" x="175" y="49">瀏覽器</text>
+    <rect class="bx" x="235" y="10" width="100" height="50" rx="8"/><text class="t" x="285" y="32">承辦人</text><text class="q" x="285" y="49">瀏覽器</text>
+    <rect class="bx" x="345" y="10" width="100" height="50" rx="8"/><text class="t" x="395" y="32">系統管理員</text><text class="q" x="395" y="49">瀏覽器</text>
+    <path class="ar" d="M230 62V93" marker-end="url(#a1)"/><text class="q" x="270" y="82">HTTPS</text>
+    <rect class="bx" x="15" y="95" width="430" height="60" rx="8"/><text class="t" x="230" y="120">Nginx</text><text class="q" x="230" y="140">Vue 3 前端靜態檔、TLS、限流、轉送 /api</text>
+    <path class="ar" d="M230 157V188" marker-end="url(#a1)"/><text class="q" x="325" y="177">REST API + Session Cookie</text>
+    <rect class="bm" x="15" y="190" width="430" height="235" rx="10"/><text class="t" x="230" y="213">後端:Spring Boot(Java)+ Spring Security</text>
+    <rect class="bx" x="25" y="225" width="200" height="40" rx="6"/><text x="125" y="250">登入與權限</text>
+    <rect class="bx" x="235" y="225" width="200" height="40" rx="6"/><text x="335" y="250">題庫</text>
+    <rect class="bx" x="25" y="273" width="200" height="40" rx="6"/><text x="125" y="298">考試與白名單</text>
+    <rect class="bx" x="235" y="273" width="200" height="40" rx="6"/><text x="335" y="298">作答與計時</text>
+    <rect class="bx" x="25" y="321" width="200" height="40" rx="6"/><text x="125" y="346">評分:自動批改 + 三人評分</text>
+    <rect class="bx" x="235" y="321" width="200" height="40" rx="6"/><text x="335" y="346">成績與匯出</text>
+    <rect class="bx" x="25" y="369" width="200" height="40" rx="6"/><text x="125" y="394">操作紀錄</text>
+    <rect class="bx" x="235" y="369" width="200" height="40" rx="6"/><text x="335" y="394">排程:時間到自動交卷</text>
+    <path class="ar" d="M230 427V458" marker-end="url(#a1)"/><text class="q" x="285" y="447">JPA、Flyway</text>
+    <rect class="bx" x="15" y="460" width="136" height="56" rx="8"/><text class="t" x="83" y="484">PostgreSQL</text><text class="q" x="83" y="502">所有業務資料</text>
+    <rect class="bx" x="162" y="460" width="136" height="56" rx="8"/><text class="t" x="230" y="484">檔案目錄</text><text class="q" x="230" y="502">圖片、名單、匯出檔</text>
+    <rect class="bx" x="309" y="460" width="136" height="56" rx="8"/><text class="t" x="377" y="484">每日備份</text><text class="q" x="377" y="502">資料庫與檔案</text>
+  </svg>
+</div>
+<details class="fig"><summary>各層說明(文字版)</summary>
+  <div class="layer">
+    <div class="lname">使用者端 <small>只需要瀏覽器,不安裝任何軟體</small></div>
+    <div class="row">
+      <div class="chip"><b>考生</b><span>作答畫面</span></div>
+      <div class="chip"><b>教師</b><span>題庫、評分</span></div>
+      <div class="chip"><b>承辦人</b><span>考試、名單、監考</span></div>
+      <div class="chip"><b>系統管理員</b><span>帳號、設定</span></div>
+    </div>
+  </div>
+  <div class="arrow">HTTPS</div>
+  <div class="layer">
+    <div class="lname">Nginx <small>入口</small></div>
+    <div class="row">
+      <div class="chip"><b>靜態檔</b><span>Vue 3 打包後的前端,字型與 KaTeX 都放本機,不依賴外部 CDN</span></div>
+      <div class="chip"><b>轉送 /api</b><span>TLS、限流、轉給後端</span></div>
+    </div>
+  </div>
+  <div class="arrow">REST API(JSON),Session Cookie</div>
+  <div class="layer main">
+    <div class="lname">後端:Java,Spring Boot + Spring Security <small>所有規則都在這裡判斷</small></div>
+    <div class="row">
+      <div class="chip"><b>登入與權限</b><span>教職員登入、考生登入、依單位檢查角色</span></div>
+      <div class="chip"><b>題庫</b><span>題目、配分、答案</span></div>
+      <div class="chip"><b>考試與名單</b><span>場次、白名單、登入碼</span></div>
+      <div class="chip"><b>作答</b><span>計時、自動儲存、交卷</span></div>
+      <div class="chip"><b>評分</b><span>自動批改、三人評分、平均</span></div>
+      <div class="chip"><b>成績</b><span>彙總、公布、匯出</span></div>
+      <div class="chip"><b>操作紀錄</b><span>誰在何時做了什麼</span></div>
+    </div>
+  </div>
+  <div class="arrow">JPA,Flyway 管理資料表版本</div>
+  <div class="layer">
+    <div class="lname">資料</div>
+    <div class="row">
+      <div class="chip"><b>PostgreSQL</b><span>所有業務資料</span></div>
+      <div class="chip"><b>檔案目錄</b><span>題目圖片、匯入的名單、匯出的成績</span></div>
+      <div class="chip"><b>每日備份</b><span>資料庫與檔案</span></div>
+    </div>
+  </div>
+</details>
+<p class="cap">前端只負責顯示。計時、批改、權限都由後端決定,前端被改也不影響結果。</p>
+
+<h3>技術選擇</h3>
+<div class="tablewrap"><table>
+  <tr><th>部分</th><th>採用</th><th>理由</th></tr>
+  <tr><td>前端</td><td>Vue 3、TypeScript、Vite、Tailwind、Pinia、Vue Router</td><td>原型已用同一套,畫面可直接沿用</td></tr>
+  <tr><td>後端</td><td>Java 21、Spring Boot 3、Spring Security</td><td>學校指定 Java;權限與 Session 有現成機制</td></tr>
+  <tr><td>資料庫</td><td>PostgreSQL(可換 MySQL)</td><td>交易完整,JSON 欄位適合存題目內容</td></tr>
+  <tr><td>登入狀態</td><td>伺服器端 Session + HttpOnly Cookie</td><td>可由伺服器強制登出,比把 Token 放前端單純</td></tr>
+  <tr><td>部署</td><td>Docker Compose</td><td>線上主機與教室主機用同一份設定</td></tr>
+</table></div>
+
+<h2 id="s4"><span>4</span>一場考試的完整流程</h2>
+<div class="fig">
+  <p class="figtitle">從出題到公布成績共九步,考生只參與其中三步</p>
+  <ol class="steps">
+    <li><b>建立題庫 <span class="who">教師</span></b><span>選擇、填空、申論。設定配分與標準答案。</span></li>
+    <li><b>建立考試 <span class="who">承辦人</span></b><span>選題庫、設定時間與時長。</span></li>
+    <li><b>匯入考生名單 <span class="who">承辦人</span></b><span>上傳 Excel 或 CSV。系統檢查重複與缺漏,產生每人一組登入碼。</span></li>
+    <li><b>發登入單 <span class="who">承辦人</span></b><span>列印紙本。純線上場次是否改用 Email 或簡訊,待確認。</span></li>
+    <li><b>考生登入並確認身分 <span class="who cand">考生</span></b><span>輸入准考證號與登入碼。畫面顯示姓名與報考科系,考生確認後才進入。</span></li>
+    <li><b>作答 <span class="who cand">考生</span></b><span>每次作答自動存到伺服器。剩餘時間由伺服器計算。斷線或換電腦後重新登入,從原進度繼續。</span></li>
+    <li><b>交卷 <span class="who cand">考生</span></b><span>確認後交卷,時間到自動交卷。選擇題與填空題由系統立即批改。</span></li>
+    <li><b>三人評分 <span class="who">教師</span></b><span>申論題由三位評分者匿名獨立評分。詳見下一節。</span></li>
+    <li><b>公布成績 <span class="who">承辦人</span></b><span>全部評分完成後才能公布,並可匯出 Excel。</span></li>
+  </ol>
+</div>
+<p class="cap">監考在第 5 到 7 步期間看即時狀態:未登入、作答中、已交卷,並可重設登入碼。</p>
+
+<h2 id="s5"><span>5</span>三人評分設計</h2>
+<p>目標是公平且可說明:每位評分者看不到考生是誰,也看不到另外兩人打幾分,三人都送出後分數才鎖定並計算平均。</p>
+
+<div class="fig">
+  <p class="figtitle">三人評分流程圖:匿名、獨立、鎖定後取平均</p>
+  <svg class="dia" viewBox="0 0 460 440" role="img" aria-label="三人評分流程圖">
+    <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="hd" d="M0 0L10 5L0 10z"/></marker></defs>
+    <rect class="bx" x="120" y="10" width="220" height="48" rx="8"/><text class="t" x="230" y="31">一題申論答案</text><text class="q" x="230" y="48">匿名編號,隱藏考生身分</text>
+    <path class="ar" d="M230 60L84 98" marker-end="url(#a2)"/><path class="ar" d="M230 60V98" marker-end="url(#a2)"/><path class="ar" d="M230 60L376 98" marker-end="url(#a2)"/>
+    <rect class="bm" x="15" y="100" width="130" height="60" rx="8"/><text class="t" x="80" y="125">評分者甲</text><text x="80" y="146">16 分</text>
+    <rect class="bm" x="165" y="100" width="130" height="60" rx="8"/><text class="t" x="230" y="125">評分者乙</text><text x="230" y="146">18 分</text>
+    <rect class="bm" x="315" y="100" width="130" height="60" rx="8"/><text class="t" x="380" y="125">評分者丙</text><text x="380" y="146">14 分</text>
+    <text class="q" x="230" y="180">評分期間互相看不到分數</text>
+    <path class="ar" d="M80 162L176 208" marker-end="url(#a2)"/><path class="ar" d="M230 188V208" marker-end="url(#a2)"/><path class="ar" d="M380 162L284 208" marker-end="url(#a2)"/>
+    <rect class="bx" x="150" y="210" width="160" height="46" rx="8"/><text class="t" x="230" y="231">三人都送出</text><text class="q" x="230" y="247">系統鎖定,不可自行修改</text>
+    <path class="ar" d="M200 258V288" marker-end="url(#a2)"/>
+    <path class="ad" d="M310 233H367V288" marker-end="url(#a2)"/>
+    <rect class="bn" x="15" y="290" width="255" height="56" rx="8"/><text class="t" x="142" y="314">該題得分 = 三人平均</text><text x="142" y="333">(16 + 18 + 14) ÷ 3 = 16.0</text>
+    <rect class="bd" x="290" y="290" width="155" height="56" rx="8"/><text class="t" x="367" y="314">差距過大</text><text class="q" x="367" y="332">標記給承辦人查看</text>
+    <path class="ar" d="M142 348V378" marker-end="url(#a2)"/>
+    <rect class="bx" x="15" y="380" width="255" height="48" rx="8"/><text class="t" x="142" y="401">考生總分</text><text class="q" x="142" y="418">自動批改得分 + 各申論題平均</text>
+  </svg>
+</div>
+<div class="fig">
+  <p class="figtitle">評分步驟說明</p>
+  <ol class="steps">
+    <li><b>指派三位評分者 <span class="who">承辦人</span></b><span>以考試為單位指派。系統檢查必須剛好三位。</span></li>
+    <li><b>匿名化 <span class="who sys">系統</span></b><span>答卷改用隨機編號顯示,隱藏姓名與准考證號。每位評分者看到的答卷順序不同。</span></li>
+    <li><b>獨立評分 <span class="who">評分者 ×3</span></b><span>逐題給分並可寫評語。送出前可修改,看不到其他人的分數。</span>
+      <div class="three">
+        <div>評分者甲<b>16</b></div><div>評分者乙<b>18</b></div><div>評分者丙<b>14</b></div>
+      </div>
+      <div class="calc">該題得分 = (16 + 18 + 14) ÷ 3 = <b>16.0</b></div>
+    </li>
+    <li><b>鎖定 <span class="who sys">系統</span></b><span>三人都送出後,該答案鎖定並計算平均。未滿三人不計分,也不能公布成績。</span></li>
+    <li><b>差異標記 <span class="who sys">系統</span></b><span>三人之中最高分與最低分的差距超過門檻時,標記給承辦人查看。門檻與處理方式待確認。</span></li>
+    <li><b>彙總 <span class="who sys">系統</span></b><span>考生總分 = 自動批改得分 + 各申論題平均分的總和。</span></li>
+  </ol>
+</div>
+
+<h3>規則</h3>
+<div class="tablewrap"><table>
+  <tr><th>項目</th><th>設計</th></tr>
+  <tr><td>計算方式</td><td>每一題各自取三人平均,再加總。不是先加總再平均,這樣每題的差異都看得到。</td></tr>
+  <tr><td>小數處理</td><td>暫定每題平均四捨五入到小數一位。待確認。</td></tr>
+  <tr><td>匿名</td><td>評分者看不到考生身分;評分期間看不到其他評分者的分數。</td></tr>
+  <tr><td>鎖定後修改</td><td>評分者不能自行修改。只有承辦人可以「重開評分」,必須填理由,並寫入操作紀錄。</td></tr>
+  <tr><td>進度</td><td>承辦人看到每位評分者的完成數,例如 12/40,看不到分數內容直到鎖定。</td></tr>
+  <tr><td>評分者缺席</td><td>承辦人可以在該評分者尚未送出的答卷上換人,已送出的分數保留。</td></tr>
+  <tr><td>AI 評分建議</td><td>MVP 不顯示,避免影響評分者獨立判斷。</td></tr>
+</table></div>
+
+<h2 id="s6"><span>6</span>資料模型</h2>
+<div class="fig">
+  <p class="figtitle">資料表關係圖:紅色是為三人評分與單位角色新增的</p>
+  <svg class="dia" viewBox="0 0 460 385" role="img" aria-label="資料表關係圖">
+    <rect class="bx" x="15" y="10" width="130" height="42" rx="8"/><text class="t" x="80" y="28">unit</text><text class="q" x="80" y="44">單位</text>
+    <rect class="bn" x="165" y="10" width="130" height="42" rx="8"/><text class="t" x="230" y="28">unit_role</text><text class="q" x="230" y="44">單位角色</text>
+    <rect class="bx" x="315" y="10" width="130" height="42" rx="8"/><text class="t" x="380" y="28">staff</text><text class="q" x="380" y="44">教職員帳號</text>
+    <rect class="bx" x="15" y="90" width="130" height="42" rx="8"/><text class="t" x="80" y="108">bank</text><text class="q" x="80" y="124">題庫</text>
+    <rect class="bx" x="165" y="90" width="130" height="42" rx="8"/><text class="t" x="230" y="108">exam</text><text class="q" x="230" y="124">考試</text>
+    <rect class="bn" x="315" y="90" width="130" height="42" rx="8"/><text class="t" x="380" y="108">exam_grader</text><text class="q" x="380" y="124">評分指派,每場 3 筆</text>
+    <rect class="bx" x="15" y="170" width="130" height="42" rx="8"/><text class="t" x="80" y="188">question</text><text class="q" x="80" y="204">題目</text>
+    <rect class="bx" x="165" y="170" width="130" height="42" rx="8"/><text class="t" x="230" y="188">candidate</text><text class="q" x="230" y="204">考生(白名單)</text>
+    <rect class="bn" x="315" y="170" width="130" height="42" rx="8"/><text class="t" x="380" y="188">grading</text><text class="q" x="380" y="204">評分紀錄,每答案 3 筆</text>
+    <rect class="bx" x="165" y="250" width="130" height="42" rx="8"/><text class="t" x="230" y="268">attempt</text><text class="q" x="230" y="284">一次作答</text>
+    <rect class="bx" x="165" y="330" width="130" height="42" rx="8"/><text class="t" x="230" y="348">answer</text><text class="q" x="230" y="364">每題答案</text>
+    <path class="ln" d="M145 31H165M295 31H315M80 52V90M80 132V170M145 111H165M295 111H315M380 52V90M380 132V170M230 132V170M230 212V250M230 292V330M380 212V351H295M80 212V351H165"/>
+  </svg>
+</div>
+<p class="cap">線條表示兩張表有關聯。考試另外直接屬於一個單位;操作紀錄 audit_log 獨立存在,不畫線。</p>
+<div class="fig">
+  <p class="figtitle">各表欄位</p>
+  <div class="ents">
+    <div class="ent"><h4>unit 單位</h4><ul><li>id</li><li>name</li><li>type:招生 / 班級</li></ul></div>
+    <div class="ent"><h4>staff 教職員帳號</h4><ul><li>id</li><li>email、password_hash</li><li>name</li><li>is_system_admin</li></ul></div>
+    <div class="ent new"><h4>unit_role 單位角色</h4><ul><li><i>→ unit</i></li><li><i>→ staff</i></li><li>role:負責人 / 出題 / 監考 / 評分</li></ul></div>
+    <div class="ent"><h4>bank 題庫</h4><ul><li>id、title</li><li><i>→ unit</i></li><li><i>→ staff</i>(建立者)</li></ul></div>
+    <div class="ent"><h4>question 題目</h4><ul><li><i>→ bank</i></li><li>type、stem、points</li><li>content(選項、答案,JSON)</li><li>position</li></ul></div>
+    <div class="ent"><h4>exam 考試</h4><ul><li><i>→ unit</i>、<i>→ bank</i></li><li>start_at、duration</li><li>mode:線上 / 教室</li><li>status</li><li>題目快照(發布時凍結)</li></ul></div>
+    <div class="ent"><h4>candidate 考生</h4><ul><li><i>→ exam</i></li><li>ticket(准考證號)</li><li>name、dept、seat</li><li>code_hash(登入碼)</li><li>status</li></ul></div>
+    <div class="ent"><h4>attempt 作答</h4><ul><li><i>→ candidate</i></li><li>started_at、deadline_at</li><li>submitted_at</li><li>anon_id(匿名編號)</li><li>auto_score、final_score</li></ul></div>
+    <div class="ent"><h4>answer 答案</h4><ul><li><i>→ attempt</i>、<i>→ question</i></li><li>content</li><li>auto_score</li><li>avg_score、locked</li></ul></div>
+    <div class="ent new"><h4>exam_grader 評分指派</h4><ul><li><i>→ exam</i></li><li><i>→ staff</i></li><li>每場考試三筆</li></ul></div>
+    <div class="ent new"><h4>grading 評分紀錄</h4><ul><li><i>→ answer</i></li><li><i>→ staff</i>(評分者)</li><li>score、comment</li><li>submitted_at</li><li>每個申論答案三筆</li></ul></div>
+    <div class="ent"><h4>audit_log 操作紀錄</h4><ul><li>who、when、action</li><li>target、reason</li><li>只能新增,不能改</li></ul></div>
+  </div>
+</div>
+<p class="cap">箭頭表示「屬於」。考試發布時把題目複製成快照,之後題庫再改也不影響已發布的考試。</p>
+<p>班級學生之後要加入時,新增一張長期帳號的學生表,candidate 改為可以連到學生帳號即可,其餘資料表不動。</p>
+
+<h2 id="s7"><span>7</span>部署方案</h2>
+<p>兩種方案用同一份程式與同一份 Docker Compose 設定,差別只在主機放哪裡。</p>
+<div class="fig">
+  <p class="figtitle">部署架構圖:兩種方案跑同一套系統</p>
+  <svg class="dia" viewBox="0 0 460 300" role="img" aria-label="部署架構圖:純線上與電腦教室區網">
+    <defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="hd" d="M0 0L10 5L0 10z"/></marker></defs>
+    <text class="t" x="117" y="22">方案 A:純線上</text>
+    <rect class="bx" x="15" y="34" width="205" height="52" rx="8"/><text class="t" x="117" y="57">考生在家</text><text class="q" x="117" y="74">自己的電腦與網路</text>
+    <path class="ar" d="M117 88V136" marker-end="url(#a3)"/><text class="q" x="168" y="116">網際網路 HTTPS</text>
+    <rect class="bm" x="15" y="138" width="205" height="84" rx="8"/><text class="t" x="117" y="165">學校對外主機</text><text class="q" x="117" y="185">Nginx + Spring Boot</text><text class="q" x="117" y="202">+ PostgreSQL</text>
+    <text class="q" x="117" y="244">無人監考,只記錄離開畫面</text>
+    <text class="t" x="342" y="22">方案 B:電腦教室區網</text>
+    <rect class="bx" x="240" y="34" width="205" height="52" rx="8"/><text class="t" x="342" y="57">考生在教室</text><text class="q" x="342" y="74">學校的電腦,監考在場</text>
+    <path class="ar" d="M342 88V136" marker-end="url(#a3)"/><text class="q" x="385" y="116">教室區網</text>
+    <rect class="bm" x="240" y="138" width="205" height="84" rx="8"/><text class="t" x="342" y="165">教室或機房主機</text><text class="q" x="342" y="185">Nginx + Spring Boot</text><text class="q" x="342" y="202">+ PostgreSQL</text>
+    <text class="q" x="342" y="244">可關閉對外網路</text>
+    <path class="ln" d="M15 262H445"/><text class="q" x="230" y="284">兩邊使用同一份程式與同一份 Docker Compose 設定</text>
+  </svg>
+</div>
+<div class="tablewrap"><table>
+  <tr><th></th><th>A:純線上</th><th>B:電腦教室區網</th></tr>
+  <tr><td>防作弊</td><td>無法確認考生身邊狀況,只能記錄離開畫面次數供參考</td><td>監考在場,可關閉對外網路</td></tr>
+  <tr><td>登入單</td><td>需要 Email 或簡訊寄送(待確認)</td><td>現場發紙本</td></tr>
+  <tr><td>網路風險</td><td>考生家中斷線,靠自動儲存與重新登入續考</td><td>區網穩定,不依賴對外網路</td></tr>
+  <tr><td>評分</td><td>教師直接上線評分</td><td>主機若只在區網,教師需在校內評分,或考後把主機接回校內網路</td></tr>
+</table></div>
+<p class="warn"><b>限制:</b>純線上只能防君子。正式招生考試建議用方案 B,或線上報到加教室應考。系統兩種都支援,由承辦人建立考試時選擇。</p>
+
+<h2 id="s8"><span>8</span>安全與稽核</h2>
+<div class="tablewrap"><table>
+  <tr><th>風險</th><th>做法</th></tr>
+  <tr><td>考生看到答案</td><td>標準答案永遠不送到考生端,批改只在後端做</td></tr>
+  <tr><td>改前端時間多寫幾分鐘</td><td>截止時間存在伺服器,過了就拒收</td></tr>
+  <tr><td>登入碼被猜</td><td>登入碼雜湊後儲存;同一准考證號連續錯誤即暫時鎖定;監考可重設</td></tr>
+  <tr><td>代考或一人多處登入</td><td>登入後顯示姓名供確認;同一考生同時只允許一個連線,新登入會踢掉舊的並記錄</td></tr>
+  <tr><td>教職員越權</td><td>每個 API 都由後端檢查「這個人在這個單位有沒有這個角色」</td></tr>
+  <tr><td>評分不公</td><td>匿名、獨立、三人平均、鎖定後不可改、重開需理由</td></tr>
+  <tr><td>事後爭議</td><td>操作紀錄只增不改:登入、交卷、重設登入碼、重開評分、公布成績</td></tr>
+  <tr><td>個資</td><td>考生資料只屬於該場考試,保存期限到期後刪除(期限待確認)</td></tr>
+  <tr><td>資料遺失</td><td>每日備份;作答每次變動即存入資料庫</td></tr>
+</table></div>
+
+<h2 id="s9"><span>9</span>MVP 範圍與開發順序</h2>
+<div class="two">
+  <div>
+    <h3>第一版要做</h3>
+    <ul>
+      <li>三種登入:考生、教職員(教師與承辦人)、系統管理員</li>
+      <li>題庫編輯:選擇、填空、申論,數學式</li>
+      <li>考試建立、白名單匯入、登入單列印</li>
+      <li>作答、自動儲存、計時、交卷、斷線續考</li>
+      <li>自動批改與三人評分</li>
+      <li>成績彙總、公布、匯出</li>
+      <li>監考即時狀態、操作紀錄</li>
+    </ul>
+  </div>
+  <div>
+    <h3>第一版不做</h3>
+    <ul>
+      <li>班級學生長期帳號</li>
+      <li>Email、簡訊邀請(確認需要再加)</li>
+      <li>AI 匯入題目、AI 評分建議</li>
+      <li>視訊監考、鎖定瀏覽器</li>
+      <li>題目隨機抽題、多份試卷</li>
+      <li>與校務系統串接</li>
+    </ul>
+  </div>
+</div>
+<h3>開發順序</h3>
+<div class="fig">
+  <ol class="steps">
+    <li><b>後端骨架與登入</b><span>專案建立、資料表、教職員登入、單位與角色、權限檢查。</span></li>
+    <li><b>題庫</b><span>把原型的題庫編輯器接上真的 API。</span></li>
+    <li><b>考試與名單</b><span>建立考試、匯入白名單、產生登入碼、登入單。</span></li>
+    <li><b>考生作答</b><span>考生登入、身分確認、作答、自動儲存、伺服器計時、交卷、自動批改。</span></li>
+    <li><b>三人評分</b><span>指派、匿名、獨立評分、平均、鎖定、差異標記。</span></li>
+    <li><b>成績與監考</b><span>彙總、公布、匯出、即時狀態。</span></li>
+    <li><b>部署與試考</b><span>Docker Compose、備份、在電腦教室實際跑一場模擬考。</span></li>
+  </ol>
+</div>
+<p class="cap">每一步完成後都能單獨展示。前四步完成即可進行不含申論題的考試。</p>
+
+<h2 id="s10"><span>10</span>待確認事項</h2>
+<ul class="todo">
+  <li><b>角色數量:</b>接受「系統管理員、承辦人、教師、考生」四種,還是只要三種(承辦人併入教師)?</li>
+  <li><b>出題與評分迴避:</b>出題者可以評自己出的題目嗎?</li>
+  <li><b>系統管理員的緊急權限:</b>需不需要在緊急狀況下進入單位查看?若需要,每次進入都留紀錄。</li>
+  <li><b>平均的小數:</b>每題平均取到小數幾位?總分是否再取整數?</li>
+  <li><b>評分差異:</b>三人差距多大算異常?異常時由承辦人裁定、請三人重評,還是加第四位評分者?</li>
+  <li><b>純線上場次的登入單:</b>要不要做 Email 或簡訊寄送?</li>
+  <li><b>交卷後考生看到什麼:</b>只顯示「已交卷」,還是可以看選擇題得分?成績公布後考生能不能登入查詢?</li>
+  <li><b>考生資料保存多久:</b>考試結束後多久刪除個資與答卷?</li>
+  <li><b>主機與資料庫:</b>學校提供哪種主機?資料庫用 PostgreSQL 還是學校慣用的其他資料庫?</li>
+  <li><b>教職員帳號來源:</b>由系統管理員手動建立,還是之後串接學校的單一登入?</li>
+</ul>
+
+<footer>本文件為設計草稿,尚未實作後端。現有成果為前端原型(Vue 3,假資料),其中評分仍是單人版本,角色仍是管理員、教師、考生三種。</footer>
+</main>
+</body>
+</html>

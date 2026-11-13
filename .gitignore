@@ -1,0 +1,17 @@
+# 共用
+.DS_Store
+.idea/
+.vscode/
+*.log
+.env
+
+# 前端
+node_modules/
+dist/
+*.tsbuildinfo
+
+# 後端
+target/
+
+# 部署
+backups/

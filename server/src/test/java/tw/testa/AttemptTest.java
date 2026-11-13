@@ -1,0 +1,227 @@
+package tw.testa;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockHttpSession;
+
+import tw.testa.attempt.AttemptService;
+
+class AttemptTest extends IntegrationTestBase {
+    private static int seq;
+
+    @Autowired
+    JdbcTemplate jdbc;
+    @Autowired
+    AttemptService attemptService;
+
+    MockHttpSession admin;
+    MockHttpSession owner;
+    long exam;
+    String ticket;
+    String code;
+    String ticket2;
+    String code2;
+
+    private static final String QUESTIONS = """
+            {"id":"q1","type":"single","stem":"1+1=?","points":5,"explanation":"小學數學",
+             "choices":[{"id":"a","text":"1"},{"id":"b","text":"2"}],"correct":["b"]},
+            {"id":"q2","type":"multiple","stem":"哪些是質數？","points":6,
+             "choices":[{"id":"a","text":"2"},{"id":"b","text":"3"},{"id":"c","text":"4"}],"correct":["a","b"]},
+            {"id":"q3","type":"blank","stem":"首項＿＿，和＿＿","points":6,"caseSensitive":false,
+             "blanks":[{"id":"b1","answers":["39"]},{"id":"b2","answers":["210","二一〇"]}]},
+            {"id":"q4","type":"essay","stem":"試證明…","points":10,"rubric":"評分規準：機密","wordLimit":500}""";
+
+    @BeforeEach
+    void setUp() throws Exception {
+        int n = ++seq;
+        admin = adminSession();
+        long unit = createUnit(admin, "作答測試單位 " + n);
+        String ownerEmail = "attempt-owner" + n + "@test.tw";
+        Object[] s = createStaff(admin, ownerEmail, "負責人");
+        grant(admin, unit, ownerEmail, "OWNER");
+        grant(admin, unit, ownerEmail, "AUTHOR");
+        owner = login(ownerEmail, (String) s[1]);
+
+        var b = mvc.perform(json(post("/api/banks"), "{\"unitId\":%d,\"name\":\"題庫\",\"questions\":[%s]}".formatted(unit, QUESTIONS))
+                .session(owner)).andExpect(status().isCreated()).andReturn();
+        long bank = ((Number) read(b, "$.id")).longValue();
+        var e = mvc.perform(json(post("/api/exams"),
+                "{\"name\":\"作答測試\",\"bankId\":%d,\"startAt\":\"%s\",\"duration\":30}".formatted(bank, Instant.now().minusSeconds(5)))
+                .session(owner)).andExpect(status().isCreated()).andReturn();
+        exam = ((Number) read(e, "$.id")).longValue();
+        ticket = "T" + n + "-0001";
+        ticket2 = "T" + n + "-0002";
+        mvc.perform(json(post("/api/exams/" + exam + "/candidates"),
+                "{\"rows\":[{\"ticket\":\"%s\",\"name\":\"王小明\",\"dept\":\"資工\"},{\"ticket\":\"%s\",\"name\":\"李宜華\"}]}"
+                        .formatted(ticket, ticket2)).session(owner)).andExpect(status().isCreated());
+        var list = mvc.perform(get("/api/exams/" + exam + "/candidates").session(owner)).andReturn();
+        code = read(list, "$[0].code");
+        code2 = read(list, "$[1].code");
+    }
+
+    private void publish() throws Exception {
+        mvc.perform(post("/api/exams/" + exam + "/publish").with(csrf()).session(owner)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("live"));
+    }
+
+    private MockHttpSession candidate(String t, String c) throws Exception {
+        MockHttpSession s = new MockHttpSession();
+        mvc.perform(json(post("/api/candidate/login"), "{\"ticket\":\"%s\",\"code\":\"%s\"}".formatted(t, c)).session(s))
+                .andExpect(status().isOk());
+        return s;
+    }
+
+    private void answer(MockHttpSession s, String q, String body, int expected) throws Exception {
+        mvc.perform(json(put("/api/candidate/answers/" + q), body).session(s)).andExpect(status().is(expected));
+    }
+
+    @Test
+    void 考試還沒發布不能登入_登入碼錯誤會鎖定_監考重設後解鎖() throws Exception {
+        String body = "{\"ticket\":\"%s\",\"code\":\"%s\"}";
+        mvc.perform(json(post("/api/candidate/login"), body.formatted(ticket, code))).andExpect(status().isUnauthorized());
+        publish();
+        // 小寫、有空白也可以
+        mvc.perform(json(post("/api/candidate/login"),
+                body.formatted(ticket.toLowerCase(), code.substring(0, 3) + " " + code.substring(3))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.name").value("王小明"))
+                .andExpect(jsonPath("$.exam.status").value("live")).andExpect(jsonPath("$.exam.questionCount").value(4))
+                .andExpect(jsonPath("$.attempt").isEmpty());
+
+        String wrong = code.equals("000000") ? "111111" : "000000";
+        for (int i = 0; i < 3; i++) {
+            mvc.perform(json(post("/api/candidate/login"), body.formatted(ticket, wrong))).andExpect(status().isUnauthorized());
+        }
+        mvc.perform(json(post("/api/candidate/login"), body.formatted(ticket, code)))
+                .andExpect(status().isTooManyRequests());
+        var list = mvc.perform(get("/api/exams/" + exam + "/candidates").session(owner))
+                .andExpect(jsonPath("$[0].locked").value(true)).andReturn();
+        Number cid = read(list, "$[0].id");
+        var reset = mvc.perform(post("/api/exams/" + exam + "/candidates/" + cid + "/reset-code").with(csrf()).session(owner))
+                .andExpect(status().isOk()).andReturn();
+        candidate(ticket, read(reset, "$.code"));
+    }
+
+    @Test
+    void 考生與教職員的API互相隔離() throws Exception {
+        publish();
+        MockHttpSession c = candidate(ticket, code);
+        for (String url : new String[] { "/api/banks", "/api/exams", "/api/units", "/api/auth/me", "/api/admin/staff",
+                "/api/exams/" + exam + "/candidates" }) {
+            mvc.perform(get(url).session(c)).andExpect(status().isForbidden());
+        }
+        mvc.perform(get("/api/candidate/me").session(owner)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/candidate/paper").session(owner)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/candidate/me")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void 完整作答流程_題目不含答案_自動儲存_續考_交卷_自動批改() throws Exception {
+        publish();
+        MockHttpSession c = candidate(ticket, code);
+        // 還沒開始不能拿題目
+        mvc.perform(get("/api/candidate/paper").session(c)).andExpect(status().isConflict());
+
+        mvc.perform(post("/api/candidate/start").with(csrf()).session(c)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.attempt.submittedAt").isEmpty());
+        var paper = mvc.perform(get("/api/candidate/paper").session(c)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.questions.length()").value(4))
+                .andExpect(jsonPath("$.questions[0].choices[1].text").value("2"))
+                .andExpect(jsonPath("$.questions[2].blanks.length()").value(2))
+                .andExpect(jsonPath("$.questions[3].wordLimit").value(500)).andReturn();
+        // 送到考生端的內容不能有任何答案
+        String json = paper.getResponse().getContentAsString();
+        assertThat(json).doesNotContain("correct", "answers\":[", "explanation", "rubric", "小學數學", "機密", "210");
+        long remaining = ((Number) read(paper, "$.remainingSeconds")).longValue();
+        assertThat(remaining).isBetween(1790L, 1800L);
+
+        answer(c, "q1", "{\"choices\":[\"b\"]}", 200);
+        answer(c, "q2", "{\"choices\":[\"a\"]}", 200);
+        answer(c, "q2", "{\"choices\":[\"a\",\"b\"]}", 200);                    // 改答案
+        answer(c, "q3", "{\"blanks\":{\"b1\":\" 39 \",\"b2\":\"211\"}}", 200);   // 一格對一格錯
+        answer(c, "q4", "{\"essay\":\"當 n=1 時成立…\"}", 200);
+        // 不合法的作答
+        answer(c, "q1", "{\"choices\":[\"zzz\"]}", 400);
+        answer(c, "q1", "{\"choices\":[\"a\",\"b\"]}", 400);                    // 單選不能選兩個
+        answer(c, "nope", "{\"choices\":[]}", 404);
+
+        // 監考看到作答中
+        mvc.perform(get("/api/exams/" + exam + "/candidates").session(owner)).andExpect(jsonPath("$[0].status").value("IN"))
+                .andExpect(jsonPath("$[1].status").value("IDLE"));
+
+        // 斷線、換電腦重新登入：從原進度繼續，舊連線被踢掉
+        MockHttpSession c2 = candidate(ticket, code);
+        mvc.perform(get("/api/candidate/me").session(c)).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/candidate/start").with(csrf()).session(c2)).andExpect(status().isOk());
+        mvc.perform(get("/api/candidate/paper").session(c2)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.answers.q1.choices[0]").value("b"))
+                .andExpect(jsonPath("$.answers.q2.choices.length()").value(2))
+                .andExpect(jsonPath("$.answers.q4.essay").value("當 n=1 時成立…"));
+        mvc.perform(post("/api/candidate/leave").with(csrf()).session(c2)).andExpect(status().isNoContent());
+
+        mvc.perform(post("/api/candidate/submit").with(csrf()).session(c2)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.attempt.submittedAt").isNotEmpty())
+                .andExpect(jsonPath("$.attempt.remainingSeconds").value(0));
+        // 交卷後不能再改、不能再拿題目
+        answer(c2, "q1", "{\"choices\":[\"a\"]}", 409);
+        mvc.perform(get("/api/candidate/paper").session(c2)).andExpect(status().isConflict());
+
+        // 自動批改：5 + 6 + 3（填空對一半）= 14，申論不計
+        assertThat(jdbc.queryForObject("select auto_score from attempt a join candidate c on c.id = a.candidate_id where c.ticket = ?",
+                BigDecimal.class, ticket)).isEqualByComparingTo("14");
+        assertThat(jdbc.queryForObject("select count(*) from answer where auto_score is null and question_id = 'q4'", Long.class))
+                .isPositive();
+        mvc.perform(get("/api/exams/" + exam + "/candidates").session(owner)).andExpect(jsonPath("$[0].status").value("DONE"))
+                .andExpect(jsonPath("$[0].leaveCount").value(1));
+        mvc.perform(get("/api/exams/" + exam).session(owner)).andExpect(jsonPath("$.submitted").value(1));
+    }
+
+    @Test
+    void 時間到伺服器拒收並自動收卷() throws Exception {
+        publish();
+        MockHttpSession c = candidate(ticket, code);
+        mvc.perform(post("/api/candidate/start").with(csrf()).session(c)).andExpect(status().isOk());
+        answer(c, "q1", "{\"choices\":[\"b\"]}", 200);
+
+        // 把截止時間改到一分鐘前（等於前端把時鐘調慢想多寫）
+        jdbc.update("update attempt set deadline_at = now() - interval '1 minute' where candidate_id = (select id from candidate where ticket = ?)", ticket);
+        answer(c, "q2", "{\"choices\":[\"a\",\"b\"]}", 409);
+
+        attemptService.sweep();
+        mvc.perform(get("/api/candidate/me").session(c)).andExpect(jsonPath("$.attempt.submittedAt").isNotEmpty());
+        assertThat(jdbc.queryForObject("select auto_score from attempt a join candidate c on c.id = a.candidate_id where c.ticket = ?",
+                BigDecimal.class, ticket)).isEqualByComparingTo("5");
+        assertThat(jdbc.queryForObject("select auto_submitted from attempt a join candidate c on c.id = a.candidate_id where c.ticket = ?",
+                Boolean.class, ticket)).isTrue();
+    }
+
+    @Test
+    void 承辦人結束考試時還在作答的人會被收卷_結束後不能開始() throws Exception {
+        publish();
+        MockHttpSession c = candidate(ticket, code);
+        MockHttpSession late = candidate(ticket2, code2);
+        mvc.perform(post("/api/candidate/start").with(csrf()).session(c)).andExpect(status().isOk());
+        answer(c, "q1", "{\"choices\":[\"a\"]}", 200);
+
+        mvc.perform(post("/api/exams/" + exam + "/end").with(csrf()).session(owner)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.submitted").value(1));
+
+        answer(c, "q1", "{\"choices\":[\"b\"]}", 409);
+        mvc.perform(get("/api/candidate/me").session(c)).andExpect(jsonPath("$.attempt.submittedAt").isNotEmpty())
+                .andExpect(jsonPath("$.exam.status").value("ended"));
+        mvc.perform(post("/api/candidate/start").with(csrf()).session(late)).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ended"));
+    }
+}

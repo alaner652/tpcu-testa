@@ -1,0 +1,8 @@
+# 開發用設定：./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+# 會建立與前端原型相同的示範帳號（見 DevSeed）。不要在正式環境啟用。
+testa:
+  bootstrap-admin:
+    email: admin@testa.tw
+    password: testa-admin
+    name: 陳主任
+  dev-seed: true

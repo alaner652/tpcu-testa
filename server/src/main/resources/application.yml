@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: testa-server
+  datasource:
+    url: ${TESTA_DB_URL:jdbc:postgresql://localhost:5432/testa}
+    username: ${TESTA_DB_USER:testa}
+    password: ${TESTA_DB_PASSWORD:testa-dev}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+  mvc:
+    problemdetails:
+      enabled: true
+
+server:
+  port: ${TESTA_PORT:8080}
+  servlet:
+    session:
+      timeout: 8h
+      cookie:
+        name: TESTA_SESSION
+        http-only: true
+        same-site: lax
+        # 正式環境走 HTTPS，設 TESTA_COOKIE_SECURE=true
+        secure: ${TESTA_COOKIE_SECURE:false}
+  forward-headers-strategy: native
+
+testa:
+  # 第一次啟動且資料庫裡沒有任何系統管理員時，用這組帳密建立一位。
+  bootstrap-admin:
+    email: ${TESTA_ADMIN_EMAIL:}
+    password: ${TESTA_ADMIN_PASSWORD:}
+    name: ${TESTA_ADMIN_NAME:系統管理員}
+  login:
+    max-failures: 5
+    lock-minutes: 15
+  grading:
+    # 評分者之間的差距超過該題配分的這個比例，就標記給承辦人查看（暫定值，待確認）
+    flag-ratio: 0.3
