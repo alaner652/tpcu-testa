@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { X } from 'lucide-vue-next'
+import { Plus, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import Button from '@/components/ui/Button.vue'
 import { UNIT_ROLE_LABEL, type UnitRole } from '@/composables/useAuth'
@@ -49,9 +49,9 @@ onMounted(load)
 
 /** 同一位教職員的多個角色排在同一列 */
 const grouped = () => {
-  const map = new Map<number, { name: string; email: string; active: boolean; roles: UnitMember[] }>()
+  const map = new Map<number, { staffId: number; name: string; email: string; active: boolean; roles: UnitMember[] }>()
   for (const m of members.value) {
-    const row = map.get(m.staffId) ?? { name: m.name, email: m.email, active: m.active, roles: [] }
+    const row = map.get(m.staffId) ?? { staffId: m.staffId, name: m.name, email: m.email, active: m.active, roles: [] }
     row.roles.push(m)
     map.set(m.staffId, row)
   }
@@ -69,6 +69,22 @@ async function add() {
     }
     draft.email = ''
     toast.success(`已將 ${email} 加入「${props.unit.name}」`)
+  } catch (e) {
+    toast.error((e as Error).message)
+  }
+  await load()
+}
+
+/** 在成員那一列直接加角色：按「＋」展開這個人還沒有的角色，點一下就加上 */
+const ALL_ROLES = Object.keys(UNIT_ROLE_LABEL) as UnitRole[]
+const addingFor = ref<number | null>(null)
+const missing = (roles: UnitMember[]) => ALL_ROLES.filter((r) => !roles.some((m) => m.role === r))
+
+async function grant(row: { name: string; email: string; roles: UnitMember[] }, role: UnitRole) {
+  try {
+    await api(url(), { method: 'POST', body: { email: row.email, role } })
+    toast.success(`已給 ${row.name}「${UNIT_ROLE_LABEL[role]}」角色`)
+    if (missing(row.roles).length <= 1) addingFor.value = null
   } catch (e) {
     toast.error((e as Error).message)
   }
@@ -120,6 +136,28 @@ async function remove(m: UnitMember) {
               <X class="size-3.5" />
             </button>
           </span>
+          <template v-if="missing(row.roles).length">
+            <button
+              type="button"
+              class="flex size-8 items-center justify-center rounded-full border border-dashed border-line text-ink-2 hover:border-brand hover:text-brand-strong"
+              :aria-label="`給 ${row.name} 加角色`"
+              :aria-expanded="addingFor === row.staffId"
+              @click="addingFor = addingFor === row.staffId ? null : row.staffId"
+            >
+              <Plus class="size-4 transition-transform" :class="addingFor === row.staffId && 'rotate-45'" />
+            </button>
+            <template v-if="addingFor === row.staffId">
+              <button
+                v-for="role in missing(row.roles)"
+                :key="role"
+                type="button"
+                class="inline-flex h-8 items-center gap-1 rounded-full border border-dashed border-line px-3 text-sm text-ink-2 hover:border-brand hover:text-brand-strong"
+                @click="grant(row, role)"
+              >
+                <Plus class="size-3.5" />{{ UNIT_ROLE_LABEL[role] }}
+              </button>
+            </template>
+          </template>
         </li>
       </ul>
       <form class="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_14rem_auto]" novalidate @submit.prevent="add">
