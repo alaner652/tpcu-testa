@@ -23,6 +23,7 @@ Last reviewed: 2026-11-15.
 | Deployment | Image build, Nginx (static files, SPA routing, security headers, rate limit), daily backup, restore into an emptied database |
 | Mock exam | `deploy/smoke-test.py` runs through Nginx from first-run setup and writing questions to candidates checking scores, plus emergency access (grant, view, revoke) and archiving. Re-run on 2026-11-15 against freshly built production images |
 | First-run setup | On a fresh production install: sign-in redirects to setup, a wrong token is rejected, the token from the log creates the administrator, setup then closes. Concurrent setup requests create exactly one administrator (integration test) |
+| Without Internet | 2026-11-15, production images with the database, backend and backup on a Docker network without Internet access (only Nginx reachable): start-up, first-run setup and the full mock exam pass. In the browser every request leaving the host was blocked: none were attempted, and candidates' math (KaTeX) and fonts render from the bundle. The built frontend references no external hosts |
 | Load | 300 candidates from one IP signing in, answering and submitting at once: 8,400 requests, no failures, p99 12 ms |
 | Sessions in the database | Mock exam on production images; sessions survive a backend restart; 300 candidates hitting the backend directly, 12,000 requests, no failures (p50 15 ms, p95 109 ms) |
 | Failure cases | Backend restart mid-exam, database restart, the same candidate signing in twice, lockout after wrong login codes and reset, officer ending the exam early, auto-submit at time-up (including candidates who never reconnect), proctor adding time just before time-up (countdown extends, no auto-submit) |
@@ -32,7 +33,8 @@ Last reviewed: 2026-11-15.
 
 ### Needs the real site
 
-- The school server and the computer lab network; the school's own HTTPS reverse proxy.
+- The school server and the computer lab network; the school's own HTTPS reverse proxy or certificate.
+- An exam rehearsal with the labs' Internet actually cut off: internal DNS for the exam host name, routing from every lab VLAN, NTP on the VM (see the deployment guide).
 - Browsers other than Chromium (Safari, Firefox, Edge) and Windows.
 - Login slips printed on a real printer (PDF output with Chinese text is confirmed).
 
