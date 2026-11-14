@@ -85,4 +85,12 @@ public class GradingController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"results-" + examId + ".csv\"")
                 .body(grading.exportCsv(examId).getBytes(StandardCharsets.UTF_8));
     }
+
+    @GetMapping("/exams/{examId}/results.xlsx")
+    public ResponseEntity<byte[]> exportXlsx(@PathVariable Long examId) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"results-" + examId + ".xlsx\"")
+                .body(grading.exportXlsx(examId));
+    }
 }

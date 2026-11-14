@@ -209,24 +209,70 @@ public class GradingService {
         return compute(e);
     }
 
+    private static final String[] EXPORT_HEADERS = {"座位", "准考證號", "姓名", "報考科系", "狀態", "自動批改", "申論", "總分"};
+
+    private static String statusLabel(ResultRow row) {
+        return switch (row.status()) {
+            case "DONE" -> row.pending() > 0 ? "評分中" : "已完成";
+            case "IN" -> "作答中";
+            default -> "缺考";
+        };
+    }
+
     /** 成績表（CSV，UTF-8 含 BOM，Excel 可以直接開）。 */
     @Transactional
     public String exportCsv(Long examId) {
         Exam e = ownedExam(examId);
         Results r = compute(e);
-        StringBuilder sb = new StringBuilder("﻿座位,准考證號,姓名,報考科系,狀態,自動批改,申論,總分\r\n");
+        StringBuilder sb = new StringBuilder("\uFEFF" + String.join(",", EXPORT_HEADERS) + "\r\n");
         for (ResultRow row : r.rows()) {
-            String status = switch (row.status()) {
-                case "DONE" -> row.pending() > 0 ? "評分中" : "已完成";
-                case "IN" -> "作答中";
-                default -> "缺考";
-            };
             sb.append(row.seat()).append(',').append(csv(row.ticket())).append(',').append(csv(row.name())).append(',')
-                    .append(csv(row.dept())).append(',').append(status).append(',').append(num(row.autoScore())).append(',')
+                    .append(csv(row.dept())).append(',').append(statusLabel(row)).append(',').append(num(row.autoScore())).append(',')
                     .append(num(row.essayScore())).append(',').append(num(row.total())).append("\r\n");
         }
         audit.record("RESULTS_EXPORTED", "exam", examId, e.getUnit().getId(), null, e.getName());
         return sb.toString();
+    }
+
+    /** 成績表（Excel .xlsx）。欄位與 CSV 相同；分數是數字格式，文字欄一律存成文字（不會被當成公式）。 */
+    @Transactional
+    public byte[] exportXlsx(Long examId) {
+        Exam e = ownedExam(examId);
+        Results r = compute(e);
+        try (var wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook(); var out = new java.io.ByteArrayOutputStream()) {
+            var sheet = wb.createSheet("成績");
+            var bold = wb.createFont();
+            bold.setBold(true);
+            var headStyle = wb.createCellStyle();
+            headStyle.setFont(bold);
+            var head = sheet.createRow(0);
+            for (int i = 0; i < EXPORT_HEADERS.length; i++) {
+                var c = head.createCell(i);
+                c.setCellValue(EXPORT_HEADERS[i]);
+                c.setCellStyle(headStyle);
+            }
+            int n = 1;
+            for (ResultRow row : r.rows()) {
+                var x = sheet.createRow(n++);
+                x.createCell(0).setCellValue(row.seat());
+                x.createCell(1).setCellValue(row.ticket());
+                x.createCell(2).setCellValue(row.name());
+                x.createCell(3).setCellValue(row.dept() == null ? "" : row.dept());
+                x.createCell(4).setCellValue(statusLabel(row));
+                BigDecimal[] scores = {row.autoScore(), row.essayScore(), row.total()};
+                for (int i = 0; i < scores.length; i++) {
+                    if (scores[i] != null) x.createCell(5 + i).setCellValue(scores[i].doubleValue());
+                }
+            }
+            sheet.createFreezePane(0, 1);
+            int[] widths = {6, 16, 14, 22, 10, 10, 10, 10};
+            for (int i = 0; i < widths.length; i++) sheet.setColumnWidth(i, widths[i] * 256);
+            wb.write(out);
+            audit.record("RESULTS_EXPORTED", "exam", examId, e.getUnit().getId(), null, e.getName());
+            return out.toByteArray();
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException(ex);
+        }
     }
 
     // ── 考生 ─────────────────────────────────────────────

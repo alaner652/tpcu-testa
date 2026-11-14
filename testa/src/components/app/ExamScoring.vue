@@ -206,11 +206,13 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
         滿分 {{ results.fullMarks }} 分。
       </p>
       <a
-        :href="`/api${base}/results.csv`"
+        v-for="format in ['xlsx', 'csv']"
+        :key="format"
+        :href="`/api${base}/results.${format}`"
         download
         class="inline-flex h-9 items-center gap-1.5 rounded-full border border-line-strong px-3 text-sm font-medium transition-colors hover:border-brand hover:text-brand"
       >
-        <Download class="size-4" />匯出 CSV
+        <Download class="size-4" />{{ format === 'xlsx' ? '匯出 Excel' : 'CSV' }}
       </a>
       <Button
         v-if="!results.publishedAt"

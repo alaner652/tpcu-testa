@@ -203,6 +203,17 @@ class GradingTest extends IntegrationTestBase {
         var csvResult = mvc.perform(get("/api/exams/" + exam + "/results.csv").session(owner)).andExpect(status().isOk()).andReturn();
         String csvText = new String(csvResult.getResponse().getContentAsByteArray(), java.nio.charset.StandardCharsets.UTF_8);
         assertThat(csvText).contains("座位,准考證號,姓名", p + "1,王小明,,已完成,5,23.5,28.5", "缺考的人,,缺考,,,");
+
+        var xlsx = mvc.perform(get("/api/exams/" + exam + "/results.xlsx").session(owner)).andExpect(status().isOk()).andReturn();
+        try (var wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook(
+                new java.io.ByteArrayInputStream(xlsx.getResponse().getContentAsByteArray()))) {
+            var sheet = wb.getSheetAt(0);
+            assertThat(sheet.getRow(0).getCell(1).getStringCellValue()).isEqualTo("准考證號");
+            assertThat(sheet.getRow(1).getCell(2).getStringCellValue()).isEqualTo("王小明");
+            assertThat(sheet.getRow(1).getCell(7).getNumericCellValue()).isEqualTo(28.5);
+            assertThat(sheet.getRow(3).getCell(4).getStringCellValue()).isEqualTo("缺考");
+            assertThat(sheet.getRow(3).getCell(7)).isNull();
+        }
     }
 
     @Test
@@ -222,6 +233,7 @@ class GradingTest extends IntegrationTestBase {
         // 評分者不能看成績、不能指派；承辦人不是評分者不能評分；系統管理員都不行
         mvc.perform(get("/api/exams/" + exam + "/results").session(g1)).andExpect(status().isNotFound());
         mvc.perform(get("/api/exams/" + exam + "/results.csv").session(g1)).andExpect(status().isNotFound());
+        mvc.perform(get("/api/exams/" + exam + "/results.xlsx").session(g1)).andExpect(status().isNotFound());
         mvc.perform(json(put("/api/exams/" + exam + "/graders"), "{\"staffIds\":[]}").session(g1)).andExpect(status().isNotFound());
         mvc.perform(get("/api/grading/exams/" + exam + "/items").session(owner)).andExpect(status().isNotFound());
         mvc.perform(get("/api/exams/" + exam + "/results").session(admin)).andExpect(status().isNotFound());
