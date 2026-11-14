@@ -2,7 +2,7 @@
 
 ```mermaid
 flowchart LR
-    P["School reverse proxy<br/>(HTTPS, optional)"] --> W["web<br/>Nginx :80"]
+    P["School reverse proxy<br/>(optional)"] --> W["web<br/>Nginx :80 / :443"]
     W -->|/api| S["server<br/>Spring Boot"]
     S --> D[("db<br/>PostgreSQL")]
     K["backup<br/>daily pg_dump"] --> D
@@ -10,7 +10,7 @@ flowchart LR
     S -.read-only.-> F
 ```
 
-Only Nginx is exposed (port 80 by default). All four containers are in `docker-compose.prod.yml`.
+Only Nginx is exposed (port 80 by default, plus 443 with HTTPS). All four containers are in `docker-compose.prod.yml`.
 
 - The Compose project is named `tpcu-testa`; the database lives in the `tpcu-testa_db-data` volume and survives restarts, rebuilds and upgrades. `docker compose down -v` deletes it.
 - `docker compose -f docker-compose.prod.yml ps` shows each container's health. The backend is healthy when `/api/health` answers and the database is reachable (otherwise 503); Nginx waits for it.
@@ -51,14 +51,55 @@ Create a Linux VM running Docker and follow the steps above. Running Docker in a
 | CPU / memory | 4 vCPU, 8 GB | 300 concurrent candidates on a development machine gave p99 12 ms; this leaves headroom |
 | CPU type | `host` (or `x86-64-v3`) | The image build runs Vite 8 and Tailwind 4 native binaries, which crash with "Illegal instruction" on the default QEMU CPU model (seen on another school project) |
 | Disk | 64 GB or more | The database is small; most space is backups |
-| Network | Fixed IP reachable from the computer labs | If the school's reverse proxy is in front, see the next section |
+| Network | Fixed internal IP reachable from the computer labs | See [Network and offline exams](#network-and-offline-exams) |
 | Backup | The app's daily `pg_dump` plus PVE VM backups (vzdump or PBS) | One restores data, the other the whole machine |
 
-To confirm with the IT office: CPU and memory allocation, whether there is a GPU (only for AI later), the network path and firewall from the labs to the server, who handles the HTTPS certificate, and whether there is a Proxmox Backup Server.
+To confirm with the IT office: CPU and memory allocation, whether there is a GPU (only for AI later), the items under [Network and offline exams](#network-and-offline-exams), and whether there is a Proxmox Backup Server.
 
-## Behind a reverse proxy
+## HTTPS
 
-Nginx rate limits and the IPs in the audit log use the client IP. With another proxy in front, everyone appears to come from that proxy and shares one rate limit. Set `set_real_ip_from` as described at the top of `deploy/nginx.conf`.
+The site needs a host name such as `exam.example.edu.tw` and a certificate for it. Nothing in the application depends on the name; use the school's own subdomain. Two ways:
+
+**The school's reverse proxy terminates HTTPS** and forwards to this VM's port 80. Nginx rate limits and the audit log use the client IP, so tell Nginx which proxy to trust: uncomment `set_real_ip_from` in `deploy/http.conf` with the proxy's address (trusted proxies only, or anyone can forge their IP).
+
+**This VM terminates HTTPS.** Put `fullchain.pem` and `privkey.pem` in `TESTA_TLS_DIR` (default `./tls`, not in git) and add the override file:
+
+```bash
+docker compose -f docker-compose.prod.yml -f deploy/https.yml up -d
+```
+
+Port 80 then only redirects to HTTPS (which assumes `TESTA_HTTPS_PORT` is 443). After replacing the certificate, restart the web container. There is no HSTS header on purpose, so plain HTTP on the internal network stays possible as a fallback.
+
+Either way keep `TESTA_COOKIE_SECURE=true`.
+
+## Network and offline exams
+
+The labs reach the same deployment over the school's internal network. During an exam the Internet can be cut off: the application, its fonts and scripts, sign-in and the database are all on this VM, and start-up needs no Internet. What still has to work is the **internal** path from the labs to the VM; if that breaks, the exam stops for those rooms (answers already saved are kept, candidates resume when the network returns, and proctors can add time).
+
+To arrange with the network administrators:
+
+| Item | What is needed |
+| --- | --- |
+| DNS | The exam host name must resolve inside the school without the Internet: an internal (split-horizon) DNS record pointing to the VM's internal IP, served by the school's own DNS servers |
+| Routing and firewall | Lab subnets/VLANs to the VM on TCP 443 (and 80 for the redirect). The VM needs no inbound access from the Internet for exams |
+| Certificate | Issued for the exam host name (a public CA or the school's wildcard certificate; an internal CA only if every lab PC trusts it). Browsers accept a valid certificate offline, but renewal may need the Internet: check the expiry date before each exam period with `openssl x509 -enddate -noout -in tls/fullchain.pem` |
+| Time | The server clock decides exam timing, so the VM needs NTP from a source reachable without the Internet (the PVE host or a school NTP server). Lab PC clocks do not matter |
+| Outbound | Only for building images and upgrades (Docker Hub, Maven Central, npm). Never build or upgrade on an exam day |
+
+Cutting the Internet does not make the exam secure on its own: candidates on the internal network can still reach each other and other internal services, so lab isolation is the school's responsibility; the application enforces sign-in, timing and access on the server.
+
+## Upgrades
+
+Never upgrade during an exam. Sessions survive a backend restart, but schema changes are one-way.
+
+```bash
+docker compose -f docker-compose.prod.yml restart backup     # fresh backup first
+git pull
+docker compose -f docker-compose.prod.yml up -d --build       # Flyway migrates the database on start
+docker compose -f docker-compose.prod.yml ps                  # wait until server and web are healthy
+```
+
+To roll back: check out the previous commit, rebuild, and if the new version changed the schema (a new `V*__*.sql`), restore the backup taken before the upgrade (see below). Try upgrades on a test VM first and run `deploy/smoke-test.py` there.
 
 ## After changing files in `deploy/`
 
@@ -87,7 +128,7 @@ docker compose -f docker-compose.prod.yml start server
 ## Post-deploy check
 
 ```bash
-python3 deploy/smoke-test.py http://HOST:PORT ADMIN_EMAIL ADMIN_PASSWORD
+python3 deploy/smoke-test.py http://HOST:PORT ADMIN_EMAIL ADMIN_PASSWORD [SETUP_TOKEN]   # token only on a fresh install
 ```
 
 Runs a full mock exam over real HTTP: accounts, bank, exam, answering, grading, publishing, candidates checking scores, emergency access, archiving.

@@ -21,7 +21,7 @@ server/                       backend (Spring Boot 4.1, Java 21)
       config/                 security, properties, first administrator, backup listing
       common/                 errors (problem+json), paging
     resources/db/migration/   Flyway (from V1, add only)
-deploy/                       Nginx, backup script, env template, smoke test
+deploy/                       Nginx (HTTP and HTTPS override), backup script, env template, smoke test
 docs/                         documentation
 tools/                        developer tools
 docker-compose.yml            development: PostgreSQL only

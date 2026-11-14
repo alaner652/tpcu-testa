@@ -16,7 +16,7 @@ A self-hosted online exam system for schools: write questions, schedule an exam,
 | --- | --- |
 | [Design document](docs/testa-system-design.html) | Requirements, roles, flows and open questions (Chinese; open in a browser) |
 | [Status](docs/status.md) | What is done, what was tested, what is left |
-| [Deployment](docs/deployment.md) | Going live, HTTPS, backup and restore, post-deploy check |
+| [Deployment](docs/deployment.md) | Going live, HTTPS, network and offline exams, upgrades, backup and restore |
 | [Development](docs/development.md) | Layout, backend conventions, tests |
 | [Frontend](testa/README.md) | Pages, component layout, design tokens, UI principles |
 | [AI research](docs/ai.md) | Local model trials: question import, grading assistance, MCP |
@@ -61,7 +61,7 @@ flowchart LR
 | --- | --- |
 | [testa/](testa/) | Frontend: Vue 3, TypeScript, Vite, Tailwind CSS v4 |
 | [server/](server/) | Backend: Spring Boot, Flyway, Spring Session (JDBC) |
-| [deploy/](deploy/) | Nginx config, backup script, env template, smoke test |
+| [deploy/](deploy/) | Nginx config (HTTP and HTTPS), backup script, env template, smoke test |
 | [docs/](docs/) | Design document and guides |
 | [tools/](tools/) | Developer tools: local AI model evaluation |
 

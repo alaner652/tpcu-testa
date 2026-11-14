@@ -15,6 +15,7 @@ target/
 
 # Deployment
 backups/
+tls/
 
 # Python
 __pycache__/

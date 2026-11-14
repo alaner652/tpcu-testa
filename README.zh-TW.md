@@ -18,7 +18,7 @@
 | --- | --- |
 | [設計文件](docs/testa-system-design.html) | 需求、角色、流程、待確認事項（用瀏覽器開） |
 | [進度與測試](docs/status.md) | 做完什麼、測過什麼、還沒做什麼 |
-| [部署](docs/deployment.md) | 上線、HTTPS、備份與還原、部署後檢查 |
+| [部署](docs/deployment.md) | 上線、HTTPS、網路與斷網考試、升級、備份與還原 |
 | [開發](docs/development.md) | 專案結構、後端慣例、測試 |
 | [前端](testa/README.md) | 頁面、元件結構、design tokens、介面原則 |
 | [AI 研究](docs/ai.md) | 本地模型實測：出題導入、改題、MCP |
