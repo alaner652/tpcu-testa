@@ -22,6 +22,8 @@ import com.jayway.jsonpath.JsonPath;
         "testa.bootstrap-admin.email=admin@test.tw",
         "testa.bootstrap-admin.password=admin-password",
         "testa.login.max-failures=3",
+        // MockMvc 的測試用 MockHttpSession 帶登入狀態；存資料庫的 Session 由 deploy/smoke-test.py 走真的 HTTP 驗證
+        "spring.autoconfigure.exclude=org.springframework.boot.session.jdbc.autoconfigure.JdbcSessionAutoConfiguration",
 })
 @AutoConfigureMockMvc
 public abstract class IntegrationTestBase {

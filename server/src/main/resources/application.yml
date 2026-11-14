@@ -16,6 +16,10 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+  session:
+    jdbc:
+      # 資料表由 Flyway 建立（V6）
+      initialize-schema: never
 
 server:
   port: ${TESTA_PORT:8080}

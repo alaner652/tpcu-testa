@@ -46,6 +46,11 @@
       <groupId>org.flywaydb</groupId>
       <artifactId>flyway-database-postgresql</artifactId>
     </dependency>
+    <!-- 登入狀態存資料庫：後端重啟不用重新登入 -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-session-jdbc</artifactId>
+    </dependency>
     <!-- 讀取考生名單的 Excel（.xlsx） -->
     <dependency>
       <groupId>org.apache.poi</groupId>
