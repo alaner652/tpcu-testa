@@ -31,7 +31,11 @@ services:
       TESTA_ADMIN_EMAIL: ${TESTA_ADMIN_EMAIL:?請在 .env 設定 TESTA_ADMIN_EMAIL}
       TESTA_ADMIN_PASSWORD: ${TESTA_ADMIN_PASSWORD:?請在 .env 設定 TESTA_ADMIN_PASSWORD}
       TESTA_COOKIE_SECURE: ${TESTA_COOKIE_SECURE:-true}
+      TESTA_BACKUP_PATH: /backups
       TZ: Asia/Taipei
+    volumes:
+      # 只讀：後台顯示備份狀態用，後端不會寫入或刪除備份
+      - ${TESTA_BACKUP_DIR:-./backups}:/backups:ro
 
   web:
     build: ./testa

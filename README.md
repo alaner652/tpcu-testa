@@ -57,7 +57,7 @@ dev profile 的示範帳號（登入頁有一鍵登入）：
 設計文件有寫、目前沒有：
 
 - 考生個資與答卷到期刪除：沒有保存期限，也沒有刪除功能（期限待確認）。
-- 後台的「系統設定」與備份介面：設定頁只是示範；備份由 `backup` 容器每天執行，後台看不到也不能操作。
+- 後台的「系統設定」：設定頁只是示範。備份由 `backup` 容器每天執行，後台的「備份」分頁只能看清單與最近一次的時間，不能下載、手動觸發或還原。
 - 評分差異的後續處理：差距過大只會標記給承辦人看，沒有裁定、重評或加派評分者的流程（待確認）。
 - 出題者不得評自己題目的迴避規則、系統管理員的緊急檢視權限：都沒做（待確認）。
 
@@ -84,7 +84,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 **改了 `deploy/` 裡的設定之後**要重啟 web 容器：`docker compose -f docker-compose.prod.yml restart web`。只做 `nginx -s reload` 不夠——多數編輯器與 `git pull` 存檔時會把檔案整個換掉，容器裡掛載的還是舊的那一份，reload 會報找不到設定檔。
 
-**備份與還原。** 資料庫每天備份到 `TESTA_BACKUP_DIR`（預設 `./backups`），保留 `BACKUP_KEEP_DAYS` 天。要立刻多備份一次：`docker compose -f docker-compose.prod.yml restart backup`。還原會把資料庫整個換成備份當時的內容，先停後端：
+**備份與還原。** 系統管理員可以在後台的「備份」分頁確認每天的備份有在跑（超過 26 小時沒有新檔會提醒）。資料庫每天備份到 `TESTA_BACKUP_DIR`（預設 `./backups`），保留 `BACKUP_KEEP_DAYS` 天。要立刻多備份一次：`docker compose -f docker-compose.prod.yml restart backup`。還原會把資料庫整個換成備份當時的內容，先停後端：
 
 ```bash
 docker compose -f docker-compose.prod.yml stop server

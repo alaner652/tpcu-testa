@@ -54,6 +54,7 @@ const TABS = [
   { value: 'staff', label: '使用者' },
   { value: 'units', label: '單位' },
   { value: 'audit', label: '操作紀錄' },
+  { value: 'backups', label: '備份' },
   { value: 'settings', label: '系統設定' },
 ] as const
 // 系統設定還沒接後端，正式版不顯示
@@ -265,6 +266,25 @@ async function loadAudit(page = 0) {
   }
 }
 
+/** 備份狀態：只能看，備份由主機上的 backup 容器每天做一次 */
+interface BackupFile {
+  name: string
+  size: number
+  at: string
+}
+const backups = ref<{ configured: boolean; items: BackupFile[] } | null>(null)
+async function loadBackups() {
+  try {
+    backups.value = await api('/admin/backups')
+    loadError.value = ''
+  } catch (e) {
+    loadError.value = (e as Error).message
+  }
+}
+/** 每天備份一次，超過 26 小時沒有新的備份就提醒 */
+const backupStale = (b: BackupFile) => Date.now() - new Date(b.at).getTime() > 26 * 3600 * 1000
+const fileSize = (bytes: number) => (bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`)
+
 const when = (iso: string) =>
   new Date(iso).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
 
@@ -289,7 +309,7 @@ function load() {
     // 操作紀錄要把 id 對回姓名與單位名稱
     if (!staff.value.length) loadStaff()
     if (!units.value.length) loadUnits()
-  }
+  } else if (tab.value === 'backups') loadBackups()
 }
 onMounted(load)
 watch(tab, load)
@@ -429,6 +449,35 @@ watch(tab, load)
       <div v-if="audit.length < auditTotal" class="border-t border-line px-5 py-3 text-center sm:px-6">
         <Button variant="outline" class="rounded-full" @click="loadAudit(auditPage + 1)">載入更早的紀錄</Button>
       </div>
+    </section>
+
+    <!-- 備份 -->
+    <section v-else-if="tab === 'backups'" class="card">
+      <template v-if="backups">
+        <p v-if="!backups.configured" class="px-5 py-5 text-[15px] text-ink-2 sm:px-6">
+          這台主機沒有設定備份資料夾，這裡看不到備份狀態。用 docker-compose.prod.yml 部署時會自動設定。
+        </p>
+        <p v-else-if="!backups.items.length" class="px-5 py-5 text-[15px] sm:px-6">
+          <span class="rounded-full bg-marker px-2.5 py-1 text-sm font-medium text-marker-ink">還沒有任何備份</span>
+          <span class="mt-2 block text-ink-2">備份每天做一次。部署超過一天還是空的，請檢查主機上的 backup 容器。</span>
+        </p>
+        <template v-else>
+          <div class="px-5 py-4 text-[15px] sm:px-6">
+            <p>
+              最近一次備份：<span class="font-medium tabular-nums">{{ when(backups.items[0].at) }}</span>
+              <span v-if="backupStale(backups.items[0])" class="ml-2 rounded-full bg-marker px-2.5 py-1 text-sm font-medium text-marker-ink">超過一天沒有新的備份</span>
+            </p>
+            <p class="mt-1 text-sm text-ink-2">每天自動備份一次。這裡只能確認備份有在跑；還原要在主機上操作，步驟在 README。</p>
+          </div>
+          <ul class="divide-y divide-line border-t border-line">
+            <li v-for="b in backups.items" :key="b.name" class="flex flex-wrap items-baseline gap-x-4 px-5 py-3 text-[15px] sm:px-6">
+              <span class="w-36 shrink-0 text-sm text-ink-2 tabular-nums">{{ when(b.at) }}</span>
+              <span class="min-w-0 flex-1 basis-48 truncate font-mono text-sm">{{ b.name }}</span>
+              <span class="text-sm text-ink-2 tabular-nums">{{ fileSize(b.size) }}</span>
+            </li>
+          </ul>
+        </template>
+      </template>
     </section>
 
     <!-- 系統設定（尚未接後端） -->

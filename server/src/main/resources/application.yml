@@ -43,6 +43,8 @@ testa:
   login:
     max-failures: 5
     lock-minutes: 15
+  # 備份檔所在的資料夾（唯讀）。有設定的話，後台會列出備份檔讓系統管理員確認每天的備份有在跑。
+  backup-dir: ${TESTA_BACKUP_PATH:}
   grading:
     # 評分者之間的差距超過該題配分的這個比例，就標記給承辦人查看（暫定值，待確認）
     flag-ratio: 0.3
