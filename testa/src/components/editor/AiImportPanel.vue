@@ -38,7 +38,7 @@ function accept(picked: File | undefined) {
   start({ name: picked.name, size: formatSize(picked.size) })
 }
 
-/** 模擬解析流程：依序走完每個步驟後產生辨識結果。 */
+/** Simulated parsing: walk through each step, then produce the result. */
 function start(target: { name: string; size: string }) {
   error.value = ''
   file.value = target
@@ -97,7 +97,7 @@ function onDrop(event: DragEvent) {
       <Button size="icon" class="ml-auto" aria-label="關閉 AI 匯入" @click="emit('close')"><X /></Button>
     </header>
 
-    <!-- 1. 選擇檔案 -->
+    <!-- 1. Pick a file -->
     <div v-if="stage === 'idle'" class="thin-scroll min-h-0 flex-1 overflow-y-auto px-5 py-6">
       <p class="text-sm text-ink-2">上傳現有的考卷，AI 會辨識題號、題型、選項與數學公式，拆成可以編輯的題目。</p>
 
@@ -133,7 +133,7 @@ function onDrop(event: DragEvent) {
       </p>
     </div>
 
-    <!-- 2. 解析中 -->
+    <!-- 2. Parsing -->
     <div v-else-if="stage === 'processing'" class="min-h-0 flex-1 px-5 py-6">
       <div class="flex items-center gap-3">
         <FileText class="size-5 shrink-0 text-ink-2" />
@@ -160,7 +160,7 @@ function onDrop(event: DragEvent) {
       <Button variant="outline" class="mt-8" @click="reset">取消</Button>
     </div>
 
-    <!-- 3. 確認辨識結果 -->
+    <!-- 3. Review the result -->
     <template v-else>
       <div class="flex shrink-0 items-center justify-between gap-3 border-b border-line px-5 py-3">
         <div class="min-w-0">

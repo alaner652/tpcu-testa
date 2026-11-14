@@ -20,15 +20,15 @@ import org.apache.poi.ss.usermodel.WorkbookFactory;
 import tw.testa.common.ApiException;
 
 /**
- * 把上傳的考生名單（.xlsx 或 .csv）讀成一列一列的文字。
- * CSV 先當 UTF-8 讀，不是合法的 UTF-8 就當 Big5（台灣的 Excel 另存 CSV 預設是 Big5）。
+ * Reads an uploaded roster (.xlsx or .csv) into rows of text.
+ * CSV is read as UTF-8, falling back to Big5 when invalid (Excel in Taiwan saves CSV as Big5 by default).
  */
 final class RosterParser {
     static final int MAX_ROWS = 5000;
 
     private RosterParser() {}
 
-    /** 一列原始資料：row 是檔案裡的列號（從 1 開始）。 */
+    /** One raw row; row is the line number in the file, from 1. */
     record RawRow(int row, List<String> cells) {}
 
     static List<RawRow> parse(String fileName, byte[] bytes) {
@@ -73,7 +73,7 @@ final class RosterParser {
         }
     }
 
-    /** 簡單的 CSV 解析：支援引號、引號內的逗號與換行、兩個引號代表一個引號。 */
+    /** Minimal CSV parsing: quotes, commas and newlines inside quotes, doubled quotes. */
     static List<RawRow> parseCsv(String text) {
         List<RawRow> rows = new ArrayList<>();
         List<String> cells = new ArrayList<>();

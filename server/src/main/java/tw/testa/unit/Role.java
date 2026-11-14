@@ -1,16 +1,16 @@
 package tw.testa.unit;
 
 /**
- * 單位內角色。MVP 的介面把它們合併成兩種：
- * 承辦人 = OWNER + PROCTOR，教師 = AUTHOR + GRADER；資料上仍分開存，之後要拆細不必改表。
+ * Roles within a unit. The MVP UI combines them into two:
+ * officer = OWNER + PROCTOR, teacher = AUTHOR + GRADER. They are stored separately, so splitting them later needs no schema change.
  */
 public enum Role {
-    /** 單位負責人：建立考試、匯入名單、指派角色、公布成績 */
+    /** Unit owner: create exams, import rosters, assign roles, publish results */
     OWNER,
-    /** 出題者：建立與編輯題庫 */
+    /** Author: create and edit question banks */
     AUTHOR,
-    /** 監考：登入單、即時狀態、重設登入碼 */
+    /** Proctor: login slips, live status, reset login codes */
     PROCTOR,
-    /** 評分者：只看被指派的匿名答卷 */
+    /** Grader: only the anonymous papers assigned to them */
     GRADER
 }

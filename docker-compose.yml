@@ -1,6 +1,6 @@
 name: testa
-# 開發用：只啟動資料庫。後端用 `cd server && ./mvnw spring-boot:run`，前端用 `cd testa && npm run dev`。
-# 正式部署用 docker-compose.prod.yml，說明在 docs/deployment.md。
+# Development: the database only. Backend: `cd server && ./mvnw spring-boot:run`; frontend: `cd testa && npm run dev`.
+# For production use docker-compose.prod.yml; see docs/deployment.md.
 services:
   db:
     image: postgres:17-alpine

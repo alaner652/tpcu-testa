@@ -14,8 +14,8 @@ import { DEMO_FEATURES } from '@/lib/flags'
 import { api } from '@/lib/api'
 
 /**
- * 後台管理（系統管理員）：教職員帳號、單位與角色、操作紀錄。
- * 系統管理員只管帳號與單位，看不到題庫、答卷、分數。
+ * Admin pages (system administrators): staff accounts, units and roles, audit log.
+ * Administrators manage accounts and units only; they cannot see banks, papers or scores.
  */
 interface Staff {
   id: number
@@ -60,20 +60,20 @@ const TABS = [
   { value: 'emergency', label: '緊急檢視', icon: ShieldCheck },
   { value: 'settings', label: '系統設定', icon: Settings },
 ] as const
-// 系統設定還沒接後端，正式版不顯示
+// System settings have no backend yet and are hidden in production
 const tabs = TABS.filter((t) => t.value !== 'settings' || DEMO_FEATURES)
 const tab = ref<(typeof TABS)[number]['value']>('staff')
 
 const loadError = ref('')
 const fail = (e: unknown) => toast.error((e as Error).message)
 
-// ── 使用者 ───────────────────────────────────────────
+// ── Users ────────────────────────────────────────────
 const staff = ref<Staff[]>([])
 const creating = ref(false)
 const draft = reactive({ email: '', name: '', systemAdmin: false })
 const createError = ref('')
 const saving = ref(false)
-/** 剛產生的臨時密碼，只顯示這一次 */
+/** The temporary password just generated, shown only this once */
 const issued = ref<{ name: string; email: string; password: string } | null>(null)
 
 async function loadStaff() {
@@ -155,7 +155,7 @@ const rolesText = (s: Staff) => {
   return [...byUnit].map(([unit, roles]) => `${unit}（${roles.join('、')}）`).join('，')
 }
 
-// ── 單位 ─────────────────────────────────────────────
+// ── Units ────────────────────────────────────────────
 const units = ref<Unit[]>([])
 const newUnit = ref('')
 const openUnit = ref<number | null>(null)
@@ -202,7 +202,7 @@ async function toggleUnit(u: Unit) {
 
 const toggleMembers = (u: Unit) => (openUnit.value = openUnit.value === u.id ? null : u.id)
 
-// ── 操作紀錄 ─────────────────────────────────────────
+// ── Audit log ────────────────────────────────────────
 const ACTION_LABEL: Record<string, string> = {
   LOGIN: '登入',
   LOGIN_FAILED: '登入失敗',
@@ -276,7 +276,7 @@ async function loadAudit(page = 0) {
   }
 }
 
-/** 備份狀態：只能看，備份由主機上的 backup 容器每天做一次 */
+/** Backup status, read-only; the backup container on the host runs once a day */
 interface BackupFile {
   name: string
   size: number
@@ -291,7 +291,7 @@ async function loadBackups() {
     loadError.value = (e as Error).message
   }
 }
-/** 每天備份一次，超過 26 小時沒有新的備份就提醒 */
+/** Daily backups: warn when there has been none for 26 hours */
 const backupStale = (b: BackupFile) => Date.now() - new Date(b.at).getTime() > 26 * 3600 * 1000
 const fileSize = (bytes: number) => (bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`)
 
@@ -316,7 +316,7 @@ function load() {
   else if (tab.value === 'units') loadUnits()
   else if (tab.value === 'audit') {
     loadAudit()
-    // 操作紀錄要把 id 對回姓名與單位名稱
+    // Map ids in the audit log back to names and unit names
     if (!staff.value.length) loadStaff()
     if (!units.value.length) loadUnits()
   } else if (tab.value === 'backups') loadBackups()
@@ -349,7 +349,7 @@ watch(tab, load)
       <Button variant="outline" class="rounded-full" @click="load"><RotateCw />重試</Button>
     </p>
 
-    <!-- 使用者 -->
+    <!-- Users -->
     <section v-if="tab === 'staff'" class="card">
       <div class="flex items-center justify-between gap-3 px-5 py-4 sm:px-6">
         <p class="text-[15px] text-ink-2">{{ staff.length }} 位教職員</p>
@@ -412,7 +412,7 @@ watch(tab, load)
       </ul>
     </section>
 
-    <!-- 單位 -->
+    <!-- Units -->
     <section v-else-if="tab === 'units'" class="card">
       <form class="flex gap-2 px-5 py-4 sm:px-6" @submit.prevent="addUnit">
         <input v-model="newUnit" class="field" placeholder="新單位名稱，例如：招生組" aria-label="新單位名稱" />
@@ -444,7 +444,7 @@ watch(tab, load)
       </ul>
     </section>
 
-    <!-- 操作紀錄 -->
+    <!-- Audit log -->
     <section v-else-if="tab === 'audit'" class="card">
       <p class="px-5 py-4 text-[15px] text-ink-2 sm:px-6">共 {{ auditTotal }} 筆。紀錄只會增加，任何人都不能修改或刪除。</p>
       <ul class="divide-y divide-line border-t border-line">
@@ -460,7 +460,7 @@ watch(tab, load)
       </div>
     </section>
 
-    <!-- 備份 -->
+    <!-- Backups -->
     <section v-else-if="tab === 'backups'" class="card">
       <template v-if="backups">
         <p v-if="!backups.configured" class="px-5 py-5 text-[15px] text-ink-2 sm:px-6">
@@ -491,7 +491,7 @@ watch(tab, load)
 
     <EmergencyView v-else-if="tab === 'emergency'" />
 
-    <!-- 系統設定（尚未接後端） -->
+    <!-- System settings (no backend yet) -->
     <section v-else-if="DEMO_FEATURES" class="card divide-y divide-line">
       <p class="px-5 py-4 text-sm text-ink-2 sm:px-6">這一頁還是示範，設定不會儲存到伺服器。</p>
       <label class="block px-5 py-5 sm:px-6">

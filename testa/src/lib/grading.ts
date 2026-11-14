@@ -7,15 +7,15 @@ export interface Attempt {
   flagged: boolean
 }
 
-/** 正式考試：作答存到伺服器，計時與交卷也由伺服器決定。 */
+/** A real exam: answers are saved on the server, which also decides timing and submission. */
 export interface RemoteExam {
-  /** 之前存過的答案（斷線、換電腦後續考） */
+  /** Previously saved answers (resume after a disconnect or on another computer) */
   initial: Record<string, Partial<Attempt>>
   remainingSeconds: number
-  /** 存一題的答案，回傳伺服器算的剩餘秒數 */
+  /** Saves one answer and returns the remaining seconds computed by the server */
   save(questionId: string, answer: Pick<Attempt, 'choices' | 'blanks' | 'essay'>): Promise<number>
   submit(): Promise<void>
-  /** 向伺服器對時，回傳剩餘秒數（監考補時後會變長）；已經收卷回傳 0 */
+  /** Syncs with the server and returns the remaining seconds (grows after extra time); 0 once submitted */
   sync?(): Promise<number>
 }
 
@@ -42,7 +42,7 @@ const normalize = (text: string, caseSensitive: boolean) => {
   return caseSensitive ? t : t.toLowerCase()
 }
 
-/** 自動批改：選擇題需完全相符；填空題依空格數平均給分；申論題留待人工閱卷。 */
+/** Auto-grading: choice must match exactly; fill-in scores by the share of correct blanks; essays wait for graders. */
 export function grade(q: Question, a: Attempt | undefined): Grade {
   if (q.type === 'essay') return { status: isAnswered(q, a) ? 'pending' : 'unanswered', earned: 0 }
   if (!a || !isAnswered(q, a)) return { status: 'unanswered', earned: 0 }

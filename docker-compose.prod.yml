@@ -1,7 +1,7 @@
-# 正式部署（線上主機與教室主機用同一份）：
-#   cp deploy/env.example .env   # 填好密碼
+# Production (same file for an online server and a lab server):
+#   cp deploy/env.example .env   # fill in the passwords
 #   docker compose -f docker-compose.prod.yml up -d --build
-# 對外只開 web（Nginx）。HTTPS 由學校的反向代理或負載平衡器負責；沒有的話見 docs/deployment.md。
+# Only web (Nginx) is exposed. HTTPS is handled by the school's reverse proxy or load balancer; otherwise see docs/deployment.md.
 name: testa-prod
 services:
   db:
@@ -10,7 +10,7 @@ services:
     environment:
       POSTGRES_DB: testa
       POSTGRES_USER: testa
-      POSTGRES_PASSWORD: ${TESTA_DB_PASSWORD:?請在 .env 設定 TESTA_DB_PASSWORD}
+      POSTGRES_PASSWORD: ${TESTA_DB_PASSWORD:?set TESTA_DB_PASSWORD in .env}
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
@@ -28,13 +28,13 @@ services:
     environment:
       TESTA_DB_URL: jdbc:postgresql://db:5432/testa
       TESTA_DB_PASSWORD: ${TESTA_DB_PASSWORD}
-      TESTA_ADMIN_EMAIL: ${TESTA_ADMIN_EMAIL:?請在 .env 設定 TESTA_ADMIN_EMAIL}
-      TESTA_ADMIN_PASSWORD: ${TESTA_ADMIN_PASSWORD:?請在 .env 設定 TESTA_ADMIN_PASSWORD}
+      TESTA_ADMIN_EMAIL: ${TESTA_ADMIN_EMAIL:?set TESTA_ADMIN_EMAIL in .env}
+      TESTA_ADMIN_PASSWORD: ${TESTA_ADMIN_PASSWORD:?set TESTA_ADMIN_PASSWORD in .env}
       TESTA_COOKIE_SECURE: ${TESTA_COOKIE_SECURE:-true}
       TESTA_BACKUP_PATH: /backups
       TZ: Asia/Taipei
     volumes:
-      # 只讀：後台顯示備份狀態用，後端不會寫入或刪除備份
+      # Read-only: the admin pages show backup status; the backend never writes or deletes backups
       - ${TESTA_BACKUP_DIR:-./backups}:/backups:ro
 
   web:

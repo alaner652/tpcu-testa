@@ -16,7 +16,7 @@ import jakarta.persistence.Table;
 import tw.testa.exam.Candidate;
 import tw.testa.exam.Exam;
 
-/** 一位考生在一場考試的一次作答。 */
+/** One candidate's attempt at one exam. */
 @Entity
 @Table(name = "attempt")
 public class Attempt {
@@ -74,7 +74,7 @@ public class Attempt {
     public Instant getStartedAt() { return startedAt; }
     public Instant getDeadlineAt() { return deadlineAt; }
     public int getExtraMinutes() { return extraMinutes; }
-    /** 補時：截止時間往後延，並累計補了幾分鐘。 */
+    /** Extra time: moves the deadline and accumulates the minutes added. */
     public void extend(int minutes) {
         this.deadlineAt = deadlineAt.plus(java.time.Duration.ofMinutes(minutes));
         this.extraMinutes += minutes;

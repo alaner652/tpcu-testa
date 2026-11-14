@@ -18,7 +18,7 @@ spring:
       enabled: true
   session:
     jdbc:
-      # 資料表由 Flyway 建立（V6）
+      # Tables are created by Flyway (V6)
       initialize-schema: never
 
 server:
@@ -30,12 +30,12 @@ server:
         name: TESTA_SESSION
         http-only: true
         same-site: lax
-        # 正式環境走 HTTPS，設 TESTA_COOKIE_SECURE=true
+        # Production runs behind HTTPS: set TESTA_COOKIE_SECURE=true
         secure: ${TESTA_COOKIE_SECURE:false}
   forward-headers-strategy: native
 
 testa:
-  # 第一次啟動且資料庫裡沒有任何系統管理員時，用這組帳密建立一位。
+  # On first start with no system administrator in the database, create one with these credentials.
   bootstrap-admin:
     email: ${TESTA_ADMIN_EMAIL:}
     password: ${TESTA_ADMIN_PASSWORD:}
@@ -43,12 +43,12 @@ testa:
   login:
     max-failures: 5
     lock-minutes: 15
-  # 備份檔所在的資料夾（唯讀）。有設定的話，後台會列出備份檔讓系統管理員確認每天的備份有在跑。
+  # Backup directory (read-only). When set, the admin pages list backups so administrators can see they run daily.
   backup-dir: ${TESTA_BACKUP_PATH:}
   grading:
-    # 評分者之間的差距超過該題配分的這個比例，就警示承辦人。
-    # 學校的規則是「差距 > 20」；這裡換算成配分的 20%（100 分的題目就是 20 分）
+    # Warn the officer when graders differ by more than this share of the question's points.
+    # The school's rule is "gap over 20", read here as 20% of the points (20 on a 100-point question)
     flag-ratio: 0.2
   retention:
-    # 考試資料保留到「考試結束那一年 + 這個年數」的年底（台北時間），之後封存的考試才能人工刪除
+    # Exam data is kept until the end of (year the exam ended + this many years), Taipei time; after that archived exams can be deleted by hand
     years: 1

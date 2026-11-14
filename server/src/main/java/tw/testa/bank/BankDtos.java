@@ -13,7 +13,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-/** 題庫 API 的資料格式。題目的欄位與前端 src/types/question.ts 一一對應。 */
+/** Question bank API payloads. Question fields match the frontend src/types/question.ts. */
 public final class BankDtos {
     private BankDtos() {}
 

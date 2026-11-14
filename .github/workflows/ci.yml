@@ -1,4 +1,4 @@
-# 每次 push 與 PR 都跑：後端整合測試（Testcontainers 開真的 PostgreSQL）、前端型別檢查＋單元測試＋建置。
+# On every push and PR: backend integration tests (Testcontainers with real PostgreSQL), frontend type check, unit tests and build.
 name: CI
 on:
   push:

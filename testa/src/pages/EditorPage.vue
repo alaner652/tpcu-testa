@@ -18,18 +18,18 @@ const store = useBanks()
 const { add, duplicate, save } = useQuestionActions()
 const { confirm } = useConfirm()
 
-// 版面：中央是一張試卷。≥1280 左側顯示題號卡，更窄時改為抽屜；手機另有底部工具列。
+// Layout: one paper in the middle. At >= 1280 the question map sits on the left, narrower it is a drawer; phones get a bottom toolbar.
 const wide = useMediaQuery('(min-width: 1280px)')
 
 const mode = ref<'edit' | 'preview'>('edit')
 const overviewOpen = ref(false)
-// AI 匯入還是示範（假資料），只在開發模式才有入口、才會載入
+// AI import is still a demo (mock data), reachable and loaded only in development
 const AiImportPanel = DEMO_FEATURES ? defineAsyncComponent(() => import('@/components/editor/AiImportPanel.vue')) : null
 const importOpen = ref(false)
 const scroller = ref<HTMLElement | null>(null)
 const exam = ref<InstanceType<typeof ExamPreview> | null>(null)
 
-/** 切換模式；離開作答到一半的模擬作答前先確認。 */
+/** Switches mode; confirms before leaving a try-it attempt in progress. */
 async function requestMode(next: 'edit' | 'preview') {
   if (next === mode.value) return
   if (next === 'edit' && store.bank.value?.editable === false) {
@@ -50,7 +50,7 @@ async function requestMode(next: 'edit' | 'preview') {
 
 watch(wide, (isWide) => isWide && (overviewOpen.value = false))
 
-// 只有檢視權限的人（單位負責人）直接進模擬作答
+// Read-only users (unit owners) go straight to try-it mode
 watch(
   () => store.bank.value,
   (bank) => bank?.editable === false && (mode.value = 'preview'),
@@ -63,7 +63,7 @@ async function reveal(id: string | null) {
   document.getElementById(`q-${id}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
 }
 
-// 選到的題目保持在可視範圍內（剛載入時不捲動，保留標題卡）
+// Keep the selected question in view (no scrolling on first load, keep the title card)
 watch(store.activeId, (id, previous) => {
   if (previous && mode.value === 'edit') reveal(id)
 })
@@ -107,11 +107,11 @@ useEventListener(window, 'keydown', (event: KeyboardEvent) => {
   }
 })
 
-// 網址中的題庫 id 與目前開啟的題庫保持一致
+// Keep the bank id in the URL in sync with the open bank
 const route = useRoute()
 const router = useRouter()
-// 直接開這個網址或重新整理時，題庫還在載入：先記下網址指定的題庫。
-// 否則載入完會先落到第一份題庫，再把網址改過去，結果開到別份題庫。
+// Opening this URL directly or reloading: banks are still loading, so remember the bank from the URL.
+// Otherwise loading lands on the first bank, then rewrites the URL to it, opening the wrong bank.
 if (store.loading.value && route.params.id) store.bankId.value = route.params.id as string
 watch(
   [() => route.params.id as string, store.loading],

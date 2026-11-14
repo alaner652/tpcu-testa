@@ -6,8 +6,8 @@ import { cloneQuestion, createQuestion, issuesOf } from '@/lib/question'
 import { useAuth } from './useAuth'
 
 /**
- * 題庫狀態（教職員）。題庫存在後端：編輯後自動儲存（整份題庫送 PUT /api/banks/:id）。
- * 考生永遠拿不到題庫，考生的題目來自 useCandidate（去掉答案的試卷）。
+ * Question bank state (staff). Banks live on the backend and autosave after edits (the whole bank via PUT /api/banks/:id).
+ * Candidates never receive banks; their questions come from useCandidate (a paper without answers).
  */
 interface ApiBank extends Omit<Bank, 'id'> {
   id: number
@@ -30,9 +30,9 @@ let mock = false
 let debounceTimer: ReturnType<typeof setTimeout> | undefined
 let retryTimer: ReturnType<typeof setTimeout> | undefined
 let flushing: Promise<void> | null = null
-/** 每份題庫上次成功存到伺服器的內容 */
+/** What each bank last saved to the server */
 const lastSaved = new Map<string, string>()
-/** 不再自動儲存的題庫（版本衝突、已被刪除、沒有權限），等使用者重新整理 */
+/** Banks that stopped autosaving (version conflict, deleted, no permission) until the user reloads */
 const blocked = new Set<string>()
 
 const fromApi = (b: ApiBank): Bank => ({ ...b, id: String(b.id) })
@@ -45,7 +45,7 @@ async function flush(): Promise<void> {
   clearTimeout(debounceTimer)
   clearTimeout(retryTimer)
   if (flushing) {
-    // 等目前這一輪存完，再把期間的新修改存一次
+    // Wait for the current save, then save changes made in the meantime
     await flushing
     return flush()
   }
@@ -67,7 +67,7 @@ async function flush(): Promise<void> {
       } catch (e) {
         failed = true
         const err = e as ApiError
-        // 409 別人先改了、404 被刪了、403 權限被撤、400 資料有問題：重試也沒用，停下來告訴使用者
+        // 409 someone else saved, 404 deleted, 403 permission revoked, 400 bad data: retrying will not help, so stop and tell the user
         if ([400, 403, 404, 409].includes(err.status)) {
           blocked.add(b.id)
           toast.error(`「${b.name || '未命名題庫'}」沒有儲存：${err.message}`, { duration: 12000 })
@@ -76,7 +76,7 @@ async function flush(): Promise<void> {
     }
     if (failed) {
       saveState.value = 'error'
-      // 網路或伺服器的暫時問題：稍後自動重試
+      // Temporary network or server problem: retry shortly
       if (isDirty()) retryTimer = setTimeout(flush, 5000)
     } else {
       savedAt.value = new Date()
@@ -88,7 +88,7 @@ async function flush(): Promise<void> {
   } finally {
     flushing = null
   }
-  // 儲存期間又有新的修改
+  // New edits arrived while saving
   if ((saveState.value as SaveState) === 'dirty') scheduleSave()
 }
 
@@ -102,7 +102,7 @@ function scheduleSave() {
 
 watch(banks, () => hydrated && scheduleSave(), { deep: true })
 
-// 還有沒存好的修改時，關閉分頁前提醒
+// Warn before closing the tab with unsaved changes
 window.addEventListener('beforeunload', (event) => {
   if (!mock && saveState.value !== 'saved' && isDirty()) event.preventDefault()
 })
@@ -122,15 +122,15 @@ const totalPoints = computed(() => questions.value.reduce((sum, q) => sum + (q.p
 const incompleteCount = computed(() => questions.value.filter((q) => issuesOf(q).length > 0).length)
 const reviewCount = computed(() => questions.value.filter((q) => q.review).length)
 
-/** 我有出題權限的單位（可以在這些單位建立題庫）。 */
+/** Units where I am an author (I can create banks there). */
 const authorUnits = computed(() => (useAuth().user.value?.units ?? []).filter((u) => u.roles.includes('AUTHOR')))
 
-/** 依目前登入的身分載入題庫。登入、登出後都要呼叫。 */
+/** Loads banks for the current identity. Call after sign-in and sign-out. */
 let loadSeq = 0
 async function load() {
   const { user, ready } = useAuth()
-  // 開機時會被連續呼叫兩次（確認登入狀態前後各一次）。只採用最後一次的結果，
-  // 否則較早的那次載入完、使用者開始打字後，較晚回來的那次會把剛打的字蓋掉。
+  // At start-up this runs twice (before and after the sign-in check). Only the last result counts;
+  // otherwise a late response could overwrite what the user started typing after the earlier one loaded.
   const seq = ++loadSeq
   hydrated = false
   loading.value = true
@@ -176,7 +176,7 @@ function selectBank(id: string) {
   activeId.value = questions.value[0]?.id ?? null
 }
 
-/** 建立題庫並切換過去。可以直接帶入內容（匯入示範題庫用）。 */
+/** Creates a bank and switches to it, optionally with content (used to import the demo bank). */
 async function createBank(unitId = authorUnits.value[0]?.id, init?: Pick<Bank, 'name' | 'subject' | 'duration' | 'questions'>) {
   if (unitId == null) throw new Error('你沒有任何單位的出題權限，請洽單位負責人。')
   const created = fromApi(await api<ApiBank>('/banks', { method: 'POST', body: { unitId, ...init } }))
@@ -214,7 +214,7 @@ function duplicate(id: string) {
   insert([cloneQuestion(source)], id)
 }
 
-/** 刪除題目並回傳復原函式，供「復原」提示使用。 */
+/** Deletes a question and returns an undo function for the "Undo" toast. */
 function remove(id: string) {
   if (!bank.value) return null
   const list = bank.value.questions
@@ -275,7 +275,7 @@ export function useBanks() {
     remove,
     move,
     step,
-    /** 立刻儲存；回傳是否全部存成功。 */
+    /** Saves now; returns whether everything was saved. */
     saveNow: async () => {
       await flush()
       return saveState.value === 'saved'

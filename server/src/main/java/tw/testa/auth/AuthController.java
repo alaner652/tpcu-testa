@@ -44,7 +44,7 @@ public class AuthController {
     public record PasswordRequest(@NotBlank(message = "請輸入目前的密碼。") String currentPassword,
             @NotBlank(message = "請輸入新密碼。") String newPassword) {}
 
-    /** 前端啟動時先呼叫一次，拿到 XSRF-TOKEN cookie；之後的寫入請求把它放進 X-XSRF-TOKEN 標頭。 */
+    /** Called once at frontend start-up to get the XSRF-TOKEN cookie; writes send it back in the X-XSRF-TOKEN header. */
     @GetMapping("/csrf")
     public Map<String, String> csrf(CsrfToken token) {
         return Map.of("headerName", token.getHeaderName(), "token", token.getToken());
@@ -54,7 +54,7 @@ public class AuthController {
     public AuthService.Me login(@Valid @RequestBody LoginRequest body, HttpServletRequest request,
             HttpServletResponse response) {
         Staff staff = auth.authenticate(body.email(), body.password());
-        // 登入後換一個 Session ID，避免 session fixation
+        // New session id after sign-in, against session fixation
         if (request.getSession(false) != null) request.changeSessionId();
         signIn(staff, request, response);
         return auth.me(staff.getId());

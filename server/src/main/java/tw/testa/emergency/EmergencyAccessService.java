@@ -27,16 +27,16 @@ import tw.testa.grading.GradingService;
 import tw.testa.unit.Role;
 
 /**
- * 系統管理員的緊急檢視（學校的決定，2026-11-14）：平常系統管理員看不到考試內容；
- * 單位負責人可以針對一場考試、指定一位系統管理員、填寫理由並限定時效，授權他「只能看」。
- * - 授權、撤銷、每一次檢視都寫入操作紀錄。
- * - 只能看：考試資訊、名單與作答狀態（不含登入碼）、成績與評分進度。不能改任何東西，也看不到題目與答卷內容。
+ * Emergency access for system administrators (school decision, 2026-11-14). Administrators normally cannot see exams;
+ * a unit owner can grant one administrator read-only access to one exam, with a reason and an expiry.
+ * - Grants, revocations and every view are audited.
+ * - Read-only: exam details, roster and progress (no login codes), results and grading progress. No edits, no questions or answers.
  */
 @Service
 public class EmergencyAccessService {
     public record AdminOption(Long staffId, String name, String email) {}
 
-    /** active：還沒過期也沒被撤銷。 */
+    /** active: not expired and not revoked. */
     public record Grant(Long id, Long examId, String examName, String unitName, Long staffId, String staffName,
             String grantedByName, String reason, Instant grantedAt, Instant expiresAt, Instant revokedAt, int viewCount,
             Instant lastViewedAt, boolean active) {}
@@ -83,7 +83,7 @@ public class EmergencyAccessService {
         this.audit = audit;
     }
 
-    // ── 單位負責人 ───────────────────────────────────────
+    // ── Unit owner ───────────────────────────────────────
 
     @Transactional(readOnly = true)
     public Overview overview(Long examId) {
@@ -127,9 +127,9 @@ public class EmergencyAccessService {
         audit.record("EMERGENCY_ACCESS_REVOKED", "exam", examId, e.getUnit().getId(), null, e.getName());
     }
 
-    // ── 系統管理員 ───────────────────────────────────────
+    // ── System administrator ─────────────────────────────
 
-    /** 授權給我、還有效的。 */
+    /** Active grants to me. */
     @Transactional(readOnly = true)
     public List<Grant> mine() {
         access.requireSystemAdmin();
@@ -138,7 +138,7 @@ public class EmergencyAccessService {
                 access.current().id());
     }
 
-    /** 檢視一次，記一筆操作紀錄。授權不是我的、過期或被撤銷，一律「找不到」。 */
+    /** One view, one audit entry. A grant that is not mine, expired or revoked is "not found". */
     @Transactional
     public View view(Long grantId) {
         access.requireSystemAdmin();
@@ -153,7 +153,7 @@ public class EmergencyAccessService {
         return new View(g, exam, exams.candidatesForEmergency(g.examId()), grading.resultsForEmergency(g.examId()));
     }
 
-    // ── 內部 ─────────────────────────────────────────────
+    // ── Internal ─────────────────────────────────────────
 
     private Grant byId(Long id) {
         return jdbc.queryForObject(SELECT + " where g.id = ?", MAPPER, id);

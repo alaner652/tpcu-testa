@@ -7,12 +7,12 @@ export interface Choice {
 
 export interface Blank {
   id: string
-  /** 可接受的答案，任一相符即得分 */
+  /** Accepted answers; any match scores */
   answers: string[]
 }
 
 /**
- * 所有題型共用同一個結構，切換題型時不會遺失已輸入的內容。
+ * All question types share one structure, so switching type keeps what was entered.
  */
 export interface Question {
   id: string
@@ -20,17 +20,17 @@ export interface Question {
   stem: string
   points: number
   explanation: string
-  // 單選、多選
+  // single, multiple
   choices: Choice[]
   correct: string[]
-  // 填空
+  // blank
   blanks: Blank[]
   caseSensitive: boolean
-  // 申論
+  // essay
   rubric: string
   wordLimit: number | null
   aiGrading: boolean
-  /** AI 匯入後尚未由教師確認 */
+  /** Imported by AI and not yet confirmed by the teacher */
   review?: boolean
 }
 
@@ -38,15 +38,15 @@ export interface Bank {
   id: string
   name: string
   subject: string
-  /** 作答時間（分鐘） */
+  /** Time limit (minutes) */
   duration: number
   questions: Question[]
-  // 以下由後端提供（考生端的示範資料沒有）
+  // Provided by the backend (not in the candidate demo data)
   unitId?: number
   unitName?: string
-  /** 伺服器上的版本，儲存時送回去，對不上代表別人先改過了 */
+  /** Version on the server, sent back on save; a mismatch means someone else saved first */
   version?: number
-  /** 我能不能修改這份題庫（出題者可以，單位負責人只能看） */
+  /** Whether I can edit this bank (authors can, unit owners only view) */
   editable?: boolean
 }
 

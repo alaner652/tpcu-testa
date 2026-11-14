@@ -6,7 +6,7 @@ import { toast } from 'vue-sonner'
 import Logo from '@/components/app/Logo.vue'
 import { useAuth } from '@/composables/useAuth'
 
-/** 變更密碼。用臨時密碼登入的人會被帶到這裡，換完才能繼續。 */
+/** Change password. Users signed in with a temporary password land here and must change it first. */
 const { user, changePassword, logout } = useAuth()
 const router = useRouter()
 

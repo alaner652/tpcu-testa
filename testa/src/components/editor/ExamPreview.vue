@@ -9,17 +9,17 @@ import type { Bank } from '@/types/question'
 import StudentQuestion from './StudentQuestion.vue'
 
 /**
- * 模擬作答：教師以考生身分走一次完整流程——計時、逐題作答、標記、交卷、自動批改。
- * 作答內容只存在記憶體，不會寫回題庫。
+ * Try-it mode: the teacher goes through the whole flow as a candidate: timer, answering, flags, submit, auto-grading.
+ * Answers live in memory only and are never written back to the bank.
  */
 const props = defineProps<{
   bank: Bank
-  /** real：考生的正式考試；預設為教師的模擬作答 */
+  /** real: a candidate's real exam; by default the teacher's try-it mode */
   real?: boolean
-  /** 考試標題與作答時間；未提供時沿用題庫的設定 */
+  /** Exam title and time limit; defaults to the bank's settings */
   title?: string
   duration?: number
-  /** 有給的話：答案存到伺服器、時間以伺服器為準、交卷後不顯示批改結果（考生端拿不到答案） */
+  /** When given: answers are saved on the server, the server owns the clock, and no grading result is shown after submitting (candidates never get answers) */
   remote?: RemoteExam
 }>()
 const emit = defineEmits<{
@@ -45,10 +45,10 @@ watch(questions, (list) => (current.value = Math.min(current.value, Math.max(0, 
 const answeredCount = computed(() => questions.value.filter((q) => isAnswered(q, attempts[q.id])).length)
 const unanswered = computed(() => questions.value.length - answeredCount.value)
 
-// 倒數計時
+// Countdown
 const total = computed(() => (props.duration ?? props.bank.duration ?? 60) * 60)
 const elapsed = ref(0)
-// 正式考試：以伺服器給的剩餘時間算出截止時刻，每次存檔再對一次時
+// Real exam: derive the deadline from the server's remaining time and resync on every save
 const deadline = ref(Date.now() + (props.remote?.remainingSeconds ?? 0) * 1000)
 const now = ref(Date.now())
 const remaining = computed(() =>
@@ -67,7 +67,7 @@ const timer = setInterval(() => {
   else if (props.remote?.sync && elapsed.value % SYNC_EVERY === 0) syncClock()
 }, 1000)
 
-// 正式考試：定期向伺服器對時。監考補時後，倒數會跟著變長
+// Real exam: sync with the server periodically, so extra time from a proctor extends the countdown
 const SYNC_EVERY = 30
 let syncing = false
 async function syncClock(): Promise<number | null> {
@@ -78,7 +78,7 @@ async function syncClock(): Promise<number | null> {
     if (submitted.value) return left
     const before = remaining.value
     if (left > 0) deadline.value = Date.now() + left * 1000
-    // 多出一分鐘以上才提示，避免把網路延遲當成補時
+    // Only notify when at least a minute was added, so latency is not mistaken for extra time
     if (left - before >= 50) toast.success(`監考人員已延長你的作答時間，約 ${Math.round((left - before) / 60)} 分鐘`, { duration: 10000 })
     return left
   } catch {
@@ -88,7 +88,7 @@ async function syncClock(): Promise<number | null> {
   }
 }
 
-/** 畫面上的時間到了：先問伺服器是不是真的到了（可能剛被補時），再交卷。 */
+/** The clock ran out on screen: ask the server first (time may just have been added), then submit. */
 let checkingTimeUp = false
 async function onTimeUp() {
   if (checkingTimeUp) return
@@ -106,7 +106,7 @@ onBeforeUnmount(() => {
   clearTimeout(saveTimer)
 })
 
-// ── 正式考試：自動存檔 ───────────────────────────────
+// ── Real exam: autosave ──────────────────────────────
 type SaveState = 'saved' | 'saving' | 'error'
 const saveState = ref<SaveState>('saved')
 const lastSent = new Map<string, string>()
@@ -115,7 +115,7 @@ for (const [id, a] of Object.entries(attempts)) lastSent.set(id, JSON.stringify(
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 let saving: Promise<boolean> | null = null
 
-/** 把還沒存的答案送到伺服器；全部存好回傳 true。 */
+/** Sends unsaved answers to the server; true when everything is saved. */
 async function flushSaves(): Promise<boolean> {
   const remote = props.remote
   if (!remote) return true
@@ -135,7 +135,7 @@ async function flushSaves(): Promise<boolean> {
         lastSent.set(id, body)
         deadline.value = Date.now() + left * 1000
       } catch (e) {
-        // 409：伺服器已經收卷（時間到、考試被結束、已交卷）
+        // 409: the server already closed the attempt (time-up, exam ended, submitted)
         if ((e as { status?: number }).status === 409) {
           finish((e as Error).message)
           return false
@@ -144,7 +144,7 @@ async function flushSaves(): Promise<boolean> {
       }
     }
     saveState.value = ok ? 'saved' : 'error'
-    // 網路暫時不通：答案留在畫面上，稍後自動重送
+    // Network down for now: keep answers on screen and resend shortly
     if (!ok && !submitted.value) saveTimer = setTimeout(flushSaves, 4000)
     return ok
   })()
@@ -185,7 +185,7 @@ async function submit(message = '已交卷，自動批改完成', timeUp = false
     await props.remote.submit()
     finish(timeUp ? message : '已交卷')
   } catch (e) {
-    // 時間到了但連不上：伺服器也會自己收卷，畫面先停止作答
+    // Time is up but the server is unreachable: it will close the attempt itself, so stop answering here
     if (timeUp) finish(message)
     else toast.error((e as Error).message)
   } finally {
@@ -219,10 +219,10 @@ async function restart() {
   toast.success('已重新開始作答')
 }
 
-// 讓外層在離開模擬作答前知道是否有尚未交卷的作答
+// Lets the parent know about an unsubmitted attempt before leaving try-it mode
 defineExpose({ hasProgress: () => !submitted.value && answeredCount.value > 0 })
 
-// 批改結果
+// Grading result
 const grades = computed(() => questions.value.map((q) => grade(q, attempts[q.id])))
 const objective = computed(() => questions.value.filter((q) => q.type !== 'essay'))
 const objectiveTotal = computed(() => objective.value.reduce((sum, q) => sum + q.points, 0))
@@ -260,7 +260,7 @@ function jump(index: number) {
 
 <template>
   <div>
-    <!-- 考試狀態列。正式考試交卷後下面的卡片已經說明一切，不用再一條 -->
+    <!-- Status bar. After a real exam is submitted the card below says it all -->
     <div v-if="!(remote && submitted)" class="sticky top-0 z-10 border-b border-line bg-paper">
       <div class="mx-auto flex h-14 max-w-[1040px] items-center gap-3 px-4 sm:gap-5 md:px-6">
         <template v-if="!submitted">
@@ -304,7 +304,7 @@ function jump(index: number) {
     </div>
 
     <div class="mx-auto grid max-w-[1040px] items-start gap-6 py-3 md:px-6 md:py-7 lg:grid-cols-[minmax(0,1fr)_15rem]">
-      <!-- 沒有題目 -->
+      <!-- No questions -->
       <div v-if="questions.length === 0" class="bg-paper px-5 py-12 shadow-card sm:px-10 md:rounded-card lg:col-span-2">
         <h2 class=" text-2xl font-semibold">還沒有可以作答的題目</h2>
         <p class="mt-2 mb-6 text-[15px] text-ink-2">
@@ -313,7 +313,7 @@ function jump(index: number) {
         <Button v-if="!real" variant="primary" size="md" class="rounded-full" @click="emit('edit')">回到編輯</Button>
       </div>
 
-      <!-- 作答中：一次一題 -->
+      <!-- Answering: one question at a time -->
       <div v-else-if="!submitted && question" class="min-w-0">
         <section class="bg-paper px-5 pt-6 pb-5 shadow-card sm:px-10 sm:pt-9 md:rounded-card">
           <p class="mb-3 flex items-center justify-end text-sm text-ink-2">
@@ -364,7 +364,7 @@ function jump(index: number) {
         </p>
       </div>
 
-      <!-- 正式考試交卷後：只確認已交卷，成績等評分完成後公布 -->
+      <!-- Real exam submitted: confirm only; results come after grading -->
       <div v-else-if="remote" class="min-w-0 lg:col-span-2">
         <section class="bg-paper px-5 py-12 shadow-card sm:px-10 md:rounded-card">
           <h2 class="text-3xl font-bold">已交卷</h2>
@@ -373,7 +373,7 @@ function jump(index: number) {
         </section>
       </div>
 
-      <!-- 交卷後：成績與逐題檢討 -->
+      <!-- Submitted: score and per-question review -->
       <div v-else class="min-w-0 space-y-3">
         <section class="bg-paper px-5 py-7 shadow-card sm:px-10 md:rounded-card">
           <p class="text-sm text-ink-2">{{ title ?? bank.name }}</p>
@@ -419,7 +419,7 @@ function jump(index: number) {
         </section>
       </div>
 
-      <!-- 答案卡 -->
+      <!-- Answer sheet -->
       <aside v-if="questions.length && !(remote && submitted)" class="bg-paper p-5 shadow-card max-lg:mb-6 md:rounded-card lg:sticky lg:top-[5.25rem]">
         <h2 class="text-[15px] font-semibold">答案卡</h2>
         <ol class="mt-3 grid grid-cols-8 gap-2 lg:grid-cols-5">

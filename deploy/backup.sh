@@ -1,17 +1,17 @@
 #!/bin/sh
-# 每天備份一次資料庫到 /backups，保留 BACKUP_KEEP_DAYS 天（預設 30）。
+# Backs up the database to /backups once a day and keeps BACKUP_KEEP_DAYS days (default 30).
 #
-# 還原（會把資料庫整個換成備份當時的內容；先停後端，還原完再開）：
+# Restore (replaces the whole database with the backup; stop the backend first, start it afterwards):
 #   docker compose -f docker-compose.prod.yml stop server
 #   gunzip -c backups/testa-YYYYmmdd-HHMM.sql.gz | docker compose -f docker-compose.prod.yml exec -T db psql -U testa -d testa -v ON_ERROR_STOP=1 --single-transaction
 #   docker compose -f docker-compose.prod.yml start server
 #
-# 立刻多備份一次：docker compose -f docker-compose.prod.yml restart backup
+# Take an extra backup now: docker compose -f docker-compose.prod.yml restart backup
 set -eu
-# 沒有 pipefail 的話，pg_dump 失敗但 gzip 成功會被當成備份成功
+# Without pipefail, a failed pg_dump followed by a successful gzip would count as a good backup
 set -o pipefail
 
-# 第一次啟動時後端還在建表，等資料表出現再備份，才不會留下一份空的備份
+# On first start the backend is still creating tables; wait for them so we do not keep an empty backup
 until psql -h db -U testa -d testa -Atc "select 1 from flyway_schema_history limit 1" >/dev/null 2>&1; do
   echo "等後端把資料表建好…"
   sleep 5

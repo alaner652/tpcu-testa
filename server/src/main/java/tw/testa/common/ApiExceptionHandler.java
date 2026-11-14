@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
-/** 所有錯誤都回 RFC 9457 的 problem+json：{ status, code, detail, errors? }。 */
+/** Every error is RFC 9457 problem+json: { status, code, detail, errors? }. */
 @RestControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 

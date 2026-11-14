@@ -5,7 +5,7 @@ import Button from '@/components/ui/Button.vue'
 import { CANDIDATE_STATUS, EXAM_STATUS, when, type Candidate, type Exam } from '@/composables/useExams'
 import { api } from '@/lib/api'
 
-/** 系統管理員：負責人授權給我的考試。只能看；每開一次都會留下操作紀錄。 */
+/** System administrator: exams an owner granted me. Read-only; every open is audited. */
 interface Grant {
   id: number
   examName: string

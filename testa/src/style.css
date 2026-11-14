@@ -6,28 +6,28 @@
 /*
  * Testa design tokens
  *
- * 配色原則：畫面以中性色為主，只有一個品牌色（黑板綠），其餘顏色只在有意義時出現。
- * - 中性色：畫布、題卡、文字、分隔線都帶一點點綠的灰，彼此同一個色相，不搶戲。
- * - 品牌綠：主要動作、目前所在位置、正確答案。
- * - 紅：只用在錯誤、警示、刪除這類「需要注意」的地方。分數、配分是一般資訊，用文字色。
- * - 黃：待處理（已排程、已標記、待閱卷）。
+ * Colour: mostly neutral with a single brand colour (chalkboard green); other colours appear only when they mean something.
+ * - Neutrals: canvas, cards, text and dividers are greys with a hint of green, all one hue, staying in the background.
+ * - Brand green: primary actions, the current location, correct answers.
+ * - Red: only errors, warnings and delete. Scores and points are ordinary information and use text colour.
+ * - Yellow: pending (scheduled, flagged, awaiting grading).
  */
 :root {
-  --desk: #f3f4f1; /* 畫布 */
-  --paper: #ffffff; /* 題卡 */
-  --sunken: #f1f2ee; /* 輸入區、hover */
-  --ink: #1a1f1c; /* 文字、考生塗黑的圈 */
+  --desk: #f3f4f1; /* canvas */
+  --paper: #ffffff; /* cards */
+  --sunken: #f1f2ee; /* inputs, hover */
+  --ink: #1a1f1c; /* text, filled answer bubbles */
   --ink-2: #4c5450;
   --ink-3: #69716c;
   --line: #e4e6e1;
   --line-strong: #c4c9c3;
-  --brand: #1f6b54; /* 黑板綠：品牌、主要動作、正確答案 */
+  --brand: #1f6b54; /* chalkboard green: brand, primary actions, correct answers */
   --brand-strong: #17513f;
   --brand-soft: #e3efe9;
   --brand-fg: #ffffff;
-  --grade: #b23f2f; /* 紅：錯誤、警示、刪除 */
+  --grade: #b23f2f; /* red: errors, warnings, delete */
   --grade-soft: #f8ebe7;
-  --marker: #f4e7b8; /* 黃：待處理 */
+  --marker: #f4e7b8; /* yellow: pending */
   --marker-ink: #57460c;
   --sh-card: 0 1px 2px rgb(26 31 28 / 0.06), 0 0 0 1px rgb(26 31 28 / 0.03);
   --sh-lift: 0 2px 4px rgb(26 31 28 / 0.05), 0 14px 32px -12px rgb(26 31 28 / 0.22);
@@ -77,7 +77,7 @@
   --font-sans: 'IBM Plex Sans', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
-  /* 圓角依層級區分：題卡最大，控制項次之 */
+  /* Radius by level: cards largest, then controls */
   --radius-card: 14px;
   --radius-control: 8px;
 
@@ -111,7 +111,7 @@
   }
 }
 
-/* 題目內容：編輯與作答共用同一種排版 */
+/* Question content: same typesetting for editing and answering */
 .exam-text {
   font-size: 1.0625rem;
   line-height: 1.7;
@@ -126,7 +126,7 @@
   overflow-y: hidden;
 }
 
-/* 拖曳狀態 */
+/* Drag state */
 .drag-ghost {
   background: var(--brand-soft) !important;
 }
@@ -149,7 +149,7 @@
   }
 }
 
-/* 提示訊息：沿用石墨色，與介面其他深色元素一致 */
+/* Toasts: graphite, matching the other dark elements */
 [data-sonner-toaster] {
   --normal-bg: var(--ink) !important;
   --normal-text: var(--paper) !important;
@@ -167,7 +167,7 @@
   font-weight: 500;
 }
 
-/* 共用的填色輸入框（登入、考試、後台表單） */
+/* Shared filled input (login, exam, admin forms) */
 @layer components {
   .field {
     @apply h-11 w-full rounded-control border-[1.5px] border-transparent bg-sunken px-3.5 text-base text-ink transition-colors outline-none hover:border-line-strong focus:border-brand;
@@ -177,7 +177,7 @@
   }
 }
 
-/* 列印（登入單）：只印內容，拿掉導覽、分頁籤、按鈕與提示 */
+/* Print (login slips): content only, without nav, tabs, buttons and toasts */
 @media print {
   html,
   body,
@@ -198,8 +198,8 @@
   .ticket {
     break-inside: avoid;
   }
-  /* macOS 的 Chrome 把蘋方（PingFang）輸出成 PDF 時中文會整個消失（2026-11 實測），
-     列印時改用一定能內嵌的黑體；Windows 沒有 Heiti TC，會照常落到微軟正黑體。 */
+  /* Chrome on macOS drops Chinese text when printing PingFang to PDF (tested 2026-11),
+     so printing uses Heiti, which always embeds; Windows has no Heiti TC and falls back to Microsoft JhengHei. */
   body,
   body * {
     font-family: 'IBM Plex Sans', 'Noto Sans TC', 'Heiti TC', 'Microsoft JhengHei', 'PingFang TC', sans-serif !important;

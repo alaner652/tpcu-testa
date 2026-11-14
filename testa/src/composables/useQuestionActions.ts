@@ -5,7 +5,7 @@ import { typeMeta } from '@/lib/question'
 import { useBanks } from './useBanks'
 import { useConfirm } from './useConfirm'
 
-/** 帶有確認與操作回饋（提示、復原）的動作，供題卡、工具列與快捷鍵共用。 */
+/** Actions with confirmation and feedback (toast, undo), shared by question cards, the toolbar and shortcuts. */
 export function useQuestionActions() {
   const store = useBanks()
   const { confirm } = useConfirm()
@@ -48,7 +48,7 @@ export function useQuestionActions() {
     else toast.error('儲存沒有成功，請檢查網路連線。')
   }
 
-  /** 開發用：把前端內建的示範題庫建立到伺服器上。 */
+  /** Development only: create the built-in demo bank on the server. */
   async function importDemo() {
     try {
       for (const { name, subject, duration, questions } of createMockBanks()) {

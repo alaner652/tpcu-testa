@@ -34,12 +34,12 @@ import tw.testa.grading.GradingDtos.Results;
 import tw.testa.unit.Role;
 
 /**
- * 申論題評分與成績。
- * - 承辦人為每場考試指派 1 到多位評分者（必須是該單位的「評分」角色）。
- * - 評分者只看到匿名編號與作答，看不到考生身分，也看不到其他人的分數；每個人看到的順序不同。
- * - 一個答案被所有指派的評分者送出後即「鎖定」，得分 = 平均（四捨五入到小數一位）。
- * - 考生總分 = 自動批改得分 + 各申論題平均。空白的申論答案直接 0 分，不需要評。
- * - 分數一律即時由 grading 紀錄算出，不另外存，避免兩邊對不上。
+ * Essay grading and results.
+ * - The officer assigns one or more graders per exam (they must hold the unit's grader role).
+ * - Graders see only an anonymous number and the answer, never the candidate or other scores; each grader sees a different order.
+ * - An answer locks once every assigned grader has submitted; its score is the average (rounded to one decimal).
+ * - Candidate total = auto-graded score + the average of each essay. Blank essays score 0 and need no grading.
+ * - Scores are always computed from grading records, never stored separately, so they cannot disagree.
  */
 @Service
 public class GradingService {
@@ -58,12 +58,12 @@ public class GradingService {
         this.props = props;
     }
 
-    /** 一個需要人工評分的申論答案。 */
+    /** An essay answer that needs a grader. */
     private record Essay(long attemptId, String anonId, String questionId, String text) {}
 
     private record Given(long attemptId, String questionId, long staffId, BigDecimal score, String comment) {}
 
-    // ── 評分者 ───────────────────────────────────────────
+    // ── Graders ──────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public List<GradingExam> myExams() {
@@ -90,7 +90,7 @@ public class GradingService {
         Map<String, QuestionDto> questions = essayQuestions(e);
         List<String> order = e.getSnapshot().questions().stream().map(QuestionDto::id).toList();
         List<Essay> essays = new ArrayList<>(essays(e));
-        // 每位評分者看到的順序不同（同一個人每次看到的順序固定）
+        // Each grader sees a different order (stable for the same grader)
         essays.sort(Comparator.comparingInt((Essay x) -> Objects.hash(me, x.anonId(), x.questionId())));
         return essays.stream().map(x -> {
             QuestionDto q = questions.get(x.questionId());
@@ -100,7 +100,7 @@ public class GradingService {
         }).toList();
     }
 
-    /** 送出一個答案的分數。送出後自己不能再改。 */
+    /** Submits a score for one answer. It cannot be changed afterwards. */
     @Transactional
     public void score(Long examId, String anonId, String questionId, BigDecimal score, String comment) {
         Exam e = gradableExam(examId);
@@ -122,9 +122,9 @@ public class GradingService {
         }
     }
 
-    // ── 承辦人 ───────────────────────────────────────────
+    // ── Officers ─────────────────────────────────────────
 
-    /** 這個單位所有有「評分」角色的人，以及誰被指派、評了多少。看不到分數。 */
+    /** Everyone in the unit with the grader role, who is assigned and how much they graded. No scores. */
     @Transactional(readOnly = true)
     public List<GraderInfo> graders(Long examId) {
         Exam e = ownedExam(examId);
@@ -153,7 +153,7 @@ public class GradingService {
         for (Given g : given(examId)) graded.add(g.staffId());
         for (Long id : current) {
             if (wanted.contains(id)) continue;
-            // 已經送出分數的評分者不能直接移除，否則分數會無聲無息消失
+            // A grader who has submitted scores cannot simply be removed, or the scores would silently disappear
             if (graded.contains(id)) {
                 throw ApiException.conflict("has_gradings", "這位評分者已經送出分數，不能移除。");
             }
@@ -181,7 +181,7 @@ public class GradingService {
         return compute(e);
     }
 
-    /** 重開一個答案的評分：刪掉所有人對它的分數，請評分者重評。必須填理由。 */
+    /** Reopens grading of one answer: deletes every score for it and asks graders again. Requires a reason. */
     @Transactional
     public void reopen(Long examId, String anonId, String questionId, String reason) {
         Exam e = ownedExam(examId);
@@ -222,7 +222,7 @@ public class GradingService {
         };
     }
 
-    /** 成績表（CSV，UTF-8 含 BOM，Excel 可以直接開）。 */
+    /** Score sheet as CSV (UTF-8 with BOM so Excel opens it directly). */
     @Transactional
     public String exportCsv(Long examId) {
         Exam e = ownedExam(examId);
@@ -237,7 +237,7 @@ public class GradingService {
         return sb.toString();
     }
 
-    /** 成績表（Excel .xlsx）。欄位與 CSV 相同；分數是數字格式，文字欄一律存成文字（不會被當成公式）。 */
+    /** Score sheet as Excel .xlsx. Same columns as the CSV; scores are numbers, text cells are always text (never formulas). */
     @Transactional
     public byte[] exportXlsx(Long examId) {
         Exam e = ownedExam(examId);
@@ -278,11 +278,11 @@ public class GradingService {
         }
     }
 
-    // ── 考生 ─────────────────────────────────────────────
+    // ── Candidates ───────────────────────────────────────
 
     /**
-     * 考生查自己的成績：成績公布之後才有，公布前一律 null。
-     * 這裡不檢查教職員權限，呼叫端（AttemptService）必須已經確認 candidateId 就是登入的考生本人。
+     * A candidate's own result: available after publishing, null before.
+     * No staff permission check here; the caller (AttemptService) must have confirmed candidateId is the signed-in candidate.
      */
     @Transactional(readOnly = true)
     public CandidateResult candidateResult(Exam e, Long candidateId) {
@@ -291,13 +291,13 @@ public class GradingService {
                 rs -> rs.next() ? rs.getString(1) : null, candidateId, e.getId());
         if (ticket == null) return null;
         Results r = compute(e);
-        // 准考證號在同一場考試裡不會重複
+        // Candidate numbers are unique within an exam
         ResultRow row = r.rows().stream().filter(x -> x.ticket().equals(ticket)).findFirst().orElse(null);
         if (row == null) return null;
         return new CandidateResult(r.publishedAt(), r.fullMarks(), row.autoScore(), row.essayScore(), row.total());
     }
 
-    // ── 內部 ─────────────────────────────────────────────
+    // ── Internal ─────────────────────────────────────────
 
     private Results compute(Exam e) {
         Long examId = e.getId();
@@ -334,7 +334,7 @@ public class GradingService {
             items.add(new ItemSummary(x.anonId(), x.questionId(), order.indexOf(x.questionId()) + 1, q.points(), s.size(),
                     graders.size(), isLocked, isLocked ? s.stream().sorted().toList() : List.of(), avg, flagged));
         }
-        // 需要注意的排前面
+        // Items needing attention first
         items.sort(Comparator.comparing((ItemSummary i) -> !i.flagged()).thenComparing(ItemSummary::locked)
                 .thenComparing(ItemSummary::anonId).thenComparingInt(ItemSummary::number));
 
@@ -358,7 +358,7 @@ public class GradingService {
                 e.getResultsPublishedAt(), rows, items);
     }
 
-    /** 已交卷、而且真的有寫東西的申論答案。 */
+    /** Submitted essay answers that actually contain text. */
     private List<Essay> essays(Exam e) {
         Set<String> ids = essayQuestions(e).keySet();
         if (ids.isEmpty()) return List.of();
@@ -389,7 +389,7 @@ public class GradingService {
         return map;
     }
 
-    /** 我被指派評分、而且仍有評分角色的考試；其他一律「找不到」。 */
+    /** Exams I am assigned to and still hold the grader role for; anything else is "not found". */
     private Exam gradableExam(Long examId) {
         Exam e = examRepo.findById(examId).orElseThrow(() -> ApiException.notFound("找不到這場考試。"));
         boolean mine = assignedGraders(examId).contains(access.current().id())
@@ -404,7 +404,7 @@ public class GradingService {
         if (e.isArchived()) throw ApiException.conflict("archived", "這場考試已經封存，不能再更動。");
     }
 
-    /** 緊急檢視用：不檢查單位角色。呼叫端（EmergencyAccessService）必須已經確認授權有效並寫入操作紀錄。 */
+    /** For emergency access: skips unit role checks. The caller (EmergencyAccessService) must have verified the grant and written the audit log. */
     @Transactional(readOnly = true)
     public Results resultsForEmergency(Long examId) {
         return compute(examRepo.findById(examId).orElseThrow(() -> ApiException.notFound("找不到這場考試。")));
@@ -422,7 +422,7 @@ public class GradingService {
 
     private static String csv(String s) {
         String v = s == null ? "" : s;
-        // 避免 Excel 把開頭是 = + - @ 的內容當成公式執行
+        // Stop Excel from running content that starts with = + - @ as a formula
         if (!v.isEmpty() && "=+-@".indexOf(v.charAt(0)) >= 0) v = "'" + v;
         return v.matches(".*[\",\\r\\n].*") ? "\"" + v.replace("\"", "\"\"") + "\"" : v;
     }

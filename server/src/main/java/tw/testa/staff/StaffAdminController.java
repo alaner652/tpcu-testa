@@ -31,7 +31,7 @@ import tw.testa.unit.Role;
 import tw.testa.unit.UnitRole;
 import tw.testa.unit.UnitRoleRepository;
 
-/** 系統管理員管理教職員帳號。 */
+/** Staff account management for system administrators. */
 @RestController
 @RequestMapping("/api/admin/staff")
 @PreAuthorize("@access.isSystemAdmin()")
@@ -67,7 +67,7 @@ public class StaffAdminController {
         boolean admin() { return Boolean.TRUE.equals(systemAdmin); }
     }
 
-    /** 建立帳號或重設密碼後，臨時密碼只會在這個回應出現一次。 */
+    /** After creating an account or resetting a password, the temporary password appears only in this response. */
     public record CreatedDto(StaffDto staff, String temporaryPassword) {}
 
     public record UpdateRequest(@Size(min = 1, max = 100, message = "請輸入姓名。") String name, Boolean active,
@@ -123,7 +123,7 @@ public class StaffAdminController {
                 .map(r -> new UnitRoleDto(r.getUnit().getId(), r.getUnit().getName(), r.getRole())).toList());
     }
 
-    /** 重設密碼並解除鎖定。對方所有裝置都會被登出，下次登入必須改密碼。 */
+    /** Resets the password and clears the lockout. Every device is signed out and the next sign-in must change the password. */
     @PostMapping("/{id}/reset-password")
     @Transactional
     public CreatedDto resetPassword(@PathVariable Long id) {

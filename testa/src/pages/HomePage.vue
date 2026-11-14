@@ -7,8 +7,8 @@ import { useExams, when } from '@/composables/useExams'
 import { useGrading } from '@/composables/useGrading'
 
 /**
- * 首頁＝待辦清單：登入後一眼看到「現在該做什麼」，每件事一顆按鈕。
- * 沒事做的時候只顯示一句「目前沒有待辦」，不放一堆卡片。
+ * Home is a to-do list: right after sign-in, see what to do now, one button per item.
+ * With nothing to do it says so in one line instead of showing a pile of cards.
  */
 const { user } = useAuth()
 const { banks } = useBanks()
@@ -30,7 +30,7 @@ interface Todo {
 
 const todos = computed<Todo[]>(() => {
   const list: Todo[] = []
-  // 閱卷：評分者最重要的事
+  // Grading: the most important thing for graders
   for (const g of gradingExams.value.filter((g) => g.total > g.done)) {
     list.push({ key: `g${g.examId}`, icon: ClipboardCheck, text: `「${g.name}」有 ${g.total - g.done} 份申論等你批改`, to: '/grading', action: '開始批改', urgent: true })
   }
@@ -57,7 +57,7 @@ const todos = computed<Todo[]>(() => {
   return list
 })
 
-/** 沒有待辦時，給一個起點 */
+/** With nothing to do, offer a starting point */
 const starters = computed(() => [
   ...(can('AUTHOR') ? [{ to: '/banks', icon: LibraryBig, text: banks.value.length ? `題庫（${banks.value.length} 份）` : '建立第一份題庫' }] : []),
   ...(can('OWNER') ? [{ to: '/exams', icon: Plus, text: '安排一場考試' }] : []),

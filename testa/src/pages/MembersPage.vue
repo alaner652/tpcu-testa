@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import UnitMembers from '@/components/app/UnitMembers.vue'
 import { useAuth } from '@/composables/useAuth'
 
-/** 單位負責人管理自己單位的成員與角色。帳號本身由系統管理員建立。 */
+/** Unit owners manage their unit's members and roles. Accounts are created by system administrators. */
 const { user } = useAuth()
 const owned = computed(() => (user.value?.units ?? []).filter((u) => u.roles.includes('OWNER')))
 </script>

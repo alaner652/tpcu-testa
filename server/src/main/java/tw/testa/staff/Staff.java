@@ -62,7 +62,7 @@ public class Staff {
         return email == null ? "" : email.trim().toLowerCase();
     }
 
-    /** 讓這個帳號現有的所有登入狀態失效。 */
+    /** Invalidates every existing session of this account. */
     public void invalidateSessions() { sessionVersion++; }
 
     public boolean isLocked(Instant now) { return lockedUntil != null && lockedUntil.isAfter(now); }

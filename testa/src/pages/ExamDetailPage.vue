@@ -11,8 +11,8 @@ import { useConfirm } from '@/composables/useConfirm'
 import { CANDIDATE_STATUS, EXAM_STATUS, retainLabel, useExams, when, type Candidate, type RosterPreview } from '@/composables/useExams'
 
 /**
- * 一場考試要做的事都在這一頁：考生（名單與監考）、登入單、評分、成績。
- * 名單與監考是同一份清單，所以合在一起：考前管理名單，考試中看每個人的狀態。
+ * Everything for one exam on one page: candidates (roster and proctoring), login slips, grading, results.
+ * Roster and proctoring are the same list: manage it before the exam, watch each candidate during it.
  */
 const route = useRoute()
 const store = useExams()
@@ -32,7 +32,7 @@ const STATUS_COUNTS = [
 const fail = (e: unknown) => toast.error((e as Error).message)
 
 type Step = 'roster' | 'tickets' | 'grading' | 'results' | 'access'
-// 評分與成績只有負責人看得到（監考碰不到分數）
+// Grading and results are for owners only (proctors never see scores)
 const STEPS = computed<{ value: Step; label: string; icon: Component }[]>(() => [
   { value: 'roster', label: '考生', icon: Users },
   { value: 'tickets', label: '登入單', icon: Ticket },
@@ -42,11 +42,11 @@ const STEPS = computed<{ value: Step; label: string; icon: Component }[]>(() => 
         { value: 'results', label: '成績', icon: ChartColumn },
       ] as const)
     : []),
-  // 緊急檢視很少用，收在標題旁的「⋯」裡；打開時才出現在分頁列
+  // Emergency access is rare: it lives in the "..." menu by the title and shows as a tab only when opened
   ...(step.value === 'access' ? ([{ value: 'access', label: '緊急檢視', icon: ShieldCheck }] as const) : []),
 ])
 const step = ref<Step>('roster')
-// 考試結束後，直接打開下一步要做的分頁
+// Once the exam has ended, open the tab for the next step
 watch(
   () => exam.value?.id,
   () => {
@@ -71,10 +71,10 @@ async function loadList() {
   }
 }
 
-// 考試清單載入後（或直接開這一頁時）再抓名單
+// Load the roster once the exam list is in (or when this page is opened directly)
 watch(() => exam.value?.id, (id) => id != null && loadList(), { immediate: true })
 
-// 考試進行中：每 10 秒更新一次考生狀態
+// While live: refresh candidate status every 10 seconds
 const live = computed(() => exam.value?.status === 'live')
 let timer: ReturnType<typeof setInterval> | undefined
 onMounted(() => {
@@ -86,7 +86,7 @@ onMounted(() => {
 })
 onBeforeUnmount(() => clearInterval(timer))
 
-// 匯入：選檔案 → 伺服器檢查 → 確認後匯入
+// Import: pick a file, the server checks it, import after confirmation
 const fileInput = ref<HTMLInputElement | null>(null)
 const preview = ref<RosterPreview | null>(null)
 const busy = ref(false)
@@ -149,7 +149,7 @@ function rowActions(c: Candidate): MoreAction[] {
   ]
 }
 
-// 補時：考生因為設備問題損失時間時，把截止時間往後延
+// Extra time: move the deadline when a candidate lost time to equipment problems
 const extending = ref<number | null>(null)
 const extendMinutes = ref(5)
 const extendReason = ref('')
@@ -252,10 +252,10 @@ const site = location.origin + location.pathname
       <Button variant="outline" class="rounded-full" @click="loadList"><RotateCw />重試</Button>
     </p>
 
-    <!-- 考生：名單與監考 -->
+    <!-- Candidates: roster and proctoring -->
     <section v-if="step === 'roster'" class="card">
       <div class="flex min-h-16 flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-3 sm:px-6">
-        <!-- 考試開始前只有人數；開始後看每種狀態各幾位 -->
+        <!-- Before the exam only the head count; afterwards a count per status -->
         <p v-if="exam.status === 'draft' || exam.status === 'scheduled'" class="text-[15px] text-ink-2">
           <strong class="font-semibold text-ink tabular-nums">{{ list.length }}</strong> 位考生
         </p>
@@ -316,7 +316,7 @@ const site = location.origin + location.pathname
           <span v-if="c.leaveCount" class="rounded-full bg-marker px-2.5 py-0.5 text-[13px] font-medium text-marker-ink">離開畫面 {{ c.leaveCount }} 次</span>
           <span v-if="c.extraMinutes" class="rounded-full bg-sunken px-2.5 py-0.5 text-[13px] font-medium text-ink-2">已補時 {{ c.extraMinutes }} 分鐘</span>
           <span v-if="c.status === 'IN' && c.deadlineAt" class="text-sm text-ink-2 tabular-nums">作答到 {{ clockTime(c.deadlineAt) }}</span>
-          <!-- 考試還沒開始時每個人都是「尚未登入」，不用每一列都寫 -->
+          <!-- Before the exam everyone is "not signed in", so rows do not repeat it -->
           <span
             v-if="exam.status === 'live' || exam.status === 'ended'"
             class="rounded-full px-2.5 py-0.5 text-[13px] font-medium"
@@ -340,7 +340,7 @@ const site = location.origin + location.pathname
       <p v-if="live && list.length" class="border-t border-line px-5 py-3 text-sm text-ink-3 sm:px-6">每 10 秒自動更新。</p>
     </section>
 
-    <!-- 2 登入單 -->
+    <!-- Login slips -->
     <section v-else-if="step === 'tickets'">
       <div class="no-print card flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
         <p class="min-w-0 flex-1 basis-64 text-[15px] text-ink-2">每位考生一張。登入碼等同密碼，印出後請妥善保管。</p>
@@ -366,7 +366,7 @@ const site = location.origin + location.pathname
       </ul>
     </section>
 
-    <!-- 評分、成績 -->
+    <!-- Grading, results -->
     <EmergencyAccess v-else-if="step === 'access'" :exam="exam" />
     <ExamScoring v-else :key="step" :exam="exam" :view="step" />
   </div>

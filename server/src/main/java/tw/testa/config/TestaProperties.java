@@ -8,10 +8,10 @@ public record TestaProperties(@DefaultValue BootstrapAdmin bootstrapAdmin, @Defa
         @DefaultValue("false") boolean devSeed, @DefaultValue Grading grading,
         @DefaultValue("") String backupDir, @DefaultValue Retention retention) {
 
-    /** flagRatio：評分者之間最高分與最低分的差距超過「配分 × 這個比例」就警示承辦人（100 分的題目差 20 分以上）。 */
+    /** flagRatio: warn the officer when the highest and lowest grader differ by more than points x ratio (20 on a 100-point question). */
     public record Grading(@DefaultValue("0.2") double flagRatio) {}
 
-    /** years：考試資料保留到「考試結束那一年 + years」的年底，之後封存的考試才能刪除。 */
+    /** years: exam data is kept until the end of (year the exam ended + years); after that an archived exam can be deleted. */
     public record Retention(@DefaultValue("1") int years) {}
 
     public record BootstrapAdmin(@DefaultValue("") String email, @DefaultValue("") String password,

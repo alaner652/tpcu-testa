@@ -54,7 +54,7 @@ public class Bank {
         this.createdBy = createdBy;
     }
 
-    /** 內容有變動：版本加一。 */
+    /** Content changed: bump the version. */
     public void touch() {
         version++;
         updatedAt = Instant.now();

@@ -7,7 +7,7 @@ import { UNIT_ROLE_LABEL, type UnitRole } from '@/composables/useAuth'
 import { useConfirm } from '@/composables/useConfirm'
 import { api } from '@/lib/api'
 
-/** 一個單位的成員與角色。系統管理員與該單位的負責人都可以用。 */
+/** A unit's members and roles. Used by system administrators and the unit's owners. */
 const props = defineProps<{ unit: { id: number; name: string } }>()
 
 interface UnitMember {
@@ -23,7 +23,7 @@ const { confirm } = useConfirm()
 const members = ref<UnitMember[]>([])
 const loaded = ref(false)
 const error = ref('')
-/** MVP 把四種角色合併成兩種常用組合，也可以單獨指派 */
+/** The MVP combines the four roles into two common sets; single roles can still be assigned */
 const ROLE_CHOICES: { value: string; label: string; roles: UnitRole[] }[] = [
   { value: 'officer', label: '承辦人（負責人＋監考）', roles: ['OWNER', 'PROCTOR'] },
   { value: 'teacher', label: '教師（出題＋評分）', roles: ['AUTHOR', 'GRADER'] },
@@ -47,7 +47,7 @@ async function load() {
 }
 onMounted(load)
 
-/** 同一位教職員的多個角色排在同一列 */
+/** All roles of one staff member on one row */
 const grouped = () => {
   const map = new Map<number, { staffId: number; name: string; email: string; active: boolean; roles: UnitMember[] }>()
   for (const m of members.value) {
@@ -75,7 +75,7 @@ async function add() {
   await load()
 }
 
-/** 在成員那一列直接加角色：按「＋」展開這個人還沒有的角色，點一下就加上 */
+/** Add a role right on the member's row: "+" lists the roles they lack, one click adds it */
 const ALL_ROLES = Object.keys(UNIT_ROLE_LABEL) as UnitRole[]
 const addingFor = ref<number | null>(null)
 const missing = (roles: UnitMember[]) => ALL_ROLES.filter((r) => !roles.some((m) => m.role === r))

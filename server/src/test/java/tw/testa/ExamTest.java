@@ -79,10 +79,10 @@ class ExamTest extends IntegrationTestBase {
     }
 
     @Test
-    void 考試的生命週期_草稿_發布_取消_進行中_結束() throws Exception {
+    void lifecycle_draft_publish_unpublish_live_ended() throws Exception {
         long id = createExam(null);
 
-        // 沒有開始時間不能發布
+        // Cannot publish without a start time
         mvc.perform(post("/api/exams/" + id + "/publish").with(csrf()).session(owner))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("no_start"));
 
@@ -93,16 +93,16 @@ class ExamTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.status").value("scheduled")).andExpect(jsonPath("$.questionCount").value(1))
                 .andExpect(jsonPath("$.totalPoints").value(5.0));
 
-        // 發布後不能改、不能刪、還沒開始不能結束
+        // Once published: no edits, no deleting, cannot end before it starts
         mvc.perform(json(patch("/api/exams/" + id), "{\"name\":\"偷改\"}").session(owner)).andExpect(status().isConflict());
         mvc.perform(delete("/api/exams/" + id).with(csrf()).session(owner)).andExpect(status().isConflict());
         mvc.perform(post("/api/exams/" + id + "/end").with(csrf()).session(owner)).andExpect(status().isConflict());
 
-        // 發布後題庫再改，不影響這場考試（快照）
+        // Editing the bank after publishing does not affect the exam (snapshot)
         saveBank(1, Q, Q.replace("q_1", "q_2"));
         mvc.perform(get("/api/exams/" + id).session(owner)).andExpect(jsonPath("$.questionCount").value(1));
 
-        // 取消發布 → 改成已經開始 → 再發布就是進行中，快照是新的
+        // Unpublish, move the start into the past, publish again: live, with a new snapshot
         mvc.perform(post("/api/exams/" + id + "/withdraw").with(csrf()).session(owner)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("draft"));
         mvc.perform(json(patch("/api/exams/" + id), "{\"startAt\":\"%s\"}".formatted(Instant.now().minusSeconds(60)))
@@ -116,7 +116,7 @@ class ExamTest extends IntegrationTestBase {
     }
 
     @Test
-    void 題目沒寫完不能發布() throws Exception {
+    void cannotPublishUnfinishedQuestions() throws Exception {
         saveBank(1, Q, "{\"id\":\"q_draft\",\"type\":\"single\",\"stem\":\"還沒選答案\",\"points\":5,"
                 + "\"choices\":[{\"id\":\"a\",\"text\":\"1\"},{\"id\":\"b\",\"text\":\"2\"}],\"correct\":[]}");
         long id = createExam(Instant.now().plus(1, ChronoUnit.DAYS));
@@ -126,11 +126,11 @@ class ExamTest extends IntegrationTestBase {
     }
 
     @Test
-    void 權限_負責人管理_監考唯讀加重設登入碼_其他人看不到() throws Exception {
+    void permissions_ownerManages_proctorReadsAndResetsCodes_othersSeeNothing() throws Exception {
         long id = createExam(null);
         String create = "{\"name\":\"x\",\"bankId\":%d,\"duration\":60}".formatted(bank);
 
-        // 監考：看得到，不能建立、修改、匯入
+        // Proctor: can view, cannot create, edit or import
         mvc.perform(get("/api/exams").session(proctor)).andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].canManage").value(false));
         mvc.perform(get("/api/exams/" + id + "/candidates").session(proctor)).andExpect(status().isOk());
@@ -139,7 +139,7 @@ class ExamTest extends IntegrationTestBase {
         mvc.perform(json(post("/api/exams/" + id + "/candidates"),
                 "{\"rows\":[{\"ticket\":\"A1\",\"name\":\"x\"}]}").session(proctor)).andExpect(status().isForbidden());
 
-        // 出題者、系統管理員：看不到考試與名單
+        // Author, administrator: cannot see exams or rosters
         for (MockHttpSession s : List.of(author, admin)) {
             mvc.perform(get("/api/exams").session(s)).andExpect(jsonPath("$.length()").value(0));
             mvc.perform(get("/api/exams/" + id).session(s)).andExpect(status().isNotFound());
@@ -150,7 +150,7 @@ class ExamTest extends IntegrationTestBase {
     }
 
     @Test
-    void 匯入名單_檢查_座位_登入碼_重設_移除() throws Exception {
+    void rosterImport_check_seats_codes_reset_remove() throws Exception {
         long id = createExam(null);
         String file = """
                 准考證號,姓名,報考科系
@@ -170,16 +170,16 @@ class ExamTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.problems[0].reason").value("缺少准考證號"))
                 .andExpect(jsonPath("$.problems[1].reason").value("缺少姓名"))
                 .andExpect(jsonPath("$.problems[2].reason").value("准考證號在檔案裡重複")).andReturn();
-        // 檢查不會寫入
+        // Checking writes nothing
         mvc.perform(get("/api/exams/" + id + "/candidates").session(owner)).andExpect(jsonPath("$.length()").value(0));
 
         String rows = "{\"rows\":[{\"ticket\":\"a115-0001\",\"name\":\"王小明\",\"dept\":\"資訊工程科\"},"
                 + "{\"ticket\":\"A115-0002\",\"name\":\"李, 宜華\",\"dept\":\"電機工程科\"}]}";
         mvc.perform(json(post("/api/exams/" + id + "/candidates"), rows).session(owner)).andExpect(status().isCreated())
                 .andExpect(jsonPath("$.added").value(2)).andExpect(jsonPath("$.total").value(2));
-        // 再匯入同一批：整批拒絕
+        // Importing the same batch again is rejected as a whole
         mvc.perform(json(post("/api/exams/" + id + "/candidates"), rows).session(owner)).andExpect(status().isConflict());
-        // 再上傳同一個檔案：已在名單中的會被標出來
+        // Uploading the same file again flags those already on the roster
         mvc.perform(multipart("/api/exams/" + id + "/candidates/preview").file(csv(file, StandardCharsets.UTF_8))
                 .with(csrf()).session(owner)).andExpect(jsonPath("$.rows.length()").value(0))
                 .andExpect(jsonPath("$.problems[0].reason").value("已經在名單中"));
@@ -192,19 +192,19 @@ class ExamTest extends IntegrationTestBase {
         long cid = ((Number) read(list, "$[0].id")).longValue();
         mvc.perform(get("/api/exams/" + id).session(owner)).andExpect(jsonPath("$.takers").value(2));
 
-        // 監考可以重設登入碼
+        // Proctors can reset login codes
         var reset = mvc.perform(post("/api/exams/" + id + "/candidates/" + cid + "/reset-code").with(csrf()).session(proctor))
                 .andExpect(status().isOk()).andReturn();
         String next = read(reset, "$.code");
         assertThat(next).matches("\\d{6}");
         mvc.perform(get("/api/exams/" + id + "/candidates").session(owner)).andExpect(jsonPath("$[0].code").value(next));
 
-        // 移除：監考不行，負責人可以
+        // Removing: proctors cannot, owners can
         mvc.perform(delete("/api/exams/" + id + "/candidates/" + cid).with(csrf()).session(proctor))
                 .andExpect(status().isForbidden());
         mvc.perform(delete("/api/exams/" + id + "/candidates/" + cid).with(csrf()).session(owner))
                 .andExpect(status().isNoContent());
-        // 新匯入的人座位接在後面，不重複
+        // Newly imported candidates get the next seats, no duplicates
         mvc.perform(json(post("/api/exams/" + id + "/candidates"), "{\"rows\":[{\"ticket\":\"A115-0009\",\"name\":\"新同學\"}]}")
                 .session(owner)).andExpect(status().isCreated());
         mvc.perform(get("/api/exams/" + id + "/candidates").session(owner)).andExpect(jsonPath("$.length()").value(2))
@@ -215,16 +215,16 @@ class ExamTest extends IntegrationTestBase {
     }
 
     @Test
-    void 名單可以是Big5的CSV_沒有標題列_或Excel() throws Exception {
+    void rosterCanBeBig5Csv_withoutHeader_orExcel() throws Exception {
         long id = createExam(null);
-        // Big5、沒有標題列
+        // Big5, no header row
         mvc.perform(multipart("/api/exams/" + id + "/candidates/preview")
                 .file(csv("B001,陳柏安,電機工程科\r\nB002,林子妤,電機工程科\r\n", Charset.forName("MS950")))
                 .with(csrf()).session(owner)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.rows.length()").value(2)).andExpect(jsonPath("$.rows[0].name").value("陳柏安"))
                 .andExpect(jsonPath("$.rows[1].dept").value("電機工程科"));
 
-        // Excel：欄位順序不同，准考證號是數字格式
+        // Excel: different column order, candidate number as a numeric cell
         byte[] xlsx;
         try (XSSFWorkbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             var sheet = wb.createSheet();
@@ -258,7 +258,7 @@ class ExamTest extends IntegrationTestBase {
     }
 
     @Test
-    void 題庫被刪除後_草稿不能發布_已發布的不受影響() throws Exception {
+    void deletedBank_draftCannotPublish_publishedUnaffected() throws Exception {
         long draft = createExam(Instant.now().plus(1, ChronoUnit.DAYS));
         long published = createExam(Instant.now().plus(1, ChronoUnit.DAYS));
         mvc.perform(post("/api/exams/" + published + "/publish").with(csrf()).session(owner)).andExpect(status().isOk());

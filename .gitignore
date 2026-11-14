@@ -1,19 +1,19 @@
-# 共用
+# Shared
 .DS_Store
 .idea/
 .vscode/
 *.log
 .env
 
-# 前端
+# Frontend
 node_modules/
 dist/
 *.tsbuildinfo
 
-# 後端
+# Backend
 target/
 
-# 部署
+# Deployment
 backups/
 
 # Python

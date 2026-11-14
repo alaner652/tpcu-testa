@@ -19,7 +19,7 @@ class AuthTest extends IntegrationTestBase {
     JdbcTemplate jdbc;
 
     @Test
-    void 未登入一律401() throws Exception {
+    void unauthenticatedIsAlways401() throws Exception {
         mvc.perform(get("/api/auth/me")).andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("unauthorized"));
         mvc.perform(get("/api/units")).andExpect(status().isUnauthorized());
@@ -28,7 +28,7 @@ class AuthTest extends IntegrationTestBase {
     }
 
     @Test
-    void 登入成功後可以取得自己的資料() throws Exception {
+    void signedInUserCanReadOwnProfile() throws Exception {
         MockHttpSession s = adminSession();
         mvc.perform(get("/api/auth/me").session(s)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value(ADMIN_EMAIL))
@@ -36,7 +36,7 @@ class AuthTest extends IntegrationTestBase {
     }
 
     @Test
-    void 帳號或密碼錯誤回同樣的401() throws Exception {
+    void wrongAccountOrPasswordGivesTheSame401() throws Exception {
         mvc.perform(json(post("/api/auth/login"), "{\"email\":\"admin@test.tw\",\"password\":\"nope-nope\"}"))
                 .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.detail").value("帳號或密碼不正確，請再試一次。"));
         mvc.perform(json(post("/api/auth/login"), "{\"email\":\"nobody@test.tw\",\"password\":\"nope-nope\"}"))
@@ -44,21 +44,21 @@ class AuthTest extends IntegrationTestBase {
     }
 
     @Test
-    void 沒帶CSRF的寫入請求被拒絕() throws Exception {
+    void writesWithoutCsrfAreRejected() throws Exception {
         mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"admin@test.tw\",\"password\":\"admin-password\"}"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    void 連續輸錯密碼會鎖定_重設密碼後解鎖() throws Exception {
+    void repeatedWrongPasswordsLock_resetUnlocks() throws Exception {
         MockHttpSession admin = adminSession();
         Object[] staff = createStaff(admin, "lock@test.tw", "鎖定測試");
         String bad = "{\"email\":\"lock@test.tw\",\"password\":\"wrong-password\"}";
         for (int i = 0; i < 3; i++) {
             mvc.perform(json(post("/api/auth/login"), bad)).andExpect(status().isUnauthorized());
         }
-        // 鎖定後連正確密碼也進不去
+        // Once locked, even the right password fails
         mvc.perform(json(post("/api/auth/login"),
                 "{\"email\":\"lock@test.tw\",\"password\":\"%s\"}".formatted(staff[1])))
                 .andExpect(status().isTooManyRequests()).andExpect(jsonPath("$.code").value("locked"));
@@ -70,7 +70,7 @@ class AuthTest extends IntegrationTestBase {
     }
 
     @Test
-    void 新帳號要先改密碼_改完舊密碼失效() throws Exception {
+    void newAccountMustChangePassword_oldPasswordStopsWorking() throws Exception {
         MockHttpSession admin = adminSession();
         Object[] staff = createStaff(admin, "newbie@test.tw", "新人");
         MockHttpSession s = login("newbie@test.tw", (String) staff[1]);
@@ -83,7 +83,7 @@ class AuthTest extends IntegrationTestBase {
                 "{\"currentPassword\":\"%s\",\"newPassword\":\"brand-new-password\"}".formatted(staff[1])).session(s))
                 .andExpect(status().isNoContent());
 
-        // 目前這個 Session 繼續有效
+        // The current session stays valid
         mvc.perform(get("/api/auth/me").session(s)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.mustChangePassword").value(false));
         mvc.perform(json(post("/api/auth/login"),
@@ -93,7 +93,7 @@ class AuthTest extends IntegrationTestBase {
     }
 
     @Test
-    void 改密碼會登出其他裝置() throws Exception {
+    void changingPasswordSignsOutOtherDevices() throws Exception {
         MockHttpSession admin = adminSession();
         Object[] staff = createStaff(admin, "two-devices@test.tw", "兩台裝置");
         MockHttpSession a = login("two-devices@test.tw", (String) staff[1]);
@@ -106,7 +106,7 @@ class AuthTest extends IntegrationTestBase {
     }
 
     @Test
-    void 停用帳號後現有登入立即失效() throws Exception {
+    void disablingAnAccountEndsItsSessionsAtOnce() throws Exception {
         MockHttpSession admin = adminSession();
         Object[] staff = createStaff(admin, "leaver@test.tw", "離職");
         MockHttpSession s = login("leaver@test.tw", (String) staff[1]);
@@ -122,14 +122,14 @@ class AuthTest extends IntegrationTestBase {
     }
 
     @Test
-    void 登出後Session失效() throws Exception {
+    void sessionIsInvalidAfterSignOut() throws Exception {
         MockHttpSession s = adminSession();
         mvc.perform(json(post("/api/auth/logout"), "").session(s)).andExpect(status().isNoContent());
         mvc.perform(get("/api/auth/me").session(s)).andExpect(status().isUnauthorized());
     }
 
     @Test
-    void 系統管理員不能停用自己() throws Exception {
+    void administratorCannotDisableThemselves() throws Exception {
         MockHttpSession admin = adminSession();
         Number id = read(mvc.perform(get("/api/auth/me").session(admin)).andReturn(), "$.id");
         mvc.perform(json(patch("/api/admin/staff/" + id), "{\"active\":false}").session(admin))
@@ -139,7 +139,7 @@ class AuthTest extends IntegrationTestBase {
     }
 
     @Test
-    void 操作紀錄有寫入而且不能改() throws Exception {
+    void auditLogIsWrittenAndImmutable() throws Exception {
         MockHttpSession admin = adminSession();
         createStaff(admin, "audited@test.tw", "紀錄");
         mvc.perform(get("/api/admin/audit-logs").param("action", "STAFF_CREATED").session(admin))

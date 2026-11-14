@@ -12,9 +12,9 @@ import tw.testa.unit.Role;
 import tw.testa.unit.UnitRoleRepository;
 
 /**
- * 權限檢查的唯一入口：「這個人在這個單位有沒有這個角色」。
- * 在 Controller 上用 {@code @PreAuthorize("@access.hasUnitRole(#unitId, 'OWNER')")}，或在 Service 裡呼叫 require*。
- * 系統管理員只管帳號與單位，不會因為是管理員就通過單位角色檢查（碰不到題庫、答卷、分數）。
+ * The single entry point for permission checks: does this person hold this role in this unit.
+ * Use {@code @PreAuthorize("@access.hasUnitRole(#unitId, 'OWNER')")} on controllers, or call require* in services.
+ * System administrators manage accounts and units only; being an administrator never passes a unit role check (no banks, papers or scores).
  */
 @Component("access")
 public class AccessGuard {
@@ -40,7 +40,7 @@ public class AccessGuard {
         return p != null && p.systemAdmin();
     }
 
-    /** 目前登入的教職員在該單位是否擁有任一指定角色。 */
+    /** Whether the signed-in staff member holds any of the given roles in the unit. */
     public boolean hasUnitRole(Long unitId, String... anyOf) {
         StaffPrincipal p = currentOrNull();
         if (p == null || unitId == null) return false;
@@ -54,7 +54,7 @@ public class AccessGuard {
         return roles.existsByUnitIdAndUnitActiveTrueAndStaffIdAndRoleIn(unitId, p.id(), List.of(anyOf));
     }
 
-    /** 系統管理員，或該單位的負責人：可以管理單位成員。 */
+    /** A system administrator or the unit's owner: may manage unit members. */
     public boolean canManageUnit(Long unitId) {
         return isSystemAdmin() || hasUnitRole(unitId, Role.OWNER);
     }

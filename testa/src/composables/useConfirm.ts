@@ -5,7 +5,7 @@ export interface ConfirmOptions {
   description?: string
   confirmLabel?: string
   cancelLabel?: string
-  /** danger：刪除、清除等無法輕易回復的動作 */
+  /** danger: hard-to-undo actions such as delete or clear */
   tone?: 'default' | 'danger'
 }
 
@@ -23,8 +23,8 @@ function settle(value: boolean) {
 }
 
 /**
- * 需要使用者確認的動作統一走這裡：`if (await confirm({...})) { ... }`。
- * 對話框本體是 App 內唯一的一個 <ConfirmDialog />。
+ * Every action that needs confirmation goes through here: `if (await confirm({...})) { ... }`.
+ * The dialog itself is the single <ConfirmDialog /> in App.
  */
 export function useConfirm() {
   function confirm(options: ConfirmOptions) {

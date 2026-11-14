@@ -2,7 +2,7 @@ import { computed, ref } from 'vue'
 import { api } from '@/lib/api'
 import { useAuth } from './useAuth'
 
-/** 評分者：我被指派評分的考試與待評的申論答案。 */
+/** Graders: exams I am assigned to and essay answers to grade. */
 export interface GradingExam {
   examId: number
   name: string
@@ -10,7 +10,7 @@ export interface GradingExam {
   done: number
 }
 export interface GradingItem {
-  /** 匿名編號，評分者看不到考生身分 */
+  /** Anonymous number; graders never see the candidate */
   anonId: string
   questionId: string
   number: number

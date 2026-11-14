@@ -26,7 +26,7 @@ import tw.testa.unit.UnitType;
 @Service
 public class AuthService {
     public static final int MIN_PASSWORD = 8;
-    /** BCrypt 只吃前 72 bytes，超過就拒絕，避免「後面打什麼都對」。 */
+    /** BCrypt only reads the first 72 bytes; reject longer passwords so trailing characters cannot be ignored. */
     public static final int MAX_PASSWORD_BYTES = 72;
 
     private static final String BAD_CREDENTIALS = "帳號或密碼不正確，請再試一次。";
@@ -36,7 +36,7 @@ public class AuthService {
     private final PasswordEncoder encoder;
     private final AuditService audit;
     private final TestaProperties props;
-    /** 帳號不存在時也跑一次雜湊比對，讓回應時間看不出帳號是否存在。 */
+    /** Hash even when the account does not exist, so response time does not reveal whether it does. */
     private final String dummyHash;
 
     public AuthService(StaffRepository staffRepo, UnitRoleRepository roleRepo, PasswordEncoder encoder,
@@ -54,7 +54,7 @@ public class AuthService {
     public record Me(Long id, String email, String name, boolean systemAdmin, boolean mustChangePassword,
             List<UnitMembership> units) {}
 
-    /** 驗證帳密。失敗一律丟同一個 401，不透露是帳號還是密碼錯。 */
+    /** Verifies credentials. Every failure is the same 401, never revealing which part was wrong. */
     public Staff authenticate(String rawEmail, String password) {
         String email = Staff.normalizeEmail(rawEmail);
         boolean tooLong = password.getBytes(StandardCharsets.UTF_8).length > MAX_PASSWORD_BYTES;
@@ -108,7 +108,7 @@ public class AuthService {
                 List.copyOf(units.values()));
     }
 
-    /** 自己改密碼。回傳更新後的帳號，呼叫端要用它換掉 Session 裡的身分（其他裝置的登入會失效）。 */
+    /** Changes one's own password. Returns the updated account; the caller swaps it into the session (other devices are signed out). */
     @Transactional
     public Staff changePassword(Long staffId, String current, String next) {
         Staff s = staffRepo.findById(staffId).orElseThrow(() -> unauthorized("請重新登入。"));

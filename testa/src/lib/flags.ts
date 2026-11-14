@@ -1,5 +1,5 @@
 /**
- * 還沒接後端、只是示範的功能：AI 匯入題目、AI 輔助評分、後台系統設定。
- * 設計文件第 9 節：第一版不做 AI。正式版一律不顯示，開發模式保留給展示用。
+ * Demo-only features without a backend: AI question import, AI-assisted grading, admin system settings.
+ * Design document section 9: no AI in the first release. Hidden in production, kept in development for demos.
  */
 export const DEMO_FEATURES = import.meta.env.DEV

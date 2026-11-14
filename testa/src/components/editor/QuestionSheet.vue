@@ -24,7 +24,7 @@ function onDuration(event: Event) {
 
 <template>
   <div class="space-y-3 pb-24 md:pb-10">
-    <!-- 載入中 -->
+    <!-- Loading -->
     <template v-if="loading">
       <div class="bg-paper px-5 py-8 shadow-card sm:px-10 md:rounded-card" aria-busy="true" aria-label="載入題庫中">
         <Skeleton class="h-9 w-2/3" />
@@ -38,7 +38,7 @@ function onDuration(event: Event) {
     </template>
 
     <template v-else-if="bank">
-      <!-- 試卷資訊 -->
+      <!-- Paper details -->
       <header class="bg-paper px-5 pt-6 pb-6 shadow-card sm:px-10 sm:pt-8 md:rounded-card">
         <input
           v-model="bank.name"
@@ -92,7 +92,7 @@ function onDuration(event: Event) {
         </div>
       </header>
 
-      <!-- 空白題庫 -->
+      <!-- Empty bank -->
       <div v-if="questions.length === 0" class="bg-paper px-5 py-12 shadow-card sm:px-10 md:rounded-card">
         <div class="flex gap-2" aria-hidden="true">
           <AnswerBubble letter="A" :filled="false" />

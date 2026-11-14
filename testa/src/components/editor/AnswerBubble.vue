@@ -2,8 +2,8 @@
 import { cn } from '@/lib/utils'
 
 /**
- * 答案卡圓圈：單選為圓形、多選為方形；塗黑代表選取。
- * 整套系統中「正確答案」與「考生作答」都用這個元件表示。
+ * Answer sheet bubble: round for single choice, square for multiple; filled means selected.
+ * Used everywhere for both correct answers and candidate answers.
  */
 const props = defineProps<{
   letter: string

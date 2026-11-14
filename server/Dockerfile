@@ -1,4 +1,4 @@
-# 後端：先用 Maven 編譯，再放進只有 JRE 的映像
+# Backend: build with Maven, then copy into a JRE-only image
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /app
 COPY pom.xml .

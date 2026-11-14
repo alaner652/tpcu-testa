@@ -5,7 +5,7 @@ import { Ellipsis } from 'lucide-vue-next'
 import MenuContent from './MenuContent.vue'
 import MenuItem from './MenuItem.vue'
 
-/** 「⋯」選單：不常用的動作收在這裡，畫面上只留一個主要按鈕。 */
+/** The "..." menu: rarely used actions live here so each row keeps one primary button. */
 export interface MoreAction {
   label: string
   icon: Component

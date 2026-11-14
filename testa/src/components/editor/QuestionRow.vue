@@ -40,8 +40,8 @@ const issues = computed(() => issuesOf(props.question))
 const showExplanation = ref(props.question.explanation !== '')
 const stem = ref<InstanceType<typeof StemEditor> | null>(null)
 
-// 新增的空白題目展開時，直接把游標放進題目欄。
-// 稍等一下再聚焦，讓「新增題目」選單先關閉並釋放焦點。
+// When a new blank question opens, put the cursor in its stem,
+// after a short delay so the "add question" menu can close and release focus.
 watch(
   () => props.active,
   async (active) => {
@@ -64,7 +64,7 @@ watch(
     @click="!active && store.select(question.id)"
     @keydown.enter.self="store.select(question.id)"
   >
-    <!-- 拖曳把手：題卡頂端中央 -->
+    <!-- Drag handle: top centre of the card -->
     <div class="flex h-6 justify-center">
       <button
         type="button"
@@ -79,7 +79,7 @@ watch(
     </div>
 
     <div class="px-5 pb-5 sm:px-10">
-      <!-- 只有選取中的題卡才出現的設定列 -->
+      <!-- Settings row, only on the selected card -->
       <div v-if="active" class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
         <TypeSelect :question="question" />
         <PointsStepper v-model="question.points" class="ml-auto" />
@@ -100,7 +100,7 @@ watch(
         </button>
       </div>
 
-      <!-- 題目本體：與考生作答時相同的版面 -->
+      <!-- The question itself, laid out as candidates see it -->
       <div class="flex items-start gap-3 sm:gap-4">
         <span class="w-6 shrink-0 text-[17px] leading-[1.7] font-semibold text-brand tabular-nums">{{ index + 1 }}</span>
 
@@ -173,7 +173,7 @@ watch(
       </footer>
     </div>
 
-    <!-- 滑過兩題之間時出現：在這題下方插入新題目 -->
+    <!-- Shown when hovering between two questions: insert a new one below this -->
     <div
       class="absolute inset-x-0 -bottom-5 z-10 flex h-7 justify-center opacity-0 transition-opacity group-hover/q:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100 max-md:hidden"
     >

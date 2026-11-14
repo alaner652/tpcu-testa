@@ -7,7 +7,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useExams, when, type Exam } from '@/composables/useExams'
 import { api } from '@/lib/api'
 
-/** 承辦人：指派評分者、看評分進度與差距過大的答案、看成績、公布與匯出。 */
+/** Officer: assign graders, follow grading and disagreements, see results, publish and export. */
 const props = defineProps<{ exam: Exam; view: 'grading' | 'results' }>()
 
 interface Grader {
@@ -81,7 +81,7 @@ async function toggle(g: Grader) {
   }
 }
 
-// 重開評分：必須填理由
+// Reopening grading requires a reason
 const reopening = ref<ItemSummary | null>(null)
 const reason = ref('')
 async function reopen() {
@@ -118,10 +118,10 @@ async function publish() {
 }
 
 const n = (v: number | null) => (v == null ? '—' : String(v))
-/** 評分關閉：成績已公布或考試已封存，不能再指派、重開、公布 */
+/** Grading closed: results published or exam archived, so no assigning, reopening or publishing */
 const closed = computed(() => !!results.value?.publishedAt || !!props.exam.archivedAt)
 const flagged = computed(() => results.value?.items.filter((i) => i.flagged) ?? [])
-// 考試還沒結束時，沒登入的人只是「還沒來」，結束後才算缺考
+// Before the exam ends, someone not signed in is just "not here yet"; afterwards they are absent
 const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' : '尚未作答', IN: '作答中', DONE: '已交卷' }) as const)
 </script>
 
@@ -131,7 +131,7 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
     <Button variant="outline" class="rounded-full" @click="load"><RotateCw />重試</Button>
   </p>
 
-  <!-- 評分 -->
+  <!-- Grading -->
   <div v-else-if="view === 'grading' && results" class="space-y-3">
     <p v-if="flagged.length" class="rounded-card bg-grade-soft px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
       <strong class="font-semibold">有 {{ flagged.length }} 份申論答案的評分差距過大。</strong>
@@ -153,7 +153,7 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
           </div>
           <span v-if="g.assigned" class="text-sm text-ink-2 tabular-nums">已評 {{ g.done }} / {{ g.total }}</span>
           <span v-else-if="closed" class="text-sm text-ink-3">未指派</span>
-          <!-- 成績公布後不能再改，按鈕直接不顯示 -->
+          <!-- No changes after publishing, so the button is hidden -->
           <Button
             v-if="!closed"
             variant="outline"
@@ -203,7 +203,7 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
     </section>
   </div>
 
-  <!-- 成績 -->
+  <!-- Results -->
   <section v-else-if="results" class="card">
     <div class="no-print flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
       <p class="min-w-0 flex-1 basis-64 text-[15px] text-ink-2">

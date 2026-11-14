@@ -15,7 +15,7 @@ const { state, settle } = useConfirm()
 </script>
 
 <template>
-  <!-- 結果只由按鈕與 Esc 決定；不監聽 update:open，避免「確定」被先判成取消 -->
+  <!-- Only the buttons and Esc decide the result; update:open is not used, so OK is never taken as cancel first -->
   <AlertDialogRoot :open="state.open">
     <AlertDialogPortal>
       <AlertDialogOverlay class="confirm-overlay fixed inset-0 z-[70] bg-black/40" />

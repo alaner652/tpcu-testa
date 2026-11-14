@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""部署後的冒煙測試：透過 Nginx 用真的 HTTP 走完一場模擬考。
+"""Post-deploy smoke test: a full mock exam over real HTTP through Nginx.
 
-    python3 deploy/smoke-test.py http://localhost:8088 管理員帳號 管理員密碼
+    python3 deploy/smoke-test.py http://localhost:8088 ADMIN_EMAIL ADMIN_PASSWORD
 
-流程：管理員登入（必要時換掉臨時密碼）→ 建單位與教職員 → 建題庫 → 建考試、名單、發布
-→ 考生登入、作答、交卷 → 指派評分者、評分 → 結束考試、公布成績 → 考生查到自己的分數 → 匯出 CSV。
+Flow: administrator signs in (changing a temporary password if needed), units and staff, bank, exam, roster, publish,
+candidates sign in, answer and submit, graders assigned and grade, exam ended, results published, candidates see scores, CSV export.
 
-注意：
-- 會在資料庫裡留下「冒煙測試」開頭的單位、帳號與考試，**只對測試環境執行**，不要對正式資料庫跑。
-- 管理員如果還是臨時密碼，會被換成「原密碼 + -smoke」（執行結束時會印出來）。
-- 只用 Python 3 標準函式庫。
+Notes:
+- Leaves units, accounts and exams prefixed with 「冒煙測試」 in the database. **Run against a test environment only.**
+- A temporary administrator password is replaced with "<old password>-smoke" (printed at the end).
+- Python 3 standard library only.
 """
 import http.cookiejar
 import json
@@ -49,7 +49,7 @@ class Client:
         except urllib.error.HTTPError as e:
             status, text = e.code, e.read()
         if status not in expect:
-            raise SystemExit(f'✗ {method} {path} 回 {status}（預期 {expect}）：{text.decode(errors="replace")[:400]}')
+            raise SystemExit(f'✗ {method} {path} returned {status} (expected {expect}): {text.decode(errors="replace")[:400]}')
         if raw:
             return text
         return json.loads(text) if text else None
@@ -60,7 +60,7 @@ def step(msg):
 
 
 def staff_login(base, email, password):
-    """登入；如果是臨時密碼就換掉。回傳 (client, 目前的密碼)。"""
+    """Signs in, replacing a temporary password. Returns (client, current password)."""
     c = Client(base)
     me = c.call('POST', '/auth/login', {'email': email, 'password': password})
     if me['mustChangePassword']:
@@ -78,10 +78,10 @@ def main():
 
     health = Client(base).call('GET', '/health')
     assert health == {'status': 'ok'}, health
-    step('健康檢查')
+    step('Health check')
 
     admin, admin_password = staff_login(base, admin_email, admin_password)
-    step('系統管理員登入')
+    step('System administrator signs in')
 
     unit = admin.call('POST', '/units', {'name': f'冒煙測試單位 {tag}', 'type': 'ADMISSION'})['id']
     people = {}
@@ -94,9 +94,9 @@ def main():
         client, _ = staff_login(base, email, r['temporaryPassword'])
         people[key] = (client, r['staff']['id'])
     officer, teacher, teacher2 = (people[k][0] for k in ('officer', 'teacher', 'teacher2'))
-    step('建立單位、三個教職員帳號並指派角色；臨時密碼登入後換密碼')
+    step('Unit and three staff accounts with roles; temporary passwords changed after sign-in')
 
-    # 系統管理員碰不到考卷
+    # Administrators cannot reach papers
     admin.call('GET', '/banks', expect=(200,))
     questions = [
         {'id': 'q1', 'type': 'single', 'stem': '1+1=?', 'points': 5,
@@ -105,7 +105,7 @@ def main():
         {'id': 'e1', 'type': 'essay', 'stem': '請說明你報考的動機。', 'points': 20, 'rubric': '動機明確、條理清楚'},
     ]
     bank = teacher.call('POST', '/banks', {'unitId': unit, 'name': f'冒煙測試題庫 {tag}', 'questions': questions})['id']
-    step('教師建立題庫（選擇、填空、申論）')
+    step('Teacher creates a bank (choice, fill-in, essay)')
 
     start = (datetime.now(timezone.utc) - timedelta(seconds=5)).isoformat().replace('+00:00', 'Z')
     exam = officer.call('POST', '/exams', {'name': f'冒煙測試考試 {tag}', 'bankId': bank, 'startAt': start, 'duration': 30})['id']
@@ -114,7 +114,7 @@ def main():
     officer.call('POST', f'/exams/{exam}/publish')
     roster = officer.call('GET', f'/exams/{exam}/candidates')
     codes = {c['ticket']: c['code'] for c in roster}
-    step('承辦人建立考試、匯入名單、發布')
+    step('Officer creates the exam, imports the roster, publishes')
 
     def take(ticket, choice, blank, essay):
         c = Client(base)
@@ -122,12 +122,12 @@ def main():
         c.call('POST', '/candidate/start')
         paper = c.call('GET', '/candidate/paper', raw=True).decode()
         for secret in ('correct', '玉山', '動機明確'):
-            assert secret not in paper, f'試卷洩漏了答案：{secret}'
+            assert secret not in paper, f'paper leaks an answer: {secret}'
         c.call('PUT', '/candidate/answers/q1', {'choices': [choice]})
         c.call('PUT', '/candidate/answers/q2', {'blanks': {'b1': blank}})
         c.call('PUT', '/candidate/answers/e1', {'essay': essay})
         if ticket == rows[0]['ticket']:
-            # 監考補時：剩餘時間會變長
+            # Proctor extra time: remaining time grows
             cid = next(x['id'] for x in roster if x['ticket'] == ticket)
             before = c.call('GET', '/candidate/me')['attempt']['remainingSeconds']
             officer.call('POST', f'/exams/{exam}/candidates/{cid}/extend', {'minutes': 5, 'reason': '冒煙測試'})
@@ -135,47 +135,47 @@ def main():
             assert 290 <= after - before <= 300, (before, after)
         state = c.call('POST', '/candidate/submit')
         assert state['attempt']['submittedAt'] and state['result'] is None
-        # 交卷後不能再改
+        # No edits after submitting
         c.call('PUT', '/candidate/answers/q1', {'choices': ['a']}, expect=(409,))
         return c
 
     Client(base).call('POST', '/candidate/login', {'ticket': rows[0]['ticket'], 'code': '000000'}, expect=(401,))
     take(rows[0]['ticket'], 'b', '玉山', '我想學習。')
     take(rows[1]['ticket'], 'a', '阿里山', '因為有興趣。')
-    step('兩位考生登入、作答、交卷（試卷不含答案；錯的登入碼被拒絕；監考補時；交卷後不能改）')
+    step('Two candidates sign in, answer, submit (no answers in the paper; wrong code rejected; extra time; no edits after submit)')
 
     officer.call('PUT', f'/exams/{exam}/graders', {'staffIds': [people['teacher'][1], people['teacher2'][1]]})
     for grader, scores in ((teacher, {'我想學習。': 16, '因為有興趣。': 10}), (teacher2, {'我想學習。': 18, '因為有興趣。': 11})):
         items = grader.call('GET', f'/grading/exams/{exam}/items')
         assert len(items) == 2
-        assert '王小明' not in json.dumps(items, ensure_ascii=False), '評分者看到了考生姓名'
+        assert '王小明' not in json.dumps(items, ensure_ascii=False), 'grader saw a candidate name'
         for it in items:
             grader.call('PUT', f'/grading/exams/{exam}/items/{it["anonId"]}/{it["questionId"]}',
                         {'score': scores[it['answer']], 'comment': ''})
-    step('指派兩位評分者，匿名評分')
+    step('Two graders assigned, anonymous grading')
 
-    officer.call('POST', f'/exams/{exam}/results/publish', expect=(409,))   # 考試還沒結束
+    officer.call('POST', f'/exams/{exam}/results/publish', expect=(409,))   # exam has not ended
     officer.call('POST', f'/exams/{exam}/end')
     results = officer.call('POST', f'/exams/{exam}/results/publish')
     totals = {r['name']: r['total'] for r in results['rows']}
-    # 王小明 5+5+(16+18)/2 = 27；李宜華 0+0+(10+11)/2 = 10.5；缺考沒有分數
+    # Candidate 1: 5+5+(16+18)/2 = 27; candidate 2: 0+0+(10+11)/2 = 10.5; absentee has no score
     assert totals == {'王小明': 27.0, '李宜華': 10.5, '缺考的人': None}, totals
-    step(f'結束考試、公布成績：{totals}')
+    step(f'Exam ended, results published: {totals}')
 
     c = Client(base)
     me = c.call('POST', '/candidate/login', {'ticket': rows[0]['ticket'], 'code': codes[rows[0]['ticket']]})
     assert me['result']['total'] == 27.0 and me['result']['fullMarks'] == 30.0, me['result']
-    step('考生登入查到自己的成績')
+    step('Candidate signs in and sees their score')
 
     csv = officer.call('GET', f'/exams/{exam}/results.csv', raw=True).decode('utf-8-sig')
     assert '王小明' in csv and '27' in csv, csv
-    teacher.call('GET', f'/exams/{exam}/results', expect=(404,))            # 教師看不到成績表
-    admin.call('GET', f'/exams/{exam}/results', expect=(404,))              # 系統管理員也看不到
+    teacher.call('GET', f'/exams/{exam}/results', expect=(404,))            # teachers cannot see the score sheet
+    admin.call('GET', f'/exams/{exam}/results', expect=(404,))              # neither can administrators
     logs = admin.call('GET', '/admin/audit-logs?action=RESULTS_PUBLISHED')
-    assert logs['items'], '操作紀錄沒有公布成績'
-    step('匯出 CSV、權限隔離、操作紀錄')
+    assert logs['items'], 'publishing results was not audited'
+    step('CSV export, permission isolation, audit log')
 
-    # 緊急檢視：負責人授權後，系統管理員才看得到，而且看不到登入碼
+    # Emergency access: administrators see the exam only after the owner grants it, and never login codes
     overview = officer.call('GET', f'/exams/{exam}/emergency-access')
     admin_id = next(a['staffId'] for a in overview['admins'] if a['email'] == admin_email)
     teacher.call('GET', f'/exams/{exam}/emergency-access', expect=(403, 404))
@@ -185,23 +185,23 @@ def main():
     view = admin.call('GET', f'/admin/emergency-access/{grant}', raw=True).decode()
     assert '王小明' in view, view[:300]
     for code in codes.values():
-        assert code not in view, '緊急檢視洩漏了登入碼'
-    admin.call('GET', f'/exams/{exam}/results', expect=(404,))              # 一般的路徑仍然不通
+        assert code not in view, 'emergency view leaks login codes'
+    admin.call('GET', f'/exams/{exam}/results', expect=(404,))              # the regular path stays closed
     officer.call('DELETE', f'/exams/{exam}/emergency-access/{grant}')
     admin.call('GET', f'/admin/emergency-access/{grant}', expect=(403, 404))
     for action in ('EMERGENCY_ACCESS_GRANTED', 'EMERGENCY_ACCESS_VIEWED', 'EMERGENCY_ACCESS_REVOKED'):
-        assert admin.call('GET', f'/admin/audit-logs?action={action}')['items'], f'操作紀錄沒有 {action}'
-    step('緊急檢視：授權、檢視（不含登入碼）、撤銷，都有操作紀錄')
+        assert admin.call('GET', f'/admin/audit-logs?action={action}')['items'], f'{action} was not audited'
+    step('Emergency access: grant, view (no login codes), revoke, all audited')
 
-    # 封存：考生不能再登入；保存期限內不能刪除
+    # Archive: candidates can no longer sign in; cannot delete within retention
     archived = officer.call('POST', f'/exams/{exam}/archive')
     assert archived['archivedAt'] and archived['retainUntil'], archived
     Client(base).call('POST', '/candidate/login',
                       {'ticket': rows[0]['ticket'], 'code': codes[rows[0]['ticket']]}, expect=(401,))
     officer.call('DELETE', f'/exams/{exam}', {'reason': '冒煙測試'}, expect=(409,))
-    step(f'封存考試：考生不能再登入，保存期限（{archived["retainUntil"][:10]}）內不能刪除')
+    step(f'Exam archived: candidates locked out, cannot delete before {archived["retainUntil"][:10]}')
 
-    print(f'\n全部通過。系統管理員目前的密碼：{admin_password}')
+    print(f'\nAll passed. Current administrator password: {admin_password}')
 
 
 if __name__ == '__main__':

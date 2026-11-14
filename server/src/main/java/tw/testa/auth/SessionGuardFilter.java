@@ -15,9 +15,9 @@ import tw.testa.exam.CandidateRepository;
 import tw.testa.staff.StaffRepository;
 
 /**
- * 每個請求確認 Session 裡的身分仍然有效，這是「伺服器可以強制登出」的實作。
- * - 教職員：帳號被停用、密碼被重設（session_version 改變）就立刻登出。
- * - 考生：同時只允許一個連線，新登入會讓舊連線的 session_version 對不上。
+ * Checks on every request that the session identity is still valid, which is how the server can force sign-outs.
+ * - Staff: signed out at once when disabled or when the password is reset (session_version changes).
+ * - Candidates: one connection at a time; a new sign-in makes the old session_version stale.
  */
 public class SessionGuardFilter extends OncePerRequestFilter {
     private final StaffRepository staff;

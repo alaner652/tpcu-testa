@@ -89,7 +89,7 @@ public class Exam {
         this.mode = mode;
     }
 
-    /** 給前端的狀態：草稿、已排程（已發布未到開始時間）、進行中、已結束。 */
+    /** Status for the frontend: draft, scheduled (published, not started), live, ended. */
     public String phase(Instant now) {
         return switch (status) {
             case DRAFT -> "draft";

@@ -2,7 +2,7 @@ package tw.testa.common;
 
 import org.springframework.http.HttpStatus;
 
-/** 帶 HTTP 狀態碼、可直接顯示給使用者的錯誤。 */
+/** An error with an HTTP status and a message that can be shown to the user as is. */
 public class ApiException extends RuntimeException {
     private final HttpStatus status;
     private final String code;

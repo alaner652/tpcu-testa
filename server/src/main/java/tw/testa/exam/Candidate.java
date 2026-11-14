@@ -14,7 +14,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
-/** 白名單上的一位考生。只屬於一場考試，沒有帳號。 */
+/** One candidate on the roster. Belongs to one exam and has no account. */
 @Entity
 @Table(name = "candidate")
 public class Candidate {

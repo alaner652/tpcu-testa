@@ -8,8 +8,8 @@ import { when, type Exam } from '@/composables/useExams'
 import { api } from '@/lib/api'
 
 /**
- * 單位負責人：授權一位系統管理員在限定時間內檢視這場考試。
- * 系統管理員平常看不到考試內容；授權、撤銷、每一次檢視都會留在操作紀錄。
+ * Unit owner: let one system administrator view this exam for a limited time.
+ * Administrators normally cannot see exams; grants, revocations and every view are audited.
  */
 const props = defineProps<{ exam: Exam }>()
 

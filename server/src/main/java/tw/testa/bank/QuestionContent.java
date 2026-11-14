@@ -3,9 +3,9 @@ package tw.testa.bank;
 import java.util.List;
 
 /**
- * 題目裡依題型而異的部分，整包存成 question.content（jsonb）。
- * 所有題型共用同一個結構，切換題型時不會遺失已輸入的內容（與前端一致）。
- * 注意：correct、blanks 的答案、explanation、rubric 都是「答案」，絕對不能送到考生端。
+ * The type-specific part of a question, stored as question.content (jsonb).
+ * All types share one structure, so switching type keeps what was entered (as in the frontend).
+ * correct, blank answers, explanation and rubric are all answers and must never reach a candidate.
  */
 public record QuestionContent(
         String explanation,

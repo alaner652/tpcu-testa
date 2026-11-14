@@ -2,7 +2,7 @@
 import { Minus, Plus } from 'lucide-vue-next'
 
 const model = defineModel<number>({ required: true })
-/** 這個數字是什麼（給螢幕報讀用）：出題時是配分，閱卷時是給分 */
+/** What the number is (for screen readers): points when authoring, a score when grading */
 const { label = '配分' } = defineProps<{ label?: string }>()
 
 function clamp(value: number) {

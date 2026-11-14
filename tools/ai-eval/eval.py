@@ -1,10 +1,10 @@
-"""本地模型評測：申論改題輔助、考卷文字轉題目。對 llama-server 的 OpenAI 相容 API。
+"""Local model evaluation: essay grading assistance and exam text to questions, against llama-server's OpenAI-compatible API.
 
-用法：python3 eval.py http://127.0.0.1:8090 模型名稱 [grade|import|all] [次數] [total|items]
-  total：模型直接給總分；items：逐項給分，總分由程式加總
+Usage: python3 eval.py http://127.0.0.1:8090 MODEL [grade|import|all] [RUNS] [total|items]
+  total: the model gives a total score; items: per-criterion scores, summed by the program
 
-先開模型伺服器，例如：
-  llama-server -m 模型.gguf --port 8090 -c 8192 -ngl 99 --jinja
+Start a model server first, for example:
+  llama-server -m model.gguf --port 8090 -c 8192 -ngl 99 --jinja
 """
 import json, statistics, sys, time, urllib.request
 
@@ -27,7 +27,7 @@ def chat(messages, schema=None, temperature=0.2, max_tokens=1200):
     return res['choices'][0]['message']['content'], time.time() - t, res.get('usage', {})
 
 
-# ── 改題 ────────────────────────────────────────────────
+# ── Grading ─────────────────────────────────────────────
 Q1 = {
     'stem': '請說明你報考本系（資訊工程系）的動機，以及入學後的學習規劃。',
     'points': 20,
@@ -38,7 +38,7 @@ Q2 = {
     'points': 10,
     'rubric': '算式正確 800×0.8−50（5 分）；答案 590 元正確（3 分）；有文字說明步驟（2 分）。',
 }
-# 參考分數＝我扮演一位一般閱卷老師給的分數
+# Reference scores: what a typical grader would give (my judgement)
 ANSWERS = [
     (Q1, 'A1 優', 18, '我高中時參加學校的程式設計社，第一次用 Python 寫出自動整理班級成績的小工具，幫導師省下很多時間，讓我體會到程式可以真正解決身邊的問題。這是我報考資訊工程系的主要原因。入學後，大一我會先打好程式設計、離散數學與計算機概論的基礎，並持續參加程式競賽社團；大二開始修資料結構與演算法，利用暑假參與教授的專題研究；大三希望到資訊公司實習，了解業界開發流程；大四則完成畢業專題，主題希望是能幫助學校行政流程的系統。'),
     (Q1, 'A2 中', 12, '我從小就喜歡玩電腦，也對寫程式有興趣，所以想讀資訊工程系。進入大學後我會認真上課，把老師教的東西學好，也會多參加社團活動，希望畢業後可以找到一份好工作。'),
@@ -113,18 +113,18 @@ def run_grade():
             toks.append(usage.get('completion_tokens', 0) / sec if sec else 0)
         mean = statistics.mean(scores)
         rows.append((label, q['points'], ref, scores, mean, reason))
-        print(f"{label:<8} 配分{q['points']:>3}  參考 {ref:>4}  模型 {scores}  平均 {mean:5.1f}  差 {mean - ref:+5.1f}  理由：{reason[:70]}", flush=True)
-    # 換算成配分的比例來比較，兩題配分不同
+        print(f"{label:<8} points{q['points']:>3}  ref {ref:>4}  model {scores}  mean {mean:5.1f}  diff {mean - ref:+5.1f}  reason: {reason[:70]}", flush=True)
+    # Compare as a share of the points, since the two questions differ
     err = [abs(m - r) / p for _, p, r, _, m, _ in rows]
     spread = [(max(s) - min(s)) / p for _, p, _, s, _, _ in rows]
     within = sum(1 for _, p, r, _, m, _ in rows if abs(m - r) <= p * 0.15)
     cheat = next(m for l, _, _, _, m, _ in rows if '作弊' in l)
-    print(f"\n[改題] 平均誤差 {statistics.mean(err) * 100:.1f}% 配分；誤差在 15% 內 {within}/{len(rows)} 份；"
-          f"同一份答案 {RUNS} 次給分最大差距平均 {statistics.mean(spread) * 100:.1f}% 配分；作弊答案得 {cheat:.1f}/20；"
-          f"每次 {statistics.mean(secs):.1f} 秒，約 {statistics.mean(toks):.0f} tokens/秒")
+    print(f"\n[grade] mean error {statistics.mean(err) * 100:.1f}% of points; within 15%: {within}/{len(rows)}; "
+          f"mean spread over {RUNS} runs {statistics.mean(spread) * 100:.1f}% of points; cheating answer scored {cheat:.1f}/20; "
+          f"{statistics.mean(secs):.1f} s per run, about {statistics.mean(toks):.0f} tokens/s")
 
 
-# ── 出題導入 ────────────────────────────────────────────
+# ── Question import ─────────────────────────────────────
 PAPER = """115學年度 轉學考 數學科 試題
 一、單選題（每題5分）
 1. 若 f(x)=x²−4x+3，則 f(x) 的最小值為何？
@@ -141,7 +141,7 @@ A. 2　B. 7　C. 10　D. 15　E. 18
 
 【答案】1.A 2.C 3.ACE 4.39 5.玉
 """
-# 正確結果：(題型, 配分, 正確答案或空格答案)
+# Expected result: (type, points, correct choices or blank answers)
 EXPECTED = [('single', 5, ['A']), ('single', 5, ['C']), ('multiple', 6, ['A', 'C', 'E']), ('blank', 5, ['39']), ('blank', 5, ['玉']), ('essay', 20, [])]
 
 IMPORT_SCHEMA = {
@@ -180,7 +180,7 @@ def run_import():
         notes = []
         for n, exp in enumerate(EXPECTED):
             if n >= len(qs):
-                notes.append(f'第{n + 1}題缺')
+                notes.append(f'q{n + 1} missing')
                 continue
             q = qs[n]
             ans = q['blankAnswers'] if exp[0] == 'blank' else q['correct']
@@ -189,10 +189,10 @@ def run_import():
                 right = right and len(q['choices']) == (5 if exp[0] == 'multiple' else 4)
             good += right
             if not right:
-                notes.append(f"第{n + 1}題 {q['type']} {q['points']}分 答案{ans} 選項{len(q['choices'])}個")
+                notes.append(f"q{n + 1} {q['type']} {q['points']}pt answer {ans} choices {len(q['choices'])}")
         ok_all += good == len(EXPECTED)
-        print(f"[導入] 第{i + 1}次：{len(qs)} 題，正確 {good}/{len(EXPECTED)}，{sec:.1f} 秒  {'；'.join(notes)}", flush=True)
-    print(f"[導入] {RUNS} 次中完全正確 {ok_all} 次")
+        print(f"[import] run {i + 1}: {len(qs)} questions, {good}/{len(EXPECTED)} correct, {sec:.1f} s  {'; '.join(notes)}", flush=True)
+    print(f"[import] fully correct in {ok_all} of {RUNS} runs")
 
 
 print(f'== {NAME} ==', flush=True)

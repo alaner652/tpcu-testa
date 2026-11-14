@@ -3,7 +3,7 @@ import { createQuestion as q } from '@/lib/question'
 
 export interface DetectedQuestion {
   question: Question
-  /** 0–1，模擬的辨識信心 */
+  /** 0-1, simulated recognition confidence */
   confidence: number
   note?: string
 }
@@ -12,7 +12,7 @@ export const IMPORT_STEPS = ['上傳檔案', '解析版面與題號', '辨識題
 
 export const SAMPLE_FILE = { name: '高二數學第二次段考.docx', size: '184 KB' }
 
-/** 模擬 AI 解析 Word / PDF 後的結果。 */
+/** Simulated result of AI parsing a Word / PDF file. */
 export function createDetectedQuestions(): DetectedQuestion[] {
   return [
     {

@@ -17,12 +17,12 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import com.jayway.jsonpath.JsonPath;
 
-/** 整合測試共用：真的 PostgreSQL（Testcontainers）、完整的 Spring Security 過濾鏈。 */
+/** Shared integration test setup: real PostgreSQL (Testcontainers) and the full Spring Security filter chain. */
 @SpringBootTest(properties = {
         "testa.bootstrap-admin.email=admin@test.tw",
         "testa.bootstrap-admin.password=admin-password",
         "testa.login.max-failures=3",
-        // MockMvc 的測試用 MockHttpSession 帶登入狀態；存資料庫的 Session 由 deploy/smoke-test.py 走真的 HTTP 驗證
+        // MockMvc tests carry sign-in state in a MockHttpSession; JDBC sessions are covered over real HTTP by deploy/smoke-test.py
         "spring.autoconfigure.exclude=org.springframework.boot.session.jdbc.autoconfigure.JdbcSessionAutoConfiguration",
 })
 @AutoConfigureMockMvc
@@ -59,7 +59,7 @@ public abstract class IntegrationTestBase {
         return JsonPath.read(result.getResponse().getContentAsString(), path);
     }
 
-    /** 以系統管理員建立一個教職員帳號，回傳 { id, 臨時密碼 }。 */
+    /** Creates a staff account as the system administrator and returns { id, temporary password }. */
     protected Object[] createStaff(MockHttpSession admin, String email, String name) throws Exception {
         MvcResult r = mvc.perform(json(post("/api/admin/staff"),
                 "{\"email\":\"%s\",\"name\":\"%s\"}".formatted(email, name)).session(admin))

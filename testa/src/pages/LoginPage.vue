@@ -6,7 +6,7 @@ import Logo from '@/components/app/Logo.vue'
 import { DEMO_ACCOUNTS, signedOutNotice, useAuth } from '@/composables/useAuth'
 import { DEMO_CANDIDATE } from '@/composables/useWorkspace'
 
-/** 同一個登入頁，兩種身分：考生用准考證號＋登入碼，教職員用帳號密碼。 */
+/** One login page, two identities: candidates use candidate number + login code, staff use account and password. */
 const { login, loginCandidate } = useAuth()
 const router = useRouter()
 
@@ -17,13 +17,13 @@ const email = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
-// 被系統登出後回到這裡：說明原因，並停在原本的身分
+// Back here after being signed out: explain why and keep the same identity tab
 if (signedOutNotice.value) {
   who.value = signedOutNotice.value.role === 'student' ? 'candidate' : 'staff'
   error.value = signedOutNotice.value.text
   signedOutNotice.value = null
 }
-/** 示範身分只在開發模式顯示 */
+/** Demo identities only in development */
 const showDemo = import.meta.env.DEV
 
 async function submit() {

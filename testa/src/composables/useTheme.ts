@@ -9,7 +9,7 @@ export function useTheme() {
     try {
       localStorage.setItem('testa.theme', dark.value ? 'dark' : 'light')
     } catch {
-      // 忽略：下次載入時依系統設定
+      // Ignore: the next load follows the system setting
     }
   }
   return { dark, toggle }

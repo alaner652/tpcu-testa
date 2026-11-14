@@ -34,7 +34,7 @@ public class GradingController {
         this.grading = grading;
     }
 
-    // 評分者
+    // Graders
     @GetMapping("/grading/exams")
     public List<GradingExam> myExams() {
         return grading.myExams();
@@ -52,7 +52,7 @@ public class GradingController {
         grading.score(examId, anonId, questionId, body.score(), body.comment());
     }
 
-    // 承辦人
+    // Officers
     @GetMapping("/exams/{examId}/graders")
     public List<GraderInfo> graders(@PathVariable Long examId) {
         return grading.graders(examId);

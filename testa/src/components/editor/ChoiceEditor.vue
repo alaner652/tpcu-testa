@@ -42,7 +42,7 @@ function removeChoice(index: number) {
 }
 
 function onKeydown(event: KeyboardEvent, index: number) {
-  // 注音、倉頡等輸入法選字時的 Enter 不應新增選項
+  // Enter while an IME (Zhuyin, Cangjie...) is composing must not add a choice
   if (event.isComposing) return
   const choice = props.question.choices[index]
   if (event.key === 'Enter' && !event.shiftKey && !event.metaKey && !event.ctrlKey) {
@@ -54,7 +54,7 @@ function onKeydown(event: KeyboardEvent, index: number) {
   }
 }
 
-/** 一次貼上多行時自動拆成多個選項，並去掉 (A)、B. 之類的編號。 */
+/** Pasting several lines splits them into choices and strips labels such as (A) or B. */
 function onPaste(event: ClipboardEvent, index: number) {
   const text = event.clipboardData?.getData('text') ?? ''
   const lines = text

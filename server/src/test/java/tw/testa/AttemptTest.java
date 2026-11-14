@@ -89,11 +89,11 @@ class AttemptTest extends IntegrationTestBase {
     }
 
     @Test
-    void 考試還沒發布不能登入_登入碼錯誤會鎖定_監考重設後解鎖() throws Exception {
+    void cannotSignInBeforePublish_wrongCodesLock_proctorResetUnlocks() throws Exception {
         String body = "{\"ticket\":\"%s\",\"code\":\"%s\"}";
         mvc.perform(json(post("/api/candidate/login"), body.formatted(ticket, code))).andExpect(status().isUnauthorized());
         publish();
-        // 小寫、有空白也可以
+        // Lower case and spaces are fine
         mvc.perform(json(post("/api/candidate/login"),
                 body.formatted(ticket.toLowerCase(), code.substring(0, 3) + " " + code.substring(3))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.name").value("王小明"))
@@ -114,9 +114,9 @@ class AttemptTest extends IntegrationTestBase {
         candidate(ticket, read(reset, "$.code"));
     }
 
-    /** 整間教室同時登入：登入只能用一條資料庫連線，否則人數超過連線池大小就會互相卡死。 */
+    /** A whole lab signing in at once: sign-in must use one connection, or more people than the pool size deadlock. */
     @Test
-    void 很多考生同時登入不會把連線池卡死() throws Exception {
+    void manyConcurrentSignInsDoNotExhaustThePool() throws Exception {
         publish();
         int n = 40;
         var pool = java.util.concurrent.Executors.newFixedThreadPool(n);
@@ -125,7 +125,7 @@ class AttemptTest extends IntegrationTestBase {
         try {
             var calls = new java.util.ArrayList<java.util.concurrent.Future<Integer>>();
             for (int i = 0; i < n; i++) {
-                // 一半是名單上沒有的准考證號，一半是對的帳密（成功與失敗兩條路都要寫操作紀錄）
+                // Half unknown candidate numbers, half valid credentials (both paths write the audit log)
                 String body = i % 2 == 0 ? "{\"ticket\":\"NOBODY-%d\",\"code\":\"000000\"}".formatted(i)
                         : "{\"ticket\":\"%s\",\"code\":\"%s\"}".formatted(ticket2, code2);
                 calls.add(pool.submit(() -> {
@@ -151,7 +151,7 @@ class AttemptTest extends IntegrationTestBase {
     }
 
     @Test
-    void 考生與教職員的API互相隔離() throws Exception {
+    void candidateAndStaffApisAreIsolated() throws Exception {
         publish();
         MockHttpSession c = candidate(ticket, code);
         for (String url : new String[] { "/api/banks", "/api/exams", "/api/units", "/api/auth/me", "/api/admin/staff",
@@ -164,10 +164,10 @@ class AttemptTest extends IntegrationTestBase {
     }
 
     @Test
-    void 完整作答流程_題目不含答案_自動儲存_續考_交卷_自動批改() throws Exception {
+    void fullAttempt_noAnswersSent_autosave_resume_submit_autoGrade() throws Exception {
         publish();
         MockHttpSession c = candidate(ticket, code);
-        // 還沒開始不能拿題目
+        // No questions before starting
         mvc.perform(get("/api/candidate/paper").session(c)).andExpect(status().isConflict());
 
         mvc.perform(post("/api/candidate/start").with(csrf()).session(c)).andExpect(status().isOk())
@@ -177,7 +177,7 @@ class AttemptTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.questions[0].choices[1].text").value("2"))
                 .andExpect(jsonPath("$.questions[2].blanks.length()").value(2))
                 .andExpect(jsonPath("$.questions[3].wordLimit").value(500)).andReturn();
-        // 送到考生端的內容不能有任何答案
+        // Nothing sent to the candidate may contain an answer
         String json = paper.getResponse().getContentAsString();
         assertThat(json).doesNotContain("correct", "answers\":[", "explanation", "rubric", "小學數學", "機密", "210");
         long remaining = ((Number) read(paper, "$.remainingSeconds")).longValue();
@@ -185,19 +185,19 @@ class AttemptTest extends IntegrationTestBase {
 
         answer(c, "q1", "{\"choices\":[\"b\"]}", 200);
         answer(c, "q2", "{\"choices\":[\"a\"]}", 200);
-        answer(c, "q2", "{\"choices\":[\"a\",\"b\"]}", 200);                    // 改答案
-        answer(c, "q3", "{\"blanks\":{\"b1\":\" 39 \",\"b2\":\"211\"}}", 200);   // 一格對一格錯
+        answer(c, "q2", "{\"choices\":[\"a\",\"b\"]}", 200);                    // change the answer
+        answer(c, "q3", "{\"blanks\":{\"b1\":\" 39 \",\"b2\":\"211\"}}", 200);   // one blank right, one wrong
         answer(c, "q4", "{\"essay\":\"當 n=1 時成立…\"}", 200);
-        // 不合法的作答
+        // Invalid answers
         answer(c, "q1", "{\"choices\":[\"zzz\"]}", 400);
-        answer(c, "q1", "{\"choices\":[\"a\",\"b\"]}", 400);                    // 單選不能選兩個
+        answer(c, "q1", "{\"choices\":[\"a\",\"b\"]}", 400);                    // single choice cannot take two
         answer(c, "nope", "{\"choices\":[]}", 404);
 
-        // 監考看到作答中
+        // The proctor sees the attempt in progress
         mvc.perform(get("/api/exams/" + exam + "/candidates").session(owner)).andExpect(jsonPath("$[0].status").value("IN"))
                 .andExpect(jsonPath("$[1].status").value("IDLE"));
 
-        // 斷線、換電腦重新登入：從原進度繼續，舊連線被踢掉
+        // Disconnect and sign in on another computer: resume where it was, the old session is kicked
         MockHttpSession c2 = candidate(ticket, code);
         mvc.perform(get("/api/candidate/me").session(c)).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/candidate/start").with(csrf()).session(c2)).andExpect(status().isOk());
@@ -210,11 +210,11 @@ class AttemptTest extends IntegrationTestBase {
         mvc.perform(post("/api/candidate/submit").with(csrf()).session(c2)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.attempt.submittedAt").isNotEmpty())
                 .andExpect(jsonPath("$.attempt.remainingSeconds").value(0));
-        // 交卷後不能再改、不能再拿題目
+        // After submitting: no edits, no questions
         answer(c2, "q1", "{\"choices\":[\"a\"]}", 409);
         mvc.perform(get("/api/candidate/paper").session(c2)).andExpect(status().isConflict());
 
-        // 自動批改：5 + 6 + 3（填空對一半）= 14，申論不計
+        // Auto-grading: 5 + 6 + 3 (half the blanks) = 14, essays excluded
         assertThat(jdbc.queryForObject("select auto_score from attempt a join candidate c on c.id = a.candidate_id where c.ticket = ?",
                 BigDecimal.class, ticket)).isEqualByComparingTo("14");
         assertThat(jdbc.queryForObject("select count(*) from answer where auto_score is null and question_id = 'q4'", Long.class))
@@ -225,17 +225,17 @@ class AttemptTest extends IntegrationTestBase {
     }
 
     @Test
-    void 監考補時_截止時間延後_要填原因_有上限_交卷後不能補() throws Exception {
+    void extraTime_movesDeadline_needsReason_isCapped_notAfterSubmit() throws Exception {
         publish();
         String url = "/api/exams/" + exam + "/candidates/";
         long id = jdbc.queryForObject("select id from candidate where ticket = ?", Long.class, ticket);
-        // 還沒開始作答
+        // Not started yet
         mvc.perform(json(post(url + id + "/extend"), "{\"minutes\":5,\"reason\":\"電腦當機\"}").session(owner))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("not_started"));
 
         MockHttpSession c = candidate(ticket, code);
         mvc.perform(post("/api/candidate/start").with(csrf()).session(c)).andExpect(status().isOk());
-        // 剩不到一分鐘
+        // Less than a minute left
         jdbc.update("update attempt set deadline_at = now() + interval '30 seconds' where candidate_id = ?", id);
         mvc.perform(json(post(url + id + "/extend"), "{\"minutes\":5}").session(owner)).andExpect(status().isBadRequest());
         mvc.perform(json(post(url + id + "/extend"), "{\"minutes\":5,\"reason\":\"電腦當機\"}").session(c))
@@ -250,7 +250,7 @@ class AttemptTest extends IntegrationTestBase {
         mvc.perform(get("/api/exams/" + exam + "/candidates").session(owner))
                 .andExpect(jsonPath("$[0].extraMinutes").value(5)).andExpect(jsonPath("$[1].extraMinutes").value(0));
 
-        // 累計上限 120 分鐘
+        // Capped at 120 minutes in total
         mvc.perform(json(post(url + id + "/extend"), "{\"minutes\":60,\"reason\":\"停電\"}").session(owner)).andExpect(status().isOk());
         mvc.perform(json(post(url + id + "/extend"), "{\"minutes\":60,\"reason\":\"停電\"}").session(owner))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("too_much"));
@@ -261,13 +261,13 @@ class AttemptTest extends IntegrationTestBase {
     }
 
     @Test
-    void 時間到伺服器拒收並自動收卷() throws Exception {
+    void serverRefusesAfterDeadlineAndAutoSubmits() throws Exception {
         publish();
         MockHttpSession c = candidate(ticket, code);
         mvc.perform(post("/api/candidate/start").with(csrf()).session(c)).andExpect(status().isOk());
         answer(c, "q1", "{\"choices\":[\"b\"]}", 200);
 
-        // 把截止時間改到一分鐘前（等於前端把時鐘調慢想多寫）
+        // Move the deadline a minute back (as if the client slowed its clock to write longer)
         jdbc.update("update attempt set deadline_at = now() - interval '1 minute' where candidate_id = (select id from candidate where ticket = ?)", ticket);
         answer(c, "q2", "{\"choices\":[\"a\",\"b\"]}", 409);
 
@@ -280,7 +280,7 @@ class AttemptTest extends IntegrationTestBase {
     }
 
     @Test
-    void 承辦人結束考試時還在作答的人會被收卷_結束後不能開始() throws Exception {
+    void endingTheExamSubmitsOpenAttempts_noStartAfterEnd() throws Exception {
         publish();
         MockHttpSession c = candidate(ticket, code);
         MockHttpSession late = candidate(ticket2, code2);

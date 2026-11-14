@@ -28,7 +28,7 @@ public class EmergencyAccessController {
         this.service = service;
     }
 
-    // 單位負責人
+    // Unit owner
     @GetMapping("/exams/{examId}/emergency-access")
     public Overview overview(@PathVariable Long examId) {
         return service.overview(examId);
@@ -46,7 +46,7 @@ public class EmergencyAccessController {
         service.revoke(examId, grantId);
     }
 
-    // 系統管理員
+    // System administrator
     @GetMapping("/admin/emergency-access")
     @PreAuthorize("@access.isSystemAdmin()")
     public List<Grant> mine() {

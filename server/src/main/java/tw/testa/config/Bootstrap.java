@@ -31,9 +31,9 @@ import tw.testa.unit.UnitRoleRepository;
 import tw.testa.unit.UnitType;
 
 /**
- * 啟動時的初始資料。
- * 1. 資料庫裡沒有任何系統管理員時，用 testa.bootstrap-admin 建立第一位。
- * 2. testa.dev-seed=true（dev profile）時，建立與前端原型相同的示範單位與帳號。
+ * Start-up data.
+ * 1. With no system administrator in the database, create the first one from testa.bootstrap-admin.
+ * 2. With testa.dev-seed=true (dev profile), create the demo units and accounts used by the frontend prototype.
  */
 @Component
 public class Bootstrap implements ApplicationRunner {
@@ -68,7 +68,7 @@ public class Bootstrap implements ApplicationRunner {
                 log.warn("資料庫裡還沒有系統管理員。請設定 TESTA_ADMIN_EMAIL 與 TESTA_ADMIN_PASSWORD 後重新啟動。");
             } else {
                 Staff s = new Staff(admin.email(), encoder.encode(admin.password()), admin.name(), true);
-                // 正式環境的第一組密碼來自環境變數，登入後要求換掉
+                // The first production password comes from the environment and must be changed after sign-in
                 s.setMustChangePassword(!props.devSeed());
                 staffRepo.save(s);
                 log.info("已建立第一位系統管理員：{}", s.getEmail());
@@ -80,7 +80,7 @@ public class Bootstrap implements ApplicationRunner {
         }
     }
 
-    /** 示範考試：已發布、進行中，考生 A115-0001／482915 可以直接登入作答（登入頁的示範按鈕）。 */
+    /** Demo exam: published and live, candidate A115-0001 / 482915 can sign in right away (demo button on the login page). */
     private void seedDemoExam() {
         if (candidateRepo.findByTicketWithExam("A115-0001").stream().anyMatch(c -> c.getLoginCode().equals("482915"))) return;
         Unit unit = unitRepo.findAll().stream().filter(u -> u.getName().equals("招生組")).findFirst().orElse(null);
@@ -120,7 +120,7 @@ public class Bootstrap implements ApplicationRunner {
         Staff teacher = staffRepo.save(new Staff("teacher@testa.tw", encoder.encode("testa-teacher"), "林老師", false));
         Staff teacher2 = staffRepo.save(new Staff("teacher2@testa.tw", encoder.encode("testa-teacher"), "張老師", false));
         Staff teacher3 = staffRepo.save(new Staff("teacher3@testa.tw", encoder.encode("testa-teacher"), "李老師", false));
-        // MVP 的合併角色：承辦人 = 負責人 + 監考，教師 = 出題 + 評分
+        // MVP combined roles: officer = owner + proctor, teacher = author + grader
         roleRepo.save(new UnitRole(admission, officer, Role.OWNER));
         roleRepo.save(new UnitRole(admission, officer, Role.PROCTOR));
         for (Staff t : List.of(teacher, teacher2, teacher3)) {

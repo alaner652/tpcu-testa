@@ -33,7 +33,7 @@ const SHORTCUTS = [
 <template>
   <header class="relative z-20 shrink-0 bg-paper shadow-card">
     <div class="flex h-14 items-center gap-1 px-3 sm:px-5">
-      <!-- 專注模式：左上角回到題庫列表 -->
+      <!-- Focus mode: back to the bank list at top left -->
       <Tip label="回到題庫列表">
         <RouterLink
           to="/banks"
@@ -46,7 +46,7 @@ const SHORTCUTS = [
 
       <div class="min-w-0 flex-1 sm:flex-none"><BankSwitcher /></div>
 
-      <!-- 模式切換：桌面置中，手機在第二列 -->
+      <!-- Mode switch: centred on desktop, second row on phones -->
       <div
         role="tablist"
         aria-label="模式"

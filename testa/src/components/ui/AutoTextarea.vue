@@ -14,7 +14,7 @@ function resize() {
   node.style.height = `${node.scrollHeight}px`
 }
 
-/** 在游標位置插入文字；cursorOffset 為插入後游標相對於片段開頭的位置。 */
+/** Inserts text at the cursor; cursorOffset is where the cursor ends up, relative to the start of the snippet. */
 async function insertAtCursor(snippet: string, cursorOffset = snippet.length) {
   const node = el.value
   if (!node) return

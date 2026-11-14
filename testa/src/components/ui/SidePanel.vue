@@ -3,8 +3,8 @@ import { DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRo
 import { cn } from '@/lib/utils'
 
 /**
- * 寬螢幕時停靠在版面內，窄螢幕時變成抽屜。
- * 內容只寫一次，由 docked 決定呈現方式。
+ * Docked in the layout on wide screens, a drawer on narrow ones.
+ * The content is written once; docked decides how it is shown.
  */
 const open = defineModel<boolean>('open', { required: true })
 const props = defineProps<{

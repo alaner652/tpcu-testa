@@ -9,7 +9,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-/** 操作紀錄。資料庫有 trigger 擋住 update / delete，這裡也不提供 setter。 */
+/** Audit log entry. A database trigger blocks update and delete; there are no setters either. */
 @Entity
 @Table(name = "audit_log")
 public class AuditLog {

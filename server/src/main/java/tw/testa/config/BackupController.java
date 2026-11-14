@@ -14,8 +14,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 後台的備份狀態：只列出備份資料夾裡的檔案，讓系統管理員確認每天的備份有在跑。
- * 備份本身由 backup 容器做（deploy/backup.sh）；這裡不能下載、觸發或還原，備份檔裡有考卷與個資。
+ * Backup status for the admin pages: lists the files in the backup directory so administrators can see daily backups are running.
+ * The backup container does the backups (deploy/backup.sh). No download, trigger or restore here: backups contain papers and personal data.
  */
 @RestController
 @RequestMapping("/api/admin/backups")
@@ -30,7 +30,7 @@ public class BackupController {
 
     public record BackupFile(String name, long size, Instant at) {}
 
-    /** configured＝有設定備份資料夾而且讀得到。 */
+    /** configured: a backup directory is set and readable. */
     public record Backups(boolean configured, List<BackupFile> items) {}
 
     @GetMapping

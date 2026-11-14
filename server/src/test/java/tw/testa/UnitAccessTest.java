@@ -11,11 +11,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpSession;
 
-/** 權限檢查：角色跟著單位走。 */
+/** Permission checks: roles belong to units. */
 class UnitAccessTest extends IntegrationTestBase {
 
     @Test
-    void 一般教職員不能進後台管理() throws Exception {
+    void regularStaffCannotOpenAdmin() throws Exception {
         MockHttpSession admin = adminSession();
         Object[] t = createStaff(admin, "plain@test.tw", "一般教師");
         MockHttpSession s = login("plain@test.tw", (String) t[1]);
@@ -30,24 +30,24 @@ class UnitAccessTest extends IntegrationTestBase {
     }
 
     @Test
-    void 角色跟著單位走() throws Exception {
+    void rolesBelongToUnits() throws Exception {
         MockHttpSession admin = adminSession();
         long unitA = createUnit(admin, "A 單位");
         long unitB = createUnit(admin, "B 單位");
         Object[] owner = createStaff(admin, "owner-a@test.tw", "A 負責人");
         Object[] teacher = createStaff(admin, "teacher-a@test.tw", "A 教師");
 
-        // 系統管理員指派 A 單位負責人
+        // The administrator makes someone owner of unit A
         grant(admin, unitA, "owner-a@test.tw", "OWNER");
         MockHttpSession ownerS = login("owner-a@test.tw", (String) owner[1]);
 
-        // 負責人只看得到自己的單位
+        // Owners see only their own units
         mvc.perform(get("/api/units").session(ownerS)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].name").value("A 單位"));
         mvc.perform(get("/api/auth/me").session(ownerS))
                 .andExpect(jsonPath("$.units[0].roles[0]").value("OWNER"));
 
-        // 負責人可以在自己的單位指派角色，不能動別的單位
+        // Owners assign roles in their unit, not in others
         grant(ownerS, unitA, "teacher-a@test.tw", "AUTHOR");
         grant(ownerS, unitA, "teacher-a@test.tw", "GRADER");
         mvc.perform(json(post("/api/units/" + unitB + "/members"),
@@ -55,32 +55,32 @@ class UnitAccessTest extends IntegrationTestBase {
                 .andExpect(status().isForbidden());
         mvc.perform(get("/api/units/" + unitB + "/members").session(ownerS)).andExpect(status().isForbidden());
 
-        // 重複指派
+        // Duplicate assignment
         mvc.perform(json(post("/api/units/" + unitA + "/members"),
                 "{\"email\":\"teacher-a@test.tw\",\"role\":\"AUTHOR\"}").session(ownerS))
                 .andExpect(status().isConflict());
-        // 不存在的教職員
+        // Unknown staff member
         mvc.perform(json(post("/api/units/" + unitA + "/members"),
                 "{\"email\":\"ghost@test.tw\",\"role\":\"AUTHOR\"}").session(ownerS))
                 .andExpect(status().isBadRequest());
 
-        // 教師有角色但不是負責人：看得到單位，不能管成員
+        // A teacher with a role who is not an owner: sees the unit, cannot manage members
         MockHttpSession teacherS = login("teacher-a@test.tw", (String) teacher[1]);
         mvc.perform(get("/api/units").session(teacherS)).andExpect(jsonPath("$.length()").value(1));
         mvc.perform(get("/api/auth/me").session(teacherS))
                 .andExpect(jsonPath("$.units[0].roles.length()").value(2));
         mvc.perform(get("/api/units/" + unitA + "/members").session(teacherS)).andExpect(status().isForbidden());
 
-        // 成員列表
+        // Member list
         var members = mvc.perform(get("/api/units/" + unitA + "/members").session(ownerS))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(3)).andReturn();
 
-        // 負責人不能移除最後一位負責人（自己）
+        // An owner cannot remove the last owner (themselves)
         Number ownerRoleId = ((java.util.List<Number>) read(members, "$[?(@.role=='OWNER')].id")).get(0);
         mvc.perform(delete("/api/units/" + unitA + "/members/" + ownerRoleId).with(csrf()).session(ownerS))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("last_owner"));
 
-        // 撤銷角色立即生效，不必重新登入
+        // Revoking a role takes effect without signing in again
         Number authorRoleId = ((java.util.List<Number>) read(members, "$[?(@.role=='AUTHOR')].id")).get(0);
         mvc.perform(delete("/api/units/" + unitA + "/members/" + authorRoleId).with(csrf()).session(ownerS))
                 .andExpect(status().isNoContent());
@@ -88,14 +88,14 @@ class UnitAccessTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.units[0].roles.length()").value(1))
                 .andExpect(jsonPath("$.units[0].roles[0]").value("GRADER"));
 
-        // 系統管理員撤掉負責人後，原負責人立刻失去管理權
+        // Once the administrator removes the owner, they lose management at once
         mvc.perform(delete("/api/units/" + unitA + "/members/" + ownerRoleId).with(csrf()).session(admin))
                 .andExpect(status().isNoContent());
         mvc.perform(get("/api/units/" + unitA + "/members").session(ownerS)).andExpect(status().isForbidden());
     }
 
     @Test
-    void 停用單位後角色失效() throws Exception {
+    void disablingAUnitRevokesItsRoles() throws Exception {
         MockHttpSession admin = adminSession();
         long unit = createUnit(admin, "要停用的單位");
         Object[] owner = createStaff(admin, "owner-c@test.tw", "C 負責人");
@@ -111,7 +111,7 @@ class UnitAccessTest extends IntegrationTestBase {
     }
 
     @Test
-    void 單位名稱不能重複_輸入要驗證() throws Exception {
+    void unitNamesAreUnique_inputIsValidated() throws Exception {
         MockHttpSession admin = adminSession();
         createUnit(admin, "重複單位");
         mvc.perform(json(post("/api/units"), "{\"name\":\"重複單位\",\"type\":\"ADMISSION\"}").session(admin))

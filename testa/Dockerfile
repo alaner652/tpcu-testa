@@ -1,4 +1,4 @@
-# 前端：打包成靜態檔，由 Nginx 提供，並把 /api 轉給後端
+# Frontend: build static files, served by Nginx, which proxies /api to the backend
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./

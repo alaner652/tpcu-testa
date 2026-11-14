@@ -5,8 +5,8 @@ import { hasMath } from '@/lib/math'
 import MathText from './MathText.vue'
 
 /**
- * 可直接點進去改的文字。含公式時平常顯示排版後的結果，取得焦點才顯示 LaTeX 原始碼，
- * 所以編輯畫面看到的內容與考生看到的一致，不需要另外的預覽區。
+ * Click-to-edit text. With formulas it shows the typeset result and the LaTeX source only while focused,
+ * so the editor shows exactly what candidates see and needs no separate preview.
  */
 defineOptions({ inheritAttrs: false })
 const model = defineModel<string>({ required: true })

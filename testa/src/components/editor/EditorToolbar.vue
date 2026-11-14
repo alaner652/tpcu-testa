@@ -10,8 +10,8 @@ import { DEMO_FEATURES } from '@/lib/flags'
 import { QUESTION_TYPES } from '@/lib/question'
 
 /**
- * 跟著題卡走的工具列：桌面在題卡右側直排，手機在畫面底部橫排。
- * 新題目會插在目前選取的題目下方。
+ * Toolbar that follows the question card: vertical to its right on desktop, horizontal at the bottom on phones.
+ * New questions go below the selected one.
  */
 const props = defineProps<{ orientation: 'vertical' | 'horizontal' }>()
 defineEmits<{ import: []; preview: [] }>()

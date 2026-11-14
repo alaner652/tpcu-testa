@@ -28,8 +28,8 @@ import tw.testa.staff.Staff;
 import tw.testa.staff.StaffRepository;
 
 /**
- * 單位與單位成員。
- * 建立、修改單位：系統管理員。管理成員（指派角色）：系統管理員或該單位負責人。
+ * Units and unit members.
+ * Creating and editing units: system administrators. Managing members (assigning roles): system administrators or the unit's owner.
  */
 @RestController
 @RequestMapping("/api/units")
@@ -61,7 +61,7 @@ public class UnitController {
     public record AddMemberRequest(@NotBlank(message = "請輸入教職員的 Email。") String email,
             @NotNull(message = "請選擇角色。") Role role) {}
 
-    /** 系統管理員看到全部單位；其他人只看到自己有角色的單位。 */
+    /** System administrators see every unit; others only units where they hold a role. */
     @GetMapping
     @Transactional(readOnly = true)
     public List<UnitDto> list() {
@@ -137,7 +137,7 @@ public class UnitController {
     public void removeMember(@PathVariable Long unitId, @PathVariable Long memberId) {
         UnitRole r = roleRepo.findById(memberId).filter(x -> x.getUnit().getId().equals(unitId))
                 .orElseThrow(() -> ApiException.notFound("找不到這筆角色指派。"));
-        // 負責人不能把單位弄成沒有負責人；真的要換人由系統管理員處理
+        // An owner cannot leave the unit without an owner; a system administrator handles hand-overs
         if (r.getRole() == Role.OWNER && !access.isSystemAdmin()
                 && roleRepo.countByUnitIdAndRole(unitId, Role.OWNER) <= 1) {
             throw ApiException.badRequest("last_owner", "單位至少要有一位負責人。");

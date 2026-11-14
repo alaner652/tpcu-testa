@@ -40,17 +40,17 @@ import tw.testa.grading.GradingDtos.CandidateResult;
 import tw.testa.grading.GradingService;
 
 /**
- * 考生端：登入、開始作答、存答案、交卷、自動批改。
- * 原則：計時與批改只在這裡做。前端顯示的倒數只是參考，過了 deadline_at 伺服器就拒收。
+ * Candidate side: sign-in, start, save answers, submit, auto-grade.
+ * Timing and grading happen only here. The frontend countdown is a hint; after deadline_at the server refuses saves.
  */
 @Service
 public class AttemptService {
     private static final Logger log = LoggerFactory.getLogger(AttemptService.class);
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final String ANON_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    /** 網路延遲的寬限：時間到的那一刻送出的最後一次存檔還是收 */
+    /** Grace for network latency: the last save sent at the deadline is still accepted. */
     private static final Duration GRACE = Duration.ofSeconds(10);
-    /** 一位考生累計最多補時幾分鐘 */
+    /** Maximum total extra minutes per candidate. */
     public static final int MAX_EXTRA_MINUTES = 120;
     private static final String BAD_LOGIN = "准考證號或登入碼不正確。請確認登入單上的資料，或洽監考人員。";
 
@@ -73,19 +73,19 @@ public class AttemptService {
         this.tx = tx;
     }
 
-    // ── 登入 ─────────────────────────────────────────────
+    // ── Sign-in ──────────────────────────────────────────
 
     /**
-     * 准考證號 + 登入碼。只有名單上、而且考試已發布的考生進得來。
-     * 登入失敗（ApiException）交易照樣提交，所以失敗次數、鎖定、操作紀錄都會留下來；
-     * 操作紀錄跟著這個交易寫（recordAs），整個登入只用一條資料庫連線。
+     * Candidate number + login code. Only rostered candidates of a published exam get in.
+     * A failed sign-in (ApiException) still commits, so failure counts, lockouts and the audit log persist;
+     * the audit entry joins this transaction (recordAs), so a sign-in uses a single connection.
      */
     @Transactional(noRollbackFor = ApiException.class)
     public Candidate login(String rawTicket, String rawCode) {
         String ticket = rawTicket.trim().toUpperCase();
         String code = rawCode.replaceAll("\\s", "");
         Instant now = Instant.now();
-        // 同一個准考證號可能出現在不同場考試，各有各的登入碼
+        // The same candidate number can appear in several exams, each with its own login code
         List<Candidate> found = candidateRepo.findByTicketWithExam(ticket).stream()
                 .filter(c -> c.getExam().getStatus() != Exam.Status.DRAFT && !c.getExam().isArchived()).toList();
         if (found.isEmpty()) {
@@ -97,7 +97,7 @@ public class AttemptService {
             throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "locked", "登入碼輸錯太多次，已暫時鎖定。請洽監考人員重設登入碼。");
         }
         Candidate match = found.stream().filter(c -> sameCode(c.getLoginCode(), code))
-                // 有多場時優先進還沒結束的那一場
+                // With several matches, prefer an exam that has not ended
                 .min((a, b) -> Boolean.compare(a.getExam().getStatus() == Exam.Status.ENDED,
                         b.getExam().getStatus() == Exam.Status.ENDED))
                 .orElse(null);
@@ -124,7 +124,7 @@ public class AttemptService {
         return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), given.getBytes(StandardCharsets.UTF_8));
     }
 
-    // ── 作答 ─────────────────────────────────────────────
+    // ── Answering ────────────────────────────────────────
 
     @Transactional
     public State state(Long candidateId) {
@@ -135,7 +135,7 @@ public class AttemptService {
         return toState(c, a, now);
     }
 
-    /** 開始作答（或回到進行中的作答）。從這一刻起算時間。 */
+    /** Starts the attempt (or resumes it). The clock starts here. */
     @Transactional
     public State start(Long candidateId) {
         Candidate c = candidate(candidateId);
@@ -188,16 +188,16 @@ public class AttemptService {
         return toState(c, a, now);
     }
 
-    /** 作答中離開考試畫面（切換分頁、切到別的視窗）。只記錄，不處罰。 */
+    /** The candidate left the exam screen (switched tab or window). Recorded, not penalised. */
     @Transactional
     public void left(Long candidateId) {
         Candidate c = candidate(candidateId);
         if (c.getStatus() == Candidate.Status.IN) c.left();
     }
 
-    // ── 系統收卷 ─────────────────────────────────────────
+    // ── Auto-submit ──────────────────────────────────────
 
-    /** 時間到還沒交卷的，由系統收卷並批改。 */
+    /** Submits and grades attempts that ran out of time. */
     @Scheduled(fixedDelay = 15000, initialDelay = 15000)
     public void sweep() {
         for (Long id : attemptRepo.findOverdueIds(Instant.now().minus(GRACE))) {
@@ -211,7 +211,7 @@ public class AttemptService {
         }
     }
 
-    /** 承辦人結束考試：還在作答的全部收卷。呼叫端已在交易中。 */
+    /** The officer ended the exam: submit every open attempt. Caller holds a transaction. */
     @Transactional
     public void closeAll(Long examId) {
         Instant now = Instant.now();
@@ -222,7 +222,7 @@ public class AttemptService {
         }
     }
 
-    /** 這場考試每位考生的作答（給監考頁顯示截止時間與補時）。 */
+    /** Each candidate's attempt in this exam (deadline and extra time for the proctoring page). */
     @Transactional(readOnly = true)
     public Map<Long, Attempt> byCandidate(Long examId) {
         Map<Long, Attempt> map = new HashMap<>();
@@ -230,7 +230,7 @@ public class AttemptService {
         return map;
     }
 
-    /** 監考補時。權限由呼叫端（ExamService）檢查，呼叫端已在交易中。 */
+    /** Extra time from a proctor. The caller (ExamService) checks permissions and holds a transaction. */
     @Transactional
     public Attempt extend(Long candidateId, int minutes) {
         Attempt a = attemptRepo.findForUpdateByCandidateId(candidateId)
@@ -245,20 +245,20 @@ public class AttemptService {
         return a;
     }
 
-    // ── 內部 ─────────────────────────────────────────────
+    // ── Internal ─────────────────────────────────────────
 
     private Candidate candidate(Long id) {
         return candidateRepo.findById(id)
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "unauthorized", "請重新登入。"));
     }
 
-    /** 取得還能作答的那次作答（並鎖住）；已交卷或逾時就丟 409。 */
+    /** The open attempt, locked; 409 if already submitted or overdue. */
     private Attempt openAttempt(Long candidateId, Instant now, Duration grace) {
         Attempt a = attemptRepo.findForUpdateByCandidateId(candidateId)
                 .orElseThrow(() -> ApiException.conflict("not_started", "你還沒有開始作答。"));
         if (!a.isSubmitted() && a.getExam().getStatus() == Exam.Status.ENDED) finalizeAttempt(a, now, true);
         if (!a.isSubmitted() && now.isAfter(a.getDeadlineAt().plus(grace))) {
-            // 這裡不直接收卷：丟例外會讓交易回復。交給 state()／排程去收。
+            // Do not submit here: throwing rolls the transaction back. state() or the scheduler will close it.
             throw ApiException.conflict("time_up", "作答時間已經到了，系統已自動交卷。");
         }
         if (a.isSubmitted()) throw ApiException.conflict("submitted", "你已經交卷了，不能再修改答案。");
@@ -271,7 +271,7 @@ public class AttemptService {
         else if (a.getExam().getStatus() == Exam.Status.ENDED) finalizeAttempt(a, now, true);
     }
 
-    /** 交卷並自動批改選擇題與填空題。 */
+    /** Submits and auto-grades choice and fill-in questions. */
     private void finalizeAttempt(Attempt a, Instant at, boolean auto) {
         Map<String, Answer> answers = new HashMap<>();
         for (Answer x : answerRepo.findByAttemptId(a.getId())) answers.put(x.getQuestionId(), x);
@@ -321,14 +321,14 @@ public class AttemptService {
                 result(c));
     }
 
-    /** 成績公布之後，考生看得到自己的分數（只有分數）。c 一律來自 Session 裡的考生身分。 */
+    /** After results are published, candidates see their own scores (scores only). c always comes from the session. */
     private Result result(Candidate c) {
         CandidateResult r = grading.candidateResult(c.getExam(), c.getId());
         return r == null ? null
                 : new Result(r.publishedAt(), r.fullMarks(), r.autoScore(), r.essayScore(), r.total());
     }
 
-    /** 把題目送到考生端之前去掉所有答案：正確選項、填空答案、解析、評分規準。 */
+    /** Strips every answer before a question goes to a candidate: correct choices, blank answers, explanation, rubric. */
     private static PaperQuestion strip(QuestionDto q) {
         boolean choice = q.type().equals("single") || q.type().equals("multiple");
         return new PaperQuestion(q.id(), q.type(), q.stem(), q.points(),

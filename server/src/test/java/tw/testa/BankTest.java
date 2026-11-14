@@ -66,7 +66,7 @@ class BankTest extends IntegrationTestBase {
     }
 
     @Test
-    void 出題者可以建立_儲存_讀回題庫() throws Exception {
+    void authorCanCreateSaveAndReadBank() throws Exception {
         long id = createBank(author);
 
         mvc.perform(json(put("/api/banks/" + id), body(0, "入學測驗", Q1, Q2, Q3)).session(author))
@@ -86,7 +86,7 @@ class BankTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.questions[2].review").value(true))
                 .andExpect(jsonPath("$.questions[2].rubric").value("驗證 n=1（2 分）"));
 
-        // 重新排序、刪掉一題、修改一題
+        // Reorder, delete one question, edit one
         String q1Edited = Q1.replace("\"points\":5", "\"points\":8");
         mvc.perform(json(put("/api/banks/" + id), body(1, "入學測驗", Q3, q1Edited)).session(author))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(2));
@@ -99,11 +99,11 @@ class BankTest extends IntegrationTestBase {
     }
 
     @Test
-    void 版本不符時拒絕儲存_不會蓋掉別人的修改() throws Exception {
+    void staleVersionIsRejected_noOverwritingOthers() throws Exception {
         long id = createBank(author);
         mvc.perform(json(put("/api/banks/" + id), body(0, "第一個人存的", Q1)).session(author))
                 .andExpect(status().isOk());
-        // 第二個分頁還拿著舊版本
+        // A second tab still holds the old version
         mvc.perform(json(put("/api/banks/" + id), body(0, "第二個人存的")).session(author))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("stale_version"));
         mvc.perform(get("/api/banks/" + id).session(author)).andExpect(jsonPath("$.name").value("第一個人存的"))
@@ -111,10 +111,10 @@ class BankTest extends IntegrationTestBase {
     }
 
     @Test
-    void 權限_負責人唯讀_其他人看不到() throws Exception {
+    void permissions_ownerReadOnly_othersSeeNothing() throws Exception {
         long id = createBank(author);
 
-        // 負責人：看得到、不能改
+        // Owner: can view, cannot edit
         mvc.perform(get("/api/banks").session(owner)).andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].editable").value(false));
         mvc.perform(get("/api/banks/" + id).session(owner)).andExpect(status().isOk());
@@ -124,7 +124,7 @@ class BankTest extends IntegrationTestBase {
                 .andExpect(status().isForbidden());
         mvc.perform(delete("/api/banks/" + id).with(csrf()).session(owner)).andExpect(status().isForbidden());
 
-        // 評分者、別的單位的出題者、系統管理員：看不到
+        // Grader, another unit's author, administrator: cannot see
         for (MockHttpSession s : new MockHttpSession[] { grader, outsider, admin }) {
             mvc.perform(get("/api/banks").session(s)).andExpect(status().isOk())
                     .andExpect(jsonPath("$[?(@.id==" + id + ")]").isEmpty());
@@ -132,14 +132,14 @@ class BankTest extends IntegrationTestBase {
             mvc.perform(json(put("/api/banks/" + id), body(0, "偷改")).session(s)).andExpect(status().isForbidden());
             mvc.perform(delete("/api/banks/" + id).with(csrf()).session(s)).andExpect(status().isNotFound());
         }
-        // 別的單位的出題者不能把題庫建到這個單位
+        // Another unit's author cannot create a bank in this unit
         mvc.perform(json(post("/api/banks"), "{\"unitId\":%d}".formatted(unit)).session(outsider))
                 .andExpect(status().isForbidden());
         mvc.perform(get("/api/banks")).andExpect(status().isUnauthorized());
     }
 
     @Test
-    void 刪除題庫() throws Exception {
+    void deleteBank() throws Exception {
         long id = createBank(author);
         mvc.perform(json(put("/api/banks/" + id), body(0, "要刪的", Q1, Q2)).session(author)).andExpect(status().isOk());
         mvc.perform(delete("/api/banks/" + id).with(csrf()).session(author)).andExpect(status().isNoContent());
@@ -149,7 +149,7 @@ class BankTest extends IntegrationTestBase {
     }
 
     @Test
-    void 資料矛盾時拒絕() throws Exception {
+    void contradictoryDataIsRejected() throws Exception {
         long id = createBank(author);
         mvc.perform(json(put("/api/banks/" + id), body(0, "x", Q1, Q1)).session(author))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("duplicate_question"));
@@ -159,7 +159,7 @@ class BankTest extends IntegrationTestBase {
                 .session(author)).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("validation"));
         mvc.perform(json(put("/api/banks/" + id), body(0, "x", Q1.replace("\"single\"", "\"magic\""))).session(author))
                 .andExpect(status().isBadRequest());
-        // 沒寫完的題目是允許的
+        // Unfinished questions are allowed
         String draft = "{\"id\":\"q_d\",\"type\":\"single\",\"points\":5}";
         mvc.perform(json(put("/api/banks/" + id), body(0, "x", draft)).session(author)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.questions[0].stem").value(""))

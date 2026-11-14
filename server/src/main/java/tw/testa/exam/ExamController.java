@@ -92,13 +92,13 @@ public class ExamController {
         return exams.candidates(id);
     }
 
-    /** 第一步：上傳名單檔案，回傳檢查結果（不寫入）。 */
+    /** Step 1: upload the roster file and get the check result (nothing is written). */
     @PostMapping("/{id}/candidates/preview")
     public RosterPreview preview(@PathVariable Long id, @RequestParam("file") MultipartFile file) throws IOException {
         return exams.preview(id, file.getOriginalFilename(), file.getBytes());
     }
 
-    /** 第二步：確認後匯入。 */
+    /** Step 2: import after confirmation. */
     @PostMapping("/{id}/candidates")
     @ResponseStatus(HttpStatus.CREATED)
     public ImportResult importRows(@PathVariable Long id, @Valid @RequestBody ImportRequest body) {

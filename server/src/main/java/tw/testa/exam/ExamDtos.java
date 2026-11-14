@@ -15,8 +15,8 @@ public final class ExamDtos {
     private ExamDtos() {}
 
     /**
-     * status：draft / scheduled / live / ended。canManage：我是不是這場考試所屬單位的負責人。
-     * retainUntil：資料要保留到什麼時候（考試結束後才有）；封存而且過了這個時間才能刪除。
+     * status: draft / scheduled / live / ended. canManage: whether I own the exam's unit.
+     * retainUntil: how long data is kept (set once the exam ends); an archived exam can be deleted after it.
      */
     public record ExamDto(Long id, Long unitId, String unitName, String name, Long bankId, String bankName,
             Instant startAt, int duration, Exam.Mode mode, String status, int questionCount, BigDecimal totalPoints,
@@ -30,7 +30,7 @@ public final class ExamDtos {
             @NotNull(message = "請輸入作答時間。") @Min(value = 1, message = "作答時間至少 1 分鐘。") @Max(value = 600, message = "作答時間最多 600 分鐘。") Integer duration,
             Exam.Mode mode) {}
 
-    /** 只送要改的欄位。clearStartAt=true 代表把開始時間清掉。 */
+    /** Only the fields to change. clearStartAt=true clears the start time. */
     public record UpdateExamRequest(@Size(min = 1, max = 200, message = "請輸入考試名稱。") String name, Long bankId,
             Instant startAt, Boolean clearStartAt,
             @Min(value = 1, message = "作答時間至少 1 分鐘。") @Max(value = 600, message = "作答時間最多 600 分鐘。") Integer duration,
@@ -49,7 +49,7 @@ public final class ExamDtos {
 
     public record RosterProblem(String row, String who, String reason) {}
 
-    /** 上傳檔案後的檢查結果：rows 可以匯入，problems 需要修正（不會匯入）。 */
+    /** Result of checking an uploaded file: rows can be imported, problems need fixing (not imported). */
     public record RosterPreview(String file, List<RosterRow> rows, List<RosterProblem> problems) {}
 
     public record ImportRequest(

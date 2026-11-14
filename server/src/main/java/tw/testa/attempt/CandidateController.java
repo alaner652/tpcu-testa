@@ -29,7 +29,7 @@ import tw.testa.attempt.AttemptDtos.State;
 import tw.testa.auth.CandidatePrincipal;
 import tw.testa.exam.Candidate;
 
-/** 考生端 API。除了登入，其餘都只認 Session 裡的考生身分，考生無法指定別人的資料。 */
+/** Candidate API. Apart from sign-in, everything uses the candidate identity in the session, so nobody can address another candidate's data. */
 @RestController
 @RequestMapping("/api/candidate")
 public class CandidateController {
@@ -44,7 +44,7 @@ public class CandidateController {
     @PostMapping("/login")
     public State login(@Valid @RequestBody LoginRequest body, HttpServletRequest request, HttpServletResponse response) {
         Candidate c = attempts.login(body.ticket(), body.code());
-        // 不沿用登入前的 Session（可能是別人的，或是教職員的）
+        // Do not reuse the pre-login session (it may belong to someone else or to staff)
         HttpSession old = request.getSession(false);
         if (old != null) {
             java.util.Collections.list(old.getAttributeNames()).forEach(old::removeAttribute);

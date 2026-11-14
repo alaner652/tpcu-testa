@@ -7,7 +7,7 @@ const props = defineProps<{ question: Question }>()
 function setType(type: QuestionType) {
   const q = props.question
   if (q.type === type) return
-  // 多選改單選時只保留第一個正確答案
+  // Multiple to single keeps only the first correct answer
   if (type === 'single' && q.correct.length > 1) q.correct = q.correct.slice(0, 1)
   q.type = type
 }

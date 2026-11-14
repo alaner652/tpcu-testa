@@ -7,7 +7,7 @@ import MathText from '@/components/editor/MathText.vue'
 import PointsStepper from '@/components/editor/PointsStepper.vue'
 import { useGrading, type GradingItem } from '@/composables/useGrading'
 
-/** 閱卷：一次只看一份，匿名顯示考生，送出後自動跳下一份。看不到其他評分者的分數。 */
+/** Grading: one anonymous paper at a time, the next opens after submitting. Other graders' scores are never shown. */
 const { exams, load, items: fetchItems, score: sendScore } = useGrading()
 
 const examId = ref<number | null>(null)
@@ -44,7 +44,7 @@ async function open(id: number) {
 
 onMounted(async () => {
   await load()
-  // 先開還有待評答案的那一場
+  // Open the exam that still has answers to grade first
   const first = exams.value.find((e) => e.done < e.total) ?? exams.value[0]
   if (first) await open(first.examId)
   else loading.value = false
@@ -52,8 +52,8 @@ onMounted(async () => {
 
 async function submit() {
   const item = current.value
-  // 超過滿分時畫面上已經有紅字提示。按鈕不停用：給分欄位要離開焦點才更新，
-  // 停用的話改完分數第一次點只會讓按鈕亮起來，要點第二次才送得出去
+  // Over full marks already shows a red hint. The button stays enabled: the score field updates on blur,
+  // so a disabled button would only light up on the first click and need a second one to submit
   if (!item || examId.value == null || sending.value || score.value > item.points) return
   sending.value = true
   try {

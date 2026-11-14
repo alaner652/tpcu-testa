@@ -4,11 +4,11 @@ import java.io.Serializable;
 
 import tw.testa.staff.Staff;
 
-/** 存在 Session 裡的教職員身分。單位角色不放這裡，每次檢查都查資料庫，撤銷才會立即生效。 */
+/** Staff identity stored in the session. Unit roles are not kept here; every check reads the database so revocation is immediate. */
 public record StaffPrincipal(Long id, String email, String name, boolean systemAdmin, int sessionVersion)
         implements Serializable, java.security.Principal {
 
-    /** Authentication.getName() 用的短名稱，會寫進 spring_session.principal_name；不放姓名與 Email。 */
+    /** Short name for Authentication.getName(), stored in spring_session.principal_name; no name or email. */
     @Override
     public String getName() {
         return "staff:" + id;

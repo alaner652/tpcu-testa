@@ -1,8 +1,8 @@
 /**
- * 後端 API 的唯一出入口。
- * - 登入狀態靠伺服器端 Session（HttpOnly cookie），前端不保存任何 token。
- * - 寫入請求要帶 CSRF token：後端放在 XSRF-TOKEN cookie，這裡讀出來放進 X-XSRF-TOKEN 標頭。
- * - 錯誤一律轉成 ApiError，message 是可以直接顯示給使用者的中文。
+ * The only way to call the backend API.
+ * - Sign-in state lives in a server-side session (HttpOnly cookie); the frontend stores no token.
+ * - Writes carry the CSRF token: the backend sets the XSRF-TOKEN cookie and this sends it in the X-XSRF-TOKEN header.
+ * - Every error becomes an ApiError whose message can be shown to the user as is.
  */
 export class ApiError extends Error {
   constructor(
@@ -16,7 +16,7 @@ export class ApiError extends Error {
 }
 
 let onUnauthorized: (() => void) | null = null
-/** Session 過期或被強制登出時要做的事（由 useAuth 註冊）。 */
+/** What to do when the session expires or the user is forced out (registered by useAuth). */
 export function setUnauthorizedHandler(handler: () => void) {
   onUnauthorized = handler
 }
@@ -34,7 +34,7 @@ async function csrfToken() {
 interface Options {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   body?: unknown
-  /** 401 時不要觸發全域的「被登出」處理（登入、開機檢查用） */
+  /** Do not trigger the global signed-out handling on 401 (sign-in, start-up check) */
   quiet401?: boolean
 }
 
@@ -43,7 +43,7 @@ export async function api<T = void>(path: string, { method = 'GET', body, quiet4
   let res: Response
   try {
     if (method !== 'GET') headers['X-XSRF-TOKEN'] = await csrfToken()
-    // FormData（上傳檔案）讓瀏覽器自己帶 multipart 的 Content-Type
+    // FormData (file upload): let the browser set the multipart Content-Type
     const form = body instanceof FormData
     if (body !== undefined && !form) headers['Content-Type'] = 'application/json'
     res = await fetch(`/api${path}`, {
@@ -65,7 +65,7 @@ export async function api<T = void>(path: string, { method = 'GET', body, quiet4
   try {
     problem = await res.json()
   } catch {
-    // 不是 JSON（例如後端沒啟動時代理回的 502）
+    // Not JSON (e.g. a 502 from the proxy while the backend is down)
   }
   if (res.status === 401 && !quiet401) onUnauthorized?.()
   const fallback =

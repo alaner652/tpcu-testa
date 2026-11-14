@@ -16,7 +16,7 @@ export function typeMeta(type: QuestionType) {
 
 type Draft = Partial<Omit<Question, 'choices' | 'blanks' | 'correct'>> & {
   choices?: string[]
-  /** 正確選項的索引 */
+  /** Indexes of the correct choices */
   correct?: number[]
   blanks?: string[][]
 }
@@ -56,7 +56,7 @@ export function cloneQuestion(q: Question): Question {
   }
 }
 
-/** 回傳這題還缺什麼；空陣列代表可以出題。 */
+/** What this question is missing; an empty array means it is ready. */
 export function issuesOf(q: Question): string[] {
   const issues: string[] = []
   if (!q.stem.trim()) issues.push('尚未輸入題目')

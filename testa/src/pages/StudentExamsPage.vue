@@ -7,7 +7,7 @@ import Skeleton from '@/components/ui/Skeleton.vue'
 import { useCandidate } from '@/composables/useCandidate'
 import { when } from '@/composables/useExams'
 
-/** 考生首頁：考生只屬於一場考試，一眼看出現在能做什麼。 */
+/** Candidate home: a candidate belongs to one exam, so show at a glance what they can do now. */
 const { state, load } = useCandidate()
 const router = useRouter()
 const error = ref('')
@@ -78,7 +78,7 @@ const enter = () => router.push({ name: 'student-exam', params: { id: 'now' } })
         <p v-else class="text-sm text-ink-2">考試已經結束，你沒有作答紀錄。</p>
       </div>
 
-      <!-- 成績：承辦人公布之後才會出現，只有分數 -->
+      <!-- Results: only after the officer publishes, scores only -->
       <section v-if="result" class="mt-5 border-t border-line pt-5" aria-labelledby="result-title">
         <h2 id="result-title" class="text-sm font-medium text-ink-2">成績</h2>
         <template v-if="result.total != null">

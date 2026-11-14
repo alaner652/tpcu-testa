@@ -3,7 +3,7 @@ import { api } from '@/lib/api'
 import type { Attempt, RemoteExam } from '@/lib/grading'
 import type { Question, QuestionType } from '@/types/question'
 
-/** 考生端：自己的考試狀態、試卷（不含答案）、存答案、交卷。 */
+/** Candidate side: own exam state, the paper (without answers), saving answers, submitting. */
 export interface CandidateState {
   name: string
   ticket: string
@@ -19,7 +19,7 @@ export interface CandidateState {
     totalPoints: number
   }
   attempt: { startedAt: string; deadlineAt: string; submittedAt: string | null; remainingSeconds: number } | null
-  /** 承辦人公布成績之後才有。缺考的人 total 是 null。 */
+  /** Present once the officer publishes results. total is null for absentees. */
   result: {
     publishedAt: string
     fullMarks: number
@@ -52,11 +52,11 @@ export function useCandidate() {
     return state.value
   }
 
-  /** 開始作答（或回到進行中的作答），並取得試卷。 */
+  /** Starts (or resumes) the attempt and loads the paper. */
   async function open(): Promise<{ questions: Question[]; remote: RemoteExam }> {
     state.value = await api<CandidateState>('/candidate/start', { method: 'POST' })
     const paper = await api<Paper>('/candidate/paper')
-    // 補上答案欄位（都是空的），讓作答元件可以共用題目的型別
+    // Add empty answer fields so answer components can share the question type
     const questions: Question[] = paper.questions.map((q) => ({
       ...q,
       explanation: '',
@@ -85,7 +85,7 @@ export function useCandidate() {
     }
   }
 
-  /** 作答中離開考試畫面：只通知伺服器記一筆。 */
+  /** Left the exam screen while answering: just tell the server to record it. */
   const reportLeave = () => api('/candidate/leave', { method: 'POST', quiet401: true }).catch(() => {})
 
   return { state, load, open, reportLeave }

@@ -34,10 +34,10 @@ import tw.testa.unit.UnitRole;
 import tw.testa.unit.UnitRoleRepository;
 
 /**
- * 考試與考生名單。權限：
- * - 單位負責人（OWNER）：建立、修改、發布、結束考試；匯入與移除考生。
- * - 監考（PROCTOR）：看考試與名單（含登入碼）、重設登入碼。負責人也可以。
- * - 出題者、評分者、系統管理員看不到名單。
+ * Exams and rosters. Permissions:
+ * - Owners: create, edit, publish and end exams; import and remove candidates.
+ * - Proctors: view exams and rosters (with login codes) and reset login codes. Owners can too.
+ * - Authors, graders and system administrators cannot see rosters.
  */
 @Service
 public class ExamService {
@@ -71,11 +71,11 @@ public class ExamService {
         this.audit = audit;
     }
 
-    // ── 考試 ─────────────────────────────────────────────
+    // ── Exams ────────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public List<ExamDto> list() {
-        // 單位 → 我是不是負責人
+        // unit -> am I the owner
         Map<Long, Boolean> units = new HashMap<>();
         for (UnitRole r : roleRepo.findByStaffIdWithUnit(access.current().id())) {
             if (!r.getUnit().isActive()) continue;
@@ -98,7 +98,7 @@ public class ExamService {
     public ExamDto create(CreateExamRequest req) {
         Bank bank = bankRepo.findById(req.bankId()).orElseThrow(() -> ApiException.badRequest("unknown_bank", "找不到這份題庫。"));
         Long unitId = bank.getUnit().getId();
-        // 考試建在題庫所屬的單位，必須是那個單位的負責人
+        // The exam lives in the bank's unit; you must own that unit
         if (!access.hasUnitRole(unitId, Role.OWNER)) {
             if (access.hasUnitRole(unitId, Role.AUTHOR)) throw ApiException.forbidden();
             throw ApiException.badRequest("unknown_bank", "找不到這份題庫。");
@@ -130,7 +130,7 @@ public class ExamService {
         return toDto(e, counts(List.of(id)).get(id), true);
     }
 
-    /** 發布：檢查能不能考，並把題目凍結成快照。 */
+    /** Publish: check the exam can run and freeze the questions into a snapshot. */
     @Transactional
     public ExamDto publish(Long id) {
         Exam e = findManaged(id);
@@ -152,7 +152,7 @@ public class ExamService {
         return toDto(e, counts(List.of(id)).get(id), true);
     }
 
-    /** 取消發布：只有還沒到開始時間才可以。 */
+    /** Unpublish: only before the start time. */
     @Transactional
     public ExamDto withdraw(Long id) {
         Exam e = findManaged(id);
@@ -172,13 +172,13 @@ public class ExamService {
         if (!"live".equals(e.phase(Instant.now()))) throw ApiException.conflict("not_live", "只有進行中的考試可以結束。");
         e.setStatus(Exam.Status.ENDED);
         e.setEndedAt(Instant.now());
-        // 還在作答的人直接收卷
+        // Submit everyone still answering
         attempts.closeAll(e.getId());
         audit.record("EXAM_ENDED", "exam", e.getId(), e.getUnit().getId(), null, e.getName());
         return toDto(e, counts(List.of(id)).get(id), true);
     }
 
-    /** 封存：考試變成唯讀，考生不能再登入查成績。資料還在，可以取消封存。 */
+    /** Archive: the exam becomes read-only and candidates can no longer sign in. Data stays; it can be unarchived. */
     @Transactional
     public ExamDto archive(Long id) {
         Exam e = findManaged(id);
@@ -199,8 +199,8 @@ public class ExamService {
     }
 
     /**
-     * 刪除。草稿可以直接刪；考過的考試要先封存，而且過了保存期限才能刪。
-     * 刪除會連同考生名單、答卷、評分一起消失，無法復原；操作紀錄只留下考試名稱與人數。
+     * Delete. Drafts go right away; an exam that ran must be archived and past retention.
+     * Roster, papers and scores go with it, irreversibly; the audit log keeps only the exam name and head count.
      */
     @Transactional
     public void delete(Long id, String reason) {
@@ -223,15 +223,15 @@ public class ExamService {
         examRepo.delete(e);
     }
 
-    /** 保存期限：考試結束那一年 + N 年的年底（台北時間）。還沒結束的考試沒有期限。 */
+    /** Retention: end of (year the exam ended + N), Taipei time. Exams that have not ended have none. */
     Instant retainUntil(Exam e) {
         if (e.getEndedAt() == null) return null;
         int year = java.time.LocalDate.ofInstant(e.getEndedAt(), TAIPEI).getYear() + props.retention().years();
         return java.time.LocalDate.of(year + 1, 1, 1).atStartOfDay(TAIPEI).toInstant();
     }
 
-    // ── 緊急檢視（系統管理員）────────────────────────────
-    // 這兩個方法不檢查單位角色。呼叫端（EmergencyAccessService）必須已經確認授權有效並寫入操作紀錄。
+    // ── Emergency access (system administrator) ──────────
+    // These two skip unit role checks. The caller (EmergencyAccessService) must have verified the grant and written the audit log.
 
     @Transactional(readOnly = true)
     public ExamDto getForEmergency(Long id) {
@@ -239,7 +239,7 @@ public class ExamService {
         return toDto(e, counts(List.of(id)).get(id), false);
     }
 
-    /** 名單與作答狀態；登入碼不給（拿到登入碼就能冒充考生）。 */
+    /** Roster and progress, without login codes (a login code lets you impersonate the candidate). */
     @Transactional(readOnly = true)
     public List<CandidateDto> candidatesForEmergency(Long examId) {
         Instant now = Instant.now();
@@ -250,7 +250,7 @@ public class ExamService {
         }).toList();
     }
 
-    // ── 考生名單 ─────────────────────────────────────────
+    // ── Roster ───────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public List<CandidateDto> candidates(Long examId) {
@@ -261,7 +261,7 @@ public class ExamService {
                 .map(c -> toDto(c, now, byCandidate.get(c.getId()))).toList();
     }
 
-    /** 檢查上傳的名單，不寫入資料庫。 */
+    /** Checks an uploaded roster without writing anything. */
     @Transactional(readOnly = true)
     public RosterPreview preview(Long examId, String fileName, byte[] bytes) {
         Exam e = findManaged(examId);
@@ -269,7 +269,7 @@ public class ExamService {
         List<RosterParser.RawRow> raw = RosterParser.parse(fileName, bytes);
         if (raw.isEmpty()) throw ApiException.badRequest("empty_file", "檔案裡沒有資料。");
 
-        // 找標題列：有「准考證」和「姓名」就照標題對欄位，否則當作 准考證號、姓名、科系 的順序
+        // Header row: if it has the candidate number and name headers, map columns by header; otherwise assume number, name, department
         int ticketCol = 0, nameCol = 1, deptCol = 2, first = 0;
         List<String> head = raw.get(0).cells();
         int t = indexOf(head, "准考證", "考生編號", "編號"), n = indexOf(head, "姓名", "名字");
@@ -301,7 +301,7 @@ public class ExamService {
         return new RosterPreview(fileName, rows, problems);
     }
 
-    /** 匯入：全部合格才寫入，自動排座位並產生登入碼。 */
+    /** Import: writes only when every row is valid, assigns seats and generates login codes. */
     @Transactional
     public ImportResult importRows(Long examId, List<RosterRow> rows) {
         Exam e = findManaged(examId);
@@ -335,7 +335,7 @@ public class ExamService {
         return c.getLoginCode();
     }
 
-    /** 監考補時：考生因設備問題損失時間時，把截止時間往後延。 */
+    /** Proctor extra time: moves the deadline when a candidate lost time to equipment problems. */
     @Transactional
     public CandidateDto extendTime(Long examId, Long candidateId, ExamDtos.ExtendRequest req) {
         Exam e = findVisible(examId);
@@ -360,9 +360,9 @@ public class ExamService {
         candidateRepo.delete(c);
     }
 
-    // ── 內部 ─────────────────────────────────────────────
+    // ── Internal ─────────────────────────────────────────
 
-    /** 負責人或監考看得到；其他人一律「找不到」。 */
+    /** Visible to owners and proctors; "not found" for everyone else. */
     private Exam findVisible(Long id) {
         Exam e = examRepo.findById(id).orElseThrow(() -> ApiException.notFound("找不到這場考試。"));
         if (!access.hasUnitRole(e.getUnit().getId(), Role.OWNER, Role.PROCTOR)) {
@@ -399,7 +399,7 @@ public class ExamService {
 
     private ExamDto toDto(Exam e, long[] counts, boolean canManage) {
         long[] c = counts == null ? new long[3] : counts;
-        // 已發布的考試以快照為準；草稿沒有快照，題數在前端從題庫看
+        // Published exams use the snapshot; drafts have none, so the frontend counts questions from the bank
         ExamSnapshot snap = e.getSnapshot();
         int questionCount = snap == null ? 0 : snap.questions().size();
         BigDecimal total = snap == null ? BigDecimal.ZERO
@@ -418,7 +418,7 @@ public class ExamService {
                 a == null || a.isSubmitted() ? null : a.getDeadlineAt(), a == null ? 0 : a.getExtraMinutes());
     }
 
-    /** 這題還缺什麼（與前端 issuesOf 相同的規則）；null 代表可以出題。 */
+    /** What this question is missing (same rules as the frontend issuesOf); null means it is ready. */
     static String issueOf(QuestionDto q) {
         if (q.stem().isBlank()) return "還沒有輸入題目";
         if (q.type().equals("single") || q.type().equals("multiple")) {

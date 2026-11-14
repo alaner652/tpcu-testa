@@ -8,8 +8,8 @@ import tw.testa.bank.BankDtos.BlankDto;
 import tw.testa.bank.BankDtos.QuestionDto;
 
 /**
- * 自動批改，規則與前端 lib/grading.ts 相同：
- * 選擇題要完全相符；填空題依答對的空格數平均給分；申論題不自動批改（回傳 null，等人工評分）。
+ * Auto-grading, same rules as the frontend lib/grading.ts:
+ * choice must match exactly; fill-in scores by the share of correct blanks; essays are not auto-graded (null, awaiting graders).
  */
 final class AutoGrader {
     private AutoGrader() {}

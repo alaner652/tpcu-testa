@@ -12,10 +12,10 @@ const { pending } = useGrading()
 const links = computed(() =>
   isStudent.value ? [{ to: '/student', label: '我的考試', icon: FileText, exact: false, badge: 0 }] : staffLinks.value,
 )
-/** 依單位角色決定看得到哪些選單：每種角色只看到自己用得到的兩三個。真正的權限由後端檢查。 */
+/** Menu items depend on unit roles: each role sees only the two or three it uses. The backend checks real permissions. */
 const can = (...roles: UnitRole[]) => !!user.value?.units?.some((u) => u.roles.some((r) => roles.includes(r)))
 const staffLinks = computed(() => [
-  // 只管帳號與單位的系統管理員，首頁就是「管理」，不用列兩個
+  // For administrators who only manage accounts and units, home is the admin page, so do not list both
   ...(isAdmin.value && !user.value?.units?.length ? [] : [{ to: '/', label: '首頁', icon: House, exact: true, badge: 0 }]),
   ...(can('AUTHOR', 'OWNER') ? [{ to: '/banks', label: '題庫', icon: LibraryBig, exact: false, badge: 0 }] : []),
   ...(can('OWNER', 'PROCTOR') ? [{ to: '/exams', label: '考試', icon: FileText, exact: false, badge: 0 }] : []),
@@ -26,7 +26,7 @@ const staffLinks = computed(() => [
 
 <template>
   <div class="flex h-dvh flex-col">
-    <!-- 導覽列 -->
+    <!-- Nav -->
     <header class="relative z-20 shrink-0 bg-paper shadow-card">
       <div class="mx-auto flex h-14 max-w-[1080px] items-center gap-6 px-4 md:px-6">
         <RouterLink to="/" class="rounded-control" aria-label="Testa 首頁"><Logo /></RouterLink>
@@ -66,7 +66,7 @@ const staffLinks = computed(() => [
       </div>
     </main>
 
-    <!-- 手機：底部分頁 -->
+    <!-- Phone: bottom tabs -->
     <nav v-if="links.length > 1" class="flex shrink-0 border-t border-line bg-paper pb-[env(safe-area-inset-bottom)] md:hidden" aria-label="主要導覽">
       <RouterLink v-for="link in links" :key="link.to" v-slot="{ isActive, isExactActive, href, navigate }" :to="link.to" custom>
         <a

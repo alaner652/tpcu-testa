@@ -40,11 +40,11 @@ public class SecurityConfig {
                 .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                 .requestMatchers("/api/auth/login", "/api/auth/csrf", "/api/health", "/api/candidate/login").permitAll()
                 .requestMatchers("/api/auth/logout").authenticated()
-                // 考生只能碰 /api/candidate，教職員的 API 一律不行；反之亦然
+                // Candidates may only reach /api/candidate, never staff APIs, and vice versa
                 .requestMatchers("/api/candidate/**").hasRole("CANDIDATE")
                 .requestMatchers("/api/**").hasRole("STAFF")
                 .anyRequest().denyAll())
-            // 前端是 SPA：CSRF token 放在 XSRF-TOKEN cookie，寫入請求用 X-XSRF-TOKEN 標頭帶回來
+            // SPA: the CSRF token is in the XSRF-TOKEN cookie and writes send it back in the X-XSRF-TOKEN header
             .csrf(c -> c.spa())
             .securityContext(s -> s.securityContextRepository(contextRepo))
             .addFilterBefore(new SessionGuardFilter(staff, candidates), AuthorizationFilter.class)
@@ -74,7 +74,7 @@ public class SecurityConfig {
         return new HttpSessionSecurityContextRepository();
     }
 
-    /** 登入由 AuthService 自己處理；宣告這個 bean 只是為了不讓 Spring Boot 產生預設的 user 帳號。 */
+    /** Sign-in is handled by AuthService; this bean only stops Spring Boot from creating the default user. */
     @Bean
     UserDetailsService noUserDetailsService() {
         return username -> {

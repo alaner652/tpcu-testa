@@ -13,7 +13,7 @@ import jakarta.persistence.LockModeType;
 public interface AttemptRepository extends JpaRepository<Attempt, Long> {
     Optional<Attempt> findByCandidateId(Long candidateId);
 
-    /** 鎖住這次作答：同一位考生的存檔、交卷、系統收卷一次只會有一個在進行。 */
+    /** Locks the attempt so saves, submission and auto-submit for one candidate never run concurrently. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select a from Attempt a where a.candidate.id = ?1")
     Optional<Attempt> findForUpdateByCandidateId(Long candidateId);

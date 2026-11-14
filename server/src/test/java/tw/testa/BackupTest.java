@@ -30,12 +30,12 @@ class BackupTest extends IntegrationTestBase {
     }
 
     @Test
-    void 系統管理員看得到備份清單_新的在前_只列備份檔() throws Exception {
+    void administratorSeesBackups_newestFirst_backupFilesOnly() throws Exception {
         Path old = Files.write(DIR.resolve("testa-20261113-030000.sql.gz"), new byte[10]);
         Files.setLastModifiedTime(old, FileTime.from(Instant.parse("2026-11-12T19:00:00Z")));
         Path latest = Files.write(DIR.resolve("testa-20261114-030000.sql.gz"), new byte[25]);
         Files.setLastModifiedTime(latest, FileTime.from(Instant.parse("2026-11-13T19:00:00Z")));
-        Files.write(DIR.resolve("testa-20261115-030000.sql.gz.tmp"), new byte[5]);   // 還沒寫完的不算
+        Files.write(DIR.resolve("testa-20261115-030000.sql.gz.tmp"), new byte[5]);   // still being written, not listed
         Files.write(DIR.resolve("notes.txt"), new byte[5]);
 
         mvc.perform(get("/api/admin/backups").session(adminSession())).andExpect(status().isOk())
@@ -46,7 +46,7 @@ class BackupTest extends IntegrationTestBase {
     }
 
     @Test
-    void 不是系統管理員看不到() throws Exception {
+    void nonAdministratorsCannotSeeBackups() throws Exception {
         Object[] staff = createStaff(adminSession(), "backup-viewer@test.tw", "一般教職員");
         var session = login("backup-viewer@test.tw", (String) staff[1]);
         mvc.perform(get("/api/admin/backups").session(session)).andExpect(status().is4xxClientError());

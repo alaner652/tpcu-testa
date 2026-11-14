@@ -5,7 +5,7 @@ import { LETTERS } from '@/lib/utils'
 import AnswerBubble from './AnswerBubble.vue'
 import MathText from './MathText.vue'
 
-/** 考生作答時看到的一題。locked 時不可再修改（交卷後檢討）。 */
+/** One question as a candidate sees it. locked: read-only (review after submitting). */
 const props = defineProps<{
   question: Question
   index: number
@@ -32,7 +32,7 @@ function pick(id: string) {
     </div>
 
     <div class="mt-4 pl-9 sm:pl-10">
-      <!-- 單選、多選 -->
+      <!-- Single, multiple -->
       <ul
         v-if="question.type === 'single' || question.type === 'multiple'"
         class="space-y-2"
@@ -75,7 +75,7 @@ function pick(id: string) {
         </li>
       </ul>
 
-      <!-- 填空 -->
+      <!-- Blank -->
       <ul v-else-if="question.type === 'blank'" class="space-y-3">
         <li v-for="(blank, i) in question.blanks" :key="blank.id">
           <label class="flex items-center gap-3 text-sm text-ink-2">
@@ -92,7 +92,7 @@ function pick(id: string) {
         </li>
       </ul>
 
-      <!-- 申論 -->
+      <!-- Essay -->
       <div v-else>
         <textarea
           v-model="attempt.essay"

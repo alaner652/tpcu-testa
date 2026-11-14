@@ -11,7 +11,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import type { RemoteExam } from '@/lib/grading'
 import type { Bank } from '@/types/question'
 
-/** 考生作答頁：專注模式，沒有導覽列，只有考試名稱與離開。 */
+/** Candidate exam page: focus mode with no nav, only the exam name and leave. */
 const router = useRouter()
 const { state, load, open, reportLeave } = useCandidate()
 const { confirm } = useConfirm()
@@ -22,15 +22,15 @@ const error = ref('')
 const paper = ref<InstanceType<typeof ExamPreview> | null>(null)
 const finished = ref(false)
 
-// 試卷（不含答案）與存檔方式，開始作答後才向伺服器取得
+// Paper (without answers) and how to save, fetched from the server once answering starts
 const bank = ref<Bank | null>(null)
 const remote = ref<RemoteExam | null>(null)
 const started = computed(() => !!bank.value && !!remote.value)
 const exam = computed(() => state.value?.exam)
-/** 可以進入：考試進行中而且還沒交卷 */
+/** Can enter: exam is live and not yet submitted */
 const available = computed(() => exam.value?.status === 'live' && !state.value?.attempt?.submittedAt)
 
-// 進入考試前先核對身分與閱讀須知
+// Confirm identity and read the instructions before entering
 const agreed = ref(false)
 const beginning = ref(false)
 const RULES = [
@@ -60,7 +60,7 @@ async function begin() {
 onMounted(async () => {
   try {
     await load()
-    // 已經在作答中（重新整理、斷線後回來）：直接回到試卷
+    // Already answering (reload or back after a disconnect): go straight to the paper
     if (state.value?.attempt && !state.value.attempt.submittedAt) await begin()
   } catch (e) {
     error.value = (e as Error).message
@@ -69,16 +69,16 @@ onMounted(async () => {
   }
 })
 
-// 作答中切到別的分頁或視窗：記錄一次
+// Switching to another tab or window while answering: record it once
 const onVisibility = () => {
   if (document.hidden && started.value && !finished.value) reportLeave()
 }
 document.addEventListener('visibilitychange', onVisibility)
 onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibility))
 
-// 還沒交卷就離開（含瀏覽器上一頁）時先確認
+// Confirm before leaving without submitting (including the browser back button)
 onBeforeRouteLeave(async () => {
-  // 登入已失效（在別處登入、後端重啟）：留在這裡也存不了答案，不要攔，直接回登入頁
+  // Session gone (signed in elsewhere, backend restarted): answers cannot be saved here anyway, so go to login without asking
   if (!user.value) return true
   if (finished.value || !started.value || !paper.value) return true
   return confirm({
@@ -117,7 +117,7 @@ onBeforeRouteLeave(async () => {
           </p>
         </div>
       </div>
-      <!-- 核對身分與考試須知 -->
+      <!-- Identity check and instructions -->
       <div v-else-if="!started && state && exam" class="mx-auto max-w-[560px] px-4 py-6 md:py-10">
         <section class="rounded-card bg-paper p-6 shadow-card sm:p-8">
           <h1 class="text-2xl font-bold">請確認這是你本人</h1>

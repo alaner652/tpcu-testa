@@ -8,7 +8,7 @@ import java.util.Map;
 import jakarta.validation.constraints.NotBlank;
 import tw.testa.exam.Exam;
 
-/** 考生端 API 的資料格式。這裡的任何東西都不能包含答案。 */
+/** Candidate API payloads. Nothing here may contain answers. */
 public final class AttemptDtos {
     private AttemptDtos() {}
 
@@ -20,11 +20,11 @@ public final class AttemptDtos {
 
     public record AttemptInfo(Instant startedAt, Instant deadlineAt, Instant submittedAt, long remainingSeconds) {}
 
-    /** 考生自己的成績。只有承辦人公布成績之後才會有；缺考的人 total 是 null。只有分數，沒有答案或評語。 */
+    /** The candidate's own result, only after results are published; total is null for absentees. Scores only, no answers or comments. */
     public record Result(Instant publishedAt, BigDecimal fullMarks, BigDecimal autoScore, BigDecimal essayScore,
             BigDecimal total) {}
 
-    /** 考生登入後看到的全部：自己是誰、哪一場考試、作答到哪裡、（公布後）成績。 */
+    /** Everything a signed-in candidate sees: who they are, which exam, progress and (once published) the result. */
     public record State(String name, String ticket, String dept, int seat, ExamInfo exam, AttemptInfo attempt,
             Result result) {}
 
@@ -32,7 +32,7 @@ public final class AttemptDtos {
 
     public record PaperBlank(String id) {}
 
-    /** 去掉答案的題目。 */
+    /** A question without its answers. */
     public record PaperQuestion(String id, String type, String stem, BigDecimal points, List<PaperChoice> choices,
             List<PaperBlank> blanks, Integer wordLimit) {}
 

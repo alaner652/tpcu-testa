@@ -68,7 +68,7 @@ class GradingTest extends IntegrationTestBase {
         mvc.perform(post("/api/exams/" + exam + "/publish").with(csrf()).session(owner)).andExpect(status().isOk());
 
         var list = mvc.perform(get("/api/exams/" + exam + "/candidates").session(owner)).andReturn();
-        // 王小明：選擇題對、兩題申論都寫；李宜華：選擇題錯、只寫 e1（e2 空白 = 0 分，不用評）
+        // Candidate 1: choice right, both essays written. Candidate 2: choice wrong, only e1 (blank e2 = 0, not graded)
         take(p + "1", read(list, "$[0].code"), "b", "甲的 e1 作答", "甲的 e2 作答");
         take(p + "2", read(list, "$[1].code"), "a", "乙的 e1 作答", "   ");
     }
@@ -95,7 +95,7 @@ class GradingTest extends IntegrationTestBase {
                 .andExpect(status().isOk());
     }
 
-    /** 以某位評分者的身分，依答案內容找到該項並給分。 */
+    /** As the given grader, find the item by its answer text and score it. */
     private void score(MockHttpSession g, String answer, String score, int expected) throws Exception {
         var items = mvc.perform(get("/api/grading/exams/" + exam + "/items").session(g)).andExpect(status().isOk()).andReturn();
         List<String> anon = read(items, "$[?(@.answer=='" + answer + "')].anonId");
@@ -105,8 +105,8 @@ class GradingTest extends IntegrationTestBase {
     }
 
     @Test
-    void 多位評分者_匿名_獨立_平均_差距標記_公布() throws Exception {
-        // 還沒指派：評分者看不到；承辦人看到未完成
+    void multipleGraders_anonymous_independent_averaged_flagged_published() throws Exception {
+        // Not assigned: graders see nothing; the officer sees it incomplete
         mvc.perform(get("/api/grading/exams").session(g1)).andExpect(jsonPath("$.length()").value(0));
         mvc.perform(get("/api/grading/exams/" + exam + "/items").session(g1)).andExpect(status().isNotFound());
         mvc.perform(get("/api/exams/" + exam + "/results").session(owner)).andExpect(jsonPath("$.complete").value(false))
@@ -119,50 +119,50 @@ class GradingTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$[0].done").value(0));
         mvc.perform(get("/api/grading/exams/" + exam + "/items").session(g3)).andExpect(status().isNotFound());
 
-        // 匿名：看不到姓名、准考證號；看得到評分規準
+        // Anonymous: no name or candidate number; the rubric is visible
         var items = mvc.perform(get("/api/grading/exams/" + exam + "/items").session(g1)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(3)).andExpect(jsonPath("$[0].rubric").exists()).andReturn();
         assertThat(items.getResponse().getContentAsString()).doesNotContain("王小明", "李宜華", p + "1", p + "2");
 
         score(g1, "甲的 e1 作答", "8", 204);
-        score(g1, "甲的 e1 作答", "9", 409);     // 送出後不能自己改
-        score(g1, "甲的 e2 作答", "25", 400);    // 超過滿分
-        score(g1, "甲的 e2 作答", "7.3", 400);   // 要以 0.5 為單位
+        score(g1, "甲的 e1 作答", "9", 409);     // cannot change after submitting
+        score(g1, "甲的 e2 作答", "25", 400);    // above full marks
+        score(g1, "甲的 e2 作答", "7.3", 400);   // must be in steps of 0.5
         score(g1, "甲的 e2 作答", "18", 204);
         score(g1, "乙的 e1 作答", "3", 204);
 
-        // 乙看不到甲給的分數
+        // Grader 2 cannot see grader 1's score
         var forG2 = mvc.perform(get("/api/grading/exams/" + exam + "/items").session(g2))
                 .andExpect(jsonPath("$[?(@.myScore!=null)]").isEmpty()).andReturn();
         assertThat(forG2.getResponse().getContentAsString()).doesNotContain("\"myScore\":8");
-        // 還沒鎖定：承辦人看得到進度，看不到分數
+        // Not locked: the officer sees progress, not scores
         mvc.perform(get("/api/exams/" + exam + "/results").session(owner)).andExpect(jsonPath("$.itemsLocked").value(0))
                 .andExpect(jsonPath("$.items[0].graded").value(1)).andExpect(jsonPath("$.items[0].scores.length()").value(0))
                 .andExpect(jsonPath("$.rows[0].total").isEmpty()).andExpect(jsonPath("$.rows[0].pending").value(2));
         mvc.perform(get("/api/exams/" + exam + "/graders").session(owner))
                 .andExpect(jsonPath("$[?(@.staffId==" + g1Id + ")].done").value(org.hamcrest.Matchers.contains(3)));
 
-        score(g2, "甲的 e1 作答", "9", 204);     // 平均 8.5
-        score(g2, "甲的 e2 作答", "10", 204);    // 18 與 10 差 8 > 20×0.2 → 標記；平均 14
-        score(g2, "乙的 e1 作答", "4.5", 204);   // 平均 3.75 → 3.8
+        score(g2, "甲的 e1 作答", "9", 204);     // average 8.5
+        score(g2, "甲的 e2 作答", "10", 204);    // 18 vs 10 differ by 8 > 20 x 0.2, flagged; average 14
+        score(g2, "乙的 e1 作答", "4.5", 204);   // average 3.75 -> 3.8
 
         var r = mvc.perform(get("/api/exams/" + exam + "/results").session(owner)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.itemsLocked").value(3))
-                // 被標記的排最前面
+                // Flagged items first
                 .andExpect(jsonPath("$.items[0].flagged").value(true)).andExpect(jsonPath("$.items[0].average").value(14.0))
                 .andExpect(jsonPath("$.items[0].scores[0]").value(10.0)).andExpect(jsonPath("$.items[1].flagged").value(false))
-                // 王小明 5 + 8.5 + 14 = 27.5；李宜華 0 + 3.8 = 3.8；缺考沒有分數
+                // Candidate 1: 5 + 8.5 + 14 = 27.5; candidate 2: 0 + 3.8 = 3.8; absentees have no score
                 .andExpect(jsonPath("$.rows[0].autoScore").value(5.0)).andExpect(jsonPath("$.rows[0].essayScore").value(22.5))
                 .andExpect(jsonPath("$.rows[0].total").value(27.5)).andExpect(jsonPath("$.rows[1].total").value(3.8))
                 .andExpect(jsonPath("$.rows[2].status").value("IDLE")).andExpect(jsonPath("$.rows[2].total").isEmpty()).andReturn();
         String flaggedAnon = read(r, "$.items[0].anonId");
 
-        // 考試還沒結束不能公布
+        // Cannot publish before the exam ends
         mvc.perform(post("/api/exams/" + exam + "/results/publish").with(csrf()).session(owner)).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("not_ended"));
         mvc.perform(post("/api/exams/" + exam + "/end").with(csrf()).session(owner)).andExpect(status().isOk());
 
-        // 重開被標記的那一題：要填理由；重開後變回未完成，評分者可以重評
+        // Reopen the flagged item: reason required; it becomes incomplete and graders can grade again
         mvc.perform(json(post("/api/exams/" + exam + "/grading/reopen"),
                 "{\"anonId\":\"%s\",\"questionId\":\"e2\",\"reason\":\"\"}".formatted(flaggedAnon)).session(owner))
                 .andExpect(status().isBadRequest());
@@ -177,24 +177,24 @@ class GradingTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.items[0].reason").value("兩位差距過大"))
                 .andExpect(jsonPath("$.items[0].detail").value("e2 原分數 18.0、10.0"));
 
-        // 已經評過分的評分者不能移除
+        // A grader who has scored cannot be removed
         mvc.perform(json(put("/api/exams/" + exam + "/graders"), "{\"staffIds\":[" + g1Id + "]}").session(owner))
                 .andExpect(status().isConflict());
 
-        // 公布前：考生登入看不到成績
+        // Before publishing: candidates see no result
         var codes = mvc.perform(get("/api/exams/" + exam + "/candidates").session(owner)).andReturn();
         candidateLogin(p + "1", read(codes, "$[0].code")).andExpect(jsonPath("$.attempt.submittedAt").isNotEmpty())
                 .andExpect(jsonPath("$.result").isEmpty());
 
         mvc.perform(post("/api/exams/" + exam + "/results/publish").with(csrf()).session(owner)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.publishedAt").isNotEmpty()).andExpect(jsonPath("$.rows[0].total").value(28.5));
-        // 公布後：考生只看得到自己的分數；缺考的人沒有分數
+        // After publishing: candidates see only their own score; absentees have none
         candidateLogin(p + "1", read(codes, "$[0].code")).andExpect(jsonPath("$.result.total").value(28.5))
                 .andExpect(jsonPath("$.result.autoScore").value(5.0)).andExpect(jsonPath("$.result.essayScore").value(23.5))
                 .andExpect(jsonPath("$.result.fullMarks").value(35.0)).andExpect(jsonPath("$.result.publishedAt").isNotEmpty());
         candidateLogin(p + "3", read(codes, "$[2].code")).andExpect(jsonPath("$.attempt").isEmpty())
                 .andExpect(jsonPath("$.result.total").isEmpty()).andExpect(jsonPath("$.result.fullMarks").value(35.0));
-        // 公布後：評分關閉、不能重開
+        // After publishing: grading is closed and cannot be reopened
         mvc.perform(get("/api/grading/exams/" + exam + "/items").session(g1)).andExpect(status().isConflict());
         mvc.perform(json(post("/api/exams/" + exam + "/grading/reopen"),
                 "{\"anonId\":\"%s\",\"questionId\":\"e2\",\"reason\":\"x\"}".formatted(flaggedAnon)).session(owner))
@@ -217,7 +217,7 @@ class GradingTest extends IntegrationTestBase {
     }
 
     @Test
-    void 只有一位評分者也可以_分數就是他給的() throws Exception {
+    void singleGraderIsFine_scoreIsTheirs() throws Exception {
         assign(g3Id);
         score(g3, "甲的 e1 作答", "7", 204);
         score(g3, "甲的 e2 作答", "12.5", 204);
@@ -228,9 +228,9 @@ class GradingTest extends IntegrationTestBase {
     }
 
     @Test
-    void 權限() throws Exception {
+    void permissions() throws Exception {
         assign(g1Id);
-        // 評分者不能看成績、不能指派；承辦人不是評分者不能評分；系統管理員都不行
+        // Graders cannot see results or assign; an officer who is not a grader cannot grade; administrators can do neither
         mvc.perform(get("/api/exams/" + exam + "/results").session(g1)).andExpect(status().isNotFound());
         mvc.perform(get("/api/exams/" + exam + "/results.csv").session(g1)).andExpect(status().isNotFound());
         mvc.perform(get("/api/exams/" + exam + "/results.xlsx").session(g1)).andExpect(status().isNotFound());
@@ -238,7 +238,7 @@ class GradingTest extends IntegrationTestBase {
         mvc.perform(get("/api/grading/exams/" + exam + "/items").session(owner)).andExpect(status().isNotFound());
         mvc.perform(get("/api/exams/" + exam + "/results").session(admin)).andExpect(status().isNotFound());
         mvc.perform(get("/api/grading/exams/" + exam + "/items").session(admin)).andExpect(status().isNotFound());
-        // 不能指派沒有評分角色的人（負責人自己）
+        // Cannot assign someone without the grader role (the owner)
         var me = mvc.perform(get("/api/auth/me").session(owner)).andReturn();
         mvc.perform(json(put("/api/exams/" + exam + "/graders"), "{\"staffIds\":[" + read(me, "$.id") + "]}").session(owner))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("not_grader"));

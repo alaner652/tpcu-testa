@@ -2,7 +2,7 @@ import { ref } from 'vue'
 import { api } from '@/lib/api'
 import { useAuth } from './useAuth'
 
-/** 教職員端的考試與考生名單（後端 API）。考生端在第 4 步之前仍用 useWorkspace 的示範資料。 */
+/** Exams and rosters for staff (backend API). */
 export type ExamStatus = 'draft' | 'scheduled' | 'live' | 'ended'
 export type ExamMode = 'ONLINE' | 'CLASSROOM'
 export interface Exam {
@@ -12,23 +12,23 @@ export interface Exam {
   name: string
   bankId: number | null
   bankName: string | null
-  /** ISO 時間；草稿可以還沒設定 */
+  /** ISO time; drafts may not have one yet */
   startAt: string | null
   duration: number
   mode: ExamMode
   status: ExamStatus
-  /** 發布後才有（發布時凍結的題目） */
+  /** Only after publishing (questions frozen at publish time) */
   questionCount: number
   totalPoints: number
   takers: number
   inProgress: number
   submitted: number
-  /** 我是不是負責人（可以修改、發布、匯入名單）；監考只能看與重設登入碼 */
+  /** Whether I am an owner (edit, publish, import rosters); proctors can only view and reset login codes */
   canManage: boolean
   resultsPublishedAt: string | null
-  /** 封存後唯讀，考生不能再登入 */
+  /** Read-only once archived; candidates can no longer sign in */
   archivedAt: string | null
-  /** 資料要保留到什麼時候；封存而且過了這個時間才能刪除（考試結束後才有） */
+  /** How long data is kept; an archived exam can be deleted after it (set once the exam ends) */
   retainUntil: string | null
 }
 export type CandidateStatus = 'IDLE' | 'IN' | 'DONE'
@@ -40,13 +40,13 @@ export interface Candidate {
   seat: number
   code: string
   status: CandidateStatus
-  /** 登入碼輸錯太多次，暫時鎖定 */
+  /** Temporarily locked after too many wrong login codes */
   locked: boolean
-  /** 作答中離開考試畫面的次數 */
+  /** Times the candidate left the exam screen while answering */
   leaveCount: number
-  /** 作答中才有：這位考生的截止時間（含補時） */
+  /** Only while answering: this candidate's deadline (including extra time) */
   deadlineAt: string | null
-  /** 監考累計補了幾分鐘 */
+  /** Total extra minutes given by proctors */
   extraMinutes: number
 }
 export interface RosterRow {
@@ -80,7 +80,7 @@ export const CANDIDATE_STATUS: Record<CandidateStatus, { label: string; class: s
 }
 export const MODE_LABEL: Record<ExamMode, string> = { CLASSROOM: '電腦教室', ONLINE: '純線上' }
 
-/** 「11 月 20 日 10:00」 */
+/** "11 月 20 日 10:00" */
 export function when(iso: string | null) {
   if (!iso) return '尚未設定開始時間'
   const d = new Date(iso)
@@ -89,7 +89,7 @@ export function when(iso: string | null) {
   return `${year}${d.getMonth() + 1} 月 ${d.getDate()} 日 ${time}`
 }
 
-/** 保存期限顯示成「2027 年 12 月 31 日」（retainUntil 是隔天 0 點） */
+/** Retention shown as "2027 年 12 月 31 日" (retainUntil is midnight the next day) */
 export function retainLabel(iso: string | null) {
   if (!iso) return ''
   const d = new Date(new Date(iso).getTime() - 1000)
@@ -97,7 +97,7 @@ export function retainLabel(iso: string | null) {
 }
 export const canPurge = (exam: Exam) => !!exam.archivedAt && !!exam.retainUntil && Date.now() >= new Date(exam.retainUntil).getTime()
 
-/** ISO 時間 → <input type="datetime-local"> 的值（本地時間） */
+/** ISO time to an <input type="datetime-local"> value (local time) */
 export function toLocalInput(iso: string | null) {
   if (!iso) return ''
   const d = new Date(iso)
@@ -148,7 +148,7 @@ export function useExams() {
     end: async (id: number) => put(await api<Exam>(`/exams/${id}/end`, { method: 'POST' })),
     archive: async (id: number) => put(await api<Exam>(`/exams/${id}/archive`, { method: 'POST' })),
     unarchive: async (id: number) => put(await api<Exam>(`/exams/${id}/unarchive`, { method: 'POST' })),
-    /** 草稿可以直接刪；封存的考試要過了保存期限，而且要填理由 */
+    /** Drafts can be deleted right away; archived exams only after retention, with a reason */
     remove: async (id: number, reason?: string) => {
       await api(`/exams/${id}`, { method: 'DELETE', body: reason ? { reason } : undefined })
       exams.value = exams.value.filter((e) => e.id !== id)

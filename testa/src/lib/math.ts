@@ -14,7 +14,7 @@ export function hasMath(text: string) {
   return /\$[^$]+\$/.test(text)
 }
 
-/** 將含有 $…$ / $$…$$ 的文字轉成安全的 HTML（其餘文字一律跳脫）。 */
+/** Turns text with $...$ / $$...$$ into safe HTML (all other text is escaped). */
 export function renderMathText(text: string): string {
   return text
     .split(MATH_PATTERN)
@@ -31,7 +31,7 @@ export function renderMathText(text: string): string {
     .join('')
 }
 
-/** 導航列等窄空間使用：去除換行，保留公式。 */
+/** For narrow places such as the nav: drop newlines, keep formulas. */
 export function oneLine(text: string) {
   return text
     .replace(/\$\$/g, '$')

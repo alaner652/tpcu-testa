@@ -11,8 +11,8 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import tw.testa.auth.StaffPrincipal;
 
 /**
- * 寫入操作紀錄。跟著呼叫端的交易走：動作沒成功就不留「成功」紀錄。
- * 登入這類 SecurityContext 還沒有人的，用 {@link #recordAs}（跟著交易）或 {@link #recordNow}（獨立交易）。
+ * Writes the audit log within the caller's transaction, so failed actions leave no "success" entry.
+ * Where the SecurityContext has no user yet (sign-in), use {@link #recordAs} (same transaction) or {@link #recordNow} (own transaction).
  */
 @Service
 public class AuditService {
@@ -32,16 +32,16 @@ public class AuditService {
         save(action, targetType, targetId, null, null, null, null, null);
     }
 
-    /** 指定行為人（登入當下 SecurityContext 還沒有人），跟著呼叫端的交易走。 */
+    /** With an explicit actor (no user in the SecurityContext during sign-in), in the caller's transaction. */
     @Transactional
     public void recordAs(String action, String actorType, Long actorId, String actorLabel, String detail) {
         save(action, null, null, null, null, detail, actorType, new Object[] { actorId, actorLabel });
     }
 
     /**
-     * 獨立交易，並可指定行為人。
-     * 不要在另一個交易裡面呼叫：它會再跟連線池要一條連線，同時很多人進來時（整間教室一起登入）
-     * 每個請求都佔著一條、又等第二條，連線池會整個卡死。已經在交易裡就用 {@link #recordAs}。
+     * Own transaction, with an explicit actor.
+     * Never call it inside another transaction: it takes a second pooled connection, and when many people arrive at once (a whole lab signing in)
+     * every request holds one connection while waiting for another and the pool deadlocks. Inside a transaction use {@link #recordAs}.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordNow(String action, String actorType, Long actorId, String actorLabel, String detail) {

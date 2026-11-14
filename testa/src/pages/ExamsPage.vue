@@ -16,12 +16,12 @@ const { banks } = useBanks()
 const { user } = useAuth()
 const { confirm } = useConfirm()
 
-/** 我是負責人的單位：只有在這些單位可以建立考試，題庫也只能選這些單位的。 */
+/** Units I own: exams can be created only there, with banks from those units. */
 const ownedUnits = computed(() => (user.value?.units ?? []).filter((u) => u.roles.includes('OWNER')).map((u) => u.id))
 const usableBanks = computed(() => banks.value.filter((b) => b.unitId != null && ownedUnits.value.includes(b.unitId)))
 const fail = (e: unknown) => toast.error((e as Error).message)
 
-// 建立、修改考試
+// Create or edit an exam
 const formOpen = ref(false)
 const editing = ref<Exam | null>(null)
 const form = reactive({ name: '', bankId: '', start: '', duration: 60, mode: 'CLASSROOM' as ExamMode })
@@ -150,7 +150,7 @@ async function doUnarchive(exam: Exam) {
   }
 }
 
-// 刪除封存的考試：要填理由
+// Deleting an archived exam requires a reason
 const purging = ref<Exam | null>(null)
 const purgeReason = ref('')
 async function doPurge() {
@@ -172,7 +172,7 @@ async function doPurge() {
   }
 }
 
-/** 卡片上的一句話：這場考試現在該做什麼。新手照著做就好。 */
+/** One line on the card: what to do next with this exam. New users just follow it. */
 function nextStep(exam: Exam): { text: string; icon: Component; todo: boolean } {
   const time = `${when(exam.startAt)}，${exam.duration} 分鐘`
   if (!exam.bankName) return { text: '題庫已刪除，請按「⋯」→ 修改，重新選擇題庫', icon: CircleAlert, todo: true }
@@ -249,7 +249,7 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
               <span class="rounded-full px-2.5 py-0.5 text-[13px] font-medium" :class="EXAM_STATUS[exam.status].class">
                 {{ EXAM_STATUS[exam.status].label }}
               </span>
-              <!-- 整張卡片都可以點：連結蓋滿卡片，按鈕疊在上面 -->
+              <!-- The whole card is clickable: the link covers it and buttons sit above -->
               <RouterLink :to="`/exams/${exam.id}`" class="text-lg font-semibold after:absolute after:inset-0 after:rounded-card">
                 {{ exam.name }}
               </RouterLink>

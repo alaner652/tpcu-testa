@@ -1,7 +1,7 @@
 import { createApp } from 'vue'
 import App from './App.vue'
 import { router } from './router'
-// 字型跟著前端一起打包，不依賴外部 CDN（教室區網可能沒有對外網路）。中文使用系統內建的黑體。
+// Fonts are bundled, with no external CDN (lab networks may have no internet). Chinese uses the system sans-serif.
 import '@fontsource/ibm-plex-sans/400.css'
 import '@fontsource/ibm-plex-sans/500.css'
 import '@fontsource/ibm-plex-sans/600.css'

@@ -17,7 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
 
-/** 封存與保存期限、系統管理員的緊急檢視（學校 2026-11-14 的決定）。 */
+/** Archiving, retention and emergency access for administrators (school decisions of 2026-11-14). */
 class ArchiveEmergencyTest extends IntegrationTestBase {
     private static int seq;
 
@@ -74,11 +74,11 @@ class ArchiveEmergencyTest extends IntegrationTestBase {
     }
 
     @Test
-    void 封存後唯讀_保存期限內不能刪_到期後填理由才能刪() throws Exception {
-        // 還沒結束不能封存
+    void archivedIsReadOnly_cannotDeleteWithinRetention_canDeleteWithReasonAfter() throws Exception {
+        // Cannot archive before the exam ends
         mvc.perform(post("/api/exams/" + exam + "/archive").with(csrf()).session(owner)).andExpect(status().isConflict());
         end();
-        // 沒封存不能刪；監考不能封存
+        // Cannot delete without archiving; proctors cannot archive
         mvc.perform(delete("/api/exams/" + exam).with(csrf()).session(owner)).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("not_archived"));
         mvc.perform(post("/api/exams/" + exam + "/archive").with(csrf()).session(proctor)).andExpect(status().isForbidden());
@@ -86,30 +86,30 @@ class ArchiveEmergencyTest extends IntegrationTestBase {
         int year = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Taipei")).getYear();
         mvc.perform(post("/api/exams/" + exam + "/archive").with(csrf()).session(owner)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.archivedAt").isNotEmpty())
-                // 保留到隔年年底 = 後年 1/1 00:00（台北）= 前一天 16:00Z
+                // Kept until the end of next year = 1 Jan the year after, 00:00 Taipei = 16:00Z the day before
                 .andExpect(jsonPath("$.retainUntil").value((year + 1) + "-12-31T16:00:00Z"));
 
-        // 封存後：考生不能登入、不能公布成績、不能改評分者
+        // Archived: candidates cannot sign in, results cannot be published, graders cannot change
         mvc.perform(json(post("/api/candidate/login"), "{\"ticket\":\"%s\",\"code\":\"%s\"}".formatted(ticket, code))
                 .session(new MockHttpSession())).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/exams/" + exam + "/results/publish").with(csrf()).session(owner))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("archived"));
         mvc.perform(json(put("/api/exams/" + exam + "/graders"), "{\"staffIds\":[]}").session(owner))
                 .andExpect(status().isConflict());
-        // 成績表還是看得到
+        // The score sheet is still readable
         mvc.perform(get("/api/exams/" + exam + "/results").session(owner)).andExpect(status().isOk());
 
-        // 保存期限內不能刪
+        // Cannot delete within retention
         mvc.perform(json(delete("/api/exams/" + exam), "{\"reason\":\"到期\"}").session(owner)).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("retained"));
 
-        // 取消封存後考生又能登入；再封存
+        // Unarchived: candidates can sign in again; archive again
         mvc.perform(post("/api/exams/" + exam + "/unarchive").with(csrf()).session(owner)).andExpect(status().isOk());
         mvc.perform(json(post("/api/candidate/login"), "{\"ticket\":\"%s\",\"code\":\"%s\"}".formatted(ticket, code))
                 .session(new MockHttpSession())).andExpect(status().isOk());
         mvc.perform(post("/api/exams/" + exam + "/archive").with(csrf()).session(owner)).andExpect(status().isOk());
 
-        // 把結束時間改成三年前，模擬過了保存期限
+        // Move the end time three years back to pass retention
         jdbc.update("update exam set ended_at = now() - interval '3 years' where id = ?", exam);
         mvc.perform(delete("/api/exams/" + exam).with(csrf()).session(owner)).andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("no_reason"));
@@ -118,7 +118,7 @@ class ArchiveEmergencyTest extends IntegrationTestBase {
         mvc.perform(json(delete("/api/exams/" + exam), "{\"reason\":\"保存期限屆滿\"}").session(owner))
                 .andExpect(status().isNoContent());
 
-        // 考生、答卷都不在了；操作紀錄留著
+        // Candidates and papers are gone; the audit log stays
         assertThat(jdbc.queryForObject("select count(*) from candidate where exam_id = ?", Long.class, exam)).isZero();
         assertThat(jdbc.queryForObject("select count(*) from attempt where exam_id = ?", Long.class, exam)).isZero();
         assertThat(jdbc.queryForObject(
@@ -127,14 +127,14 @@ class ArchiveEmergencyTest extends IntegrationTestBase {
     }
 
     @Test
-    void 緊急檢視_要負責人授權_只能看_有紀錄_可撤銷() throws Exception {
+    void emergencyAccess_needsOwnerGrant_readOnly_audited_revocable() throws Exception {
         end();
-        // 沒授權：系統管理員什麼都看不到
+        // Without a grant the administrator sees nothing
         mvc.perform(get("/api/exams/" + exam).session(admin)).andExpect(status().isNotFound());
         mvc.perform(get("/api/admin/emergency-access").session(admin)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
 
-        // 只有負責人能授權；要填理由；對象必須是系統管理員
+        // Only owners grant; a reason is required; the grantee must be a system administrator
         String body = "{\"staffId\":%d,\"reason\":\"考生申訴成績，需要協助查證\",\"hours\":2}".formatted(adminId);
         mvc.perform(json(post("/api/exams/" + exam + "/emergency-access"), body).session(proctor)).andExpect(status().isNotFound());
         mvc.perform(json(post("/api/exams/" + exam + "/emergency-access"), body).session(admin)).andExpect(status().isNotFound());
@@ -152,7 +152,7 @@ class ArchiveEmergencyTest extends IntegrationTestBase {
         long grantId = ((Number) read(g, "$.id")).longValue();
         mvc.perform(json(post("/api/exams/" + exam + "/emergency-access"), body).session(owner)).andExpect(status().isConflict());
 
-        // 系統管理員看得到這筆授權，也看得到考試、名單、成績；但沒有登入碼
+        // The administrator sees the grant, the exam, roster and results, but no login codes
         mvc.perform(get("/api/admin/emergency-access").session(admin)).andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].examName").value("封存測試"));
         var view = mvc.perform(get("/api/admin/emergency-access/" + grantId).session(admin)).andExpect(status().isOk())
@@ -162,14 +162,14 @@ class ArchiveEmergencyTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.results.rows[0].total").value(5.0)).andReturn();
         assertThat(view.getResponse().getContentAsString()).doesNotContain(code);
 
-        // 授權不會打開其他入口：平常的 API 還是看不到，也不能改
+        // A grant opens no other door: the regular API still hides everything and nothing can be changed
         mvc.perform(get("/api/exams/" + exam).session(admin)).andExpect(status().isNotFound());
         mvc.perform(get("/api/exams/" + exam + "/results").session(admin)).andExpect(status().isNotFound());
         mvc.perform(post("/api/exams/" + exam + "/archive").with(csrf()).session(admin)).andExpect(status().isNotFound());
-        // 別人拿這個授權編號也看不到
+        // Nobody else can use this grant id
         mvc.perform(get("/api/admin/emergency-access/" + grantId).session(owner)).andExpect(status().isForbidden());
 
-        // 負責人看得到被看了幾次；授權、檢視都有操作紀錄
+        // The owner sees the view count; grants and views are audited
         mvc.perform(get("/api/exams/" + exam + "/emergency-access").session(owner)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.grants[0].viewCount").value(1)).andExpect(jsonPath("$.admins[0].staffId").isNumber());
         for (String action : new String[] {"EMERGENCY_ACCESS_GRANTED", "EMERGENCY_ACCESS_VIEWED"}) {
@@ -177,13 +177,13 @@ class ArchiveEmergencyTest extends IntegrationTestBase {
                     action, String.valueOf(exam))).isEqualTo(1L);
         }
 
-        // 撤銷後立刻失效
+        // Revocation takes effect at once
         mvc.perform(delete("/api/exams/" + exam + "/emergency-access/" + grantId).with(csrf()).session(owner))
                 .andExpect(status().isNoContent());
         mvc.perform(get("/api/admin/emergency-access/" + grantId).session(admin)).andExpect(status().isNotFound());
         mvc.perform(get("/api/admin/emergency-access").session(admin)).andExpect(jsonPath("$.length()").value(0));
 
-        // 過期的也一樣
+        // So does expiry
         var g2 = mvc.perform(json(post("/api/exams/" + exam + "/emergency-access"), body).session(owner))
                 .andExpect(status().isCreated()).andReturn();
         long grant2 = ((Number) read(g2, "$.id")).longValue();

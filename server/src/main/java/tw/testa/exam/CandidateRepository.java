@@ -20,7 +20,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, Long> {
     @Query("select c.ticket from Candidate c where c.exam.id = ?1")
     List<String> ticketsOf(Long examId);
 
-    /** 每場考試的 [examId, status, 人數] */
+    /** [examId, status, count] per exam */
     @Query("select c.exam.id, c.status, count(c) from Candidate c where c.exam.id in ?1 group by c.exam.id, c.status")
     List<Object[]> countByStatus(Collection<Long> examIds);
 }

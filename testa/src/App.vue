@@ -10,7 +10,7 @@ import { useGrading } from '@/composables/useGrading'
 import { useTheme } from '@/composables/useTheme'
 
 const { dark } = useTheme()
-// 登入、登出、換人登入時重新載入題庫
+// Reload banks on sign-in, sign-out and switching user
 watch(
   () => useAuth().user.value?.email,
   () => {

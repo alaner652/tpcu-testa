@@ -1,7 +1,7 @@
 import { createMemoryHistory, createRouter, createWebHashHistory } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 
-// 嵌在 iframe（例如預覽頁）時使用記憶體路由，避免改動外層網址；獨立開啟時使用 hash 路由。
+// Inside an iframe (e.g. a preview page) use memory history so the outer URL is untouched; otherwise hash history.
 const embedded = (() => {
   try {
     return window.self !== window.top
@@ -29,9 +29,9 @@ export const router = createRouter({
         { path: 'student', name: 'student', component: () => import('@/pages/StudentExamsPage.vue'), meta: { student: true } },
       ],
     },
-    // 題庫編輯器是專注模式，有自己的頂部列
+    // The bank editor is a focus mode with its own top bar
     { path: '/banks/:id', name: 'editor', component: () => import('@/pages/EditorPage.vue') },
-    // 考生作答同樣是專注模式
+    // Taking the exam is a focus mode too
     { path: '/student/exam/:id', name: 'student-exam', component: () => import('@/pages/StudentExamPage.vue'), meta: { student: true } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
@@ -39,16 +39,16 @@ export const router = createRouter({
 
 router.beforeEach(async (to) => {
   const { user, ready, isAdmin, isStudent } = useAuth()
-  // 先等後端回答「目前有沒有登入」
+  // Wait for the backend to say whether someone is signed in
   await ready
   if (!to.meta.public && !user.value) return { name: 'login' }
   if (to.name === 'login' && user.value) return { name: 'home' }
-  // 臨時密碼登入後，必須先換密碼才能做其他事
+  // After signing in with a temporary password, change it before anything else
   if (user.value?.mustChangePassword) return to.name === 'password' ? true : { name: 'password' }
   if (to.name === 'password') return isStudent.value ? { name: 'student' } : true
-  // 考生只能進考生端；教師與管理員不進考生端
+  // Candidates stay on the candidate side; staff never enter it
   if (to.name !== 'login' && isStudent.value !== !!to.meta.student) return { name: isStudent.value ? 'student' : 'home' }
   if (to.meta.admin && !isAdmin.value) return { name: 'home' }
-  // 只管帳號與單位的系統管理員，首頁就是後台管理
+  // For administrators who only manage accounts and units, home is the admin page
   if (to.name === 'home' && isAdmin.value && !user.value?.units?.length) return { name: 'admin' }
 })

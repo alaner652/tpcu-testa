@@ -7,6 +7,6 @@ const html = computed(() => renderMathText(props.text))
 </script>
 
 <template>
-  <!-- renderMathText 已跳脫公式以外的所有文字 -->
+  <!-- renderMathText escapes all text outside formulas -->
   <component :is="tag ?? 'span'" v-html="html" />
 </template>

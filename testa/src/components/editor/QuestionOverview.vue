@@ -11,12 +11,12 @@ import type { Question } from '@/types/question'
 import MathText from './MathText.vue'
 
 /**
- * 題號卡：像答案卡一樣用圓圈呈現每一題的狀態，取代文字目錄。
- * 塗滿＝完成、紅圈＝未完成、黃色＝AI 匯入待確認。
+ * Question map: one bubble per question, like an answer sheet, instead of a text outline.
+ * Filled = done, red ring = incomplete, yellow = AI import to review.
  */
 const emit = defineEmits<{ navigate: [] }>()
 const { questions, activeId, loading, select } = useBanks()
-/** 圖例只在真的有「未完成」「待確認」的題目時才需要 */
+/** The legend is needed only when there are incomplete or to-review questions */
 const needsLegend = computed(() => questions.value.some((q) => statusOf(q) !== 'done'))
 
 const query = ref('')
@@ -46,7 +46,7 @@ function go(id: string) {
 
 <template>
   <div class="flex min-h-0 flex-col">
-    <!-- 題數與總分在試卷標題下面就有，這裡不重複 -->
+    <!-- Question count and total points are under the paper title already -->
     <h2 class="px-1 text-[15px] font-semibold">題號卡</h2>
 
     <label
@@ -72,7 +72,7 @@ function go(id: string) {
 
       <p v-else-if="questions.length === 0" class="text-sm text-ink-2">新增題目後，題號會出現在這裡。</p>
 
-      <!-- 搜尋結果：以文字列出符合的題目 -->
+      <!-- Search results: matching questions as text -->
       <template v-else-if="keyword">
         <div v-if="matches.length === 0" class="text-sm text-ink-2">
           找不到包含「{{ query.trim() }}」的題目。

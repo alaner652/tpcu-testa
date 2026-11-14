@@ -30,10 +30,10 @@ import tw.testa.unit.UnitRole;
 import tw.testa.unit.UnitRoleRepository;
 
 /**
- * 題庫。權限：
- * - 出題者（AUTHOR）可以看、建立、修改、刪除自己單位的題庫。
- * - 單位負責人（OWNER）只能看，建立考試時要選題庫。
- * - 監考、評分者、系統管理員都看不到題庫。
+ * Question banks. Permissions:
+ * - Authors can view, create, edit and delete their unit's banks.
+ * - Owners can only view them (they pick a bank when creating an exam).
+ * - Proctors, graders and system administrators cannot see banks.
  */
 @Service
 public class BankService {
@@ -56,11 +56,11 @@ public class BankService {
         this.audit = audit;
     }
 
-    /** 我看得到的所有題庫（含題目）。 */
+    /** All banks visible to me, with questions. */
     @Transactional(readOnly = true)
     public List<BankDto> list() {
         StaffPrincipal me = access.current();
-        // 單位 → 是否可編輯
+        // unit -> editable
         Map<Long, Boolean> units = new HashMap<>();
         for (UnitRole r : roleRepo.findByStaffIdWithUnit(me.id())) {
             if (!r.getUnit().isActive()) continue;
@@ -102,7 +102,7 @@ public class BankService {
         return toDto(b, saved, true);
     }
 
-    /** 整份儲存：以送來的題目清單為準（新增、更新、刪除、重新排序）。 */
+    /** Saves the whole bank: the submitted question list wins (create, update, delete, reorder). */
     @Transactional
     public BankDto save(Long id, SaveBankRequest req) {
         Bank b = bankRepo.findForUpdate(id).orElseThrow(() -> ApiException.notFound("找不到這份題庫，可能已經被刪除。"));
@@ -126,14 +126,14 @@ public class BankService {
         bankRepo.delete(b);
     }
 
-    /** 內部使用（發布考試時凍結題目），呼叫端自己負責權限。 */
+    /** Internal (freezing questions on publish); the caller checks permissions. */
     @Transactional(readOnly = true)
     public List<QuestionDto> questionsOf(Long bankId) {
         return questionRepo.findByBankIdOrderByPositionAscIdAsc(bankId).stream().map(BankService::toDto).toList();
     }
 
     private Bank find(Long id) {
-        // 沒有權限的人看到的也是「找不到」，不透露題庫是否存在
+        // Without permission it is "not found", so existence is not revealed
         Bank b = bankRepo.findById(id).orElseThrow(() -> ApiException.notFound("找不到這份題庫。"));
         if (!access.hasUnitRole(b.getUnit().getId(), Role.AUTHOR, Role.OWNER)) {
             throw ApiException.notFound("找不到這份題庫。");
@@ -174,7 +174,7 @@ public class BankService {
         return result;
     }
 
-    /** 只擋「資料互相矛盾」；題目還沒寫完（沒題幹、沒答案）是允許的草稿狀態。 */
+    /** Rejects only contradictory data; unfinished questions (no stem, no answer) are valid drafts. */
     private static void validate(QuestionDto q) {
         Set<String> choiceIds = new HashSet<>();
         for (ChoiceDto c : q.choices()) {

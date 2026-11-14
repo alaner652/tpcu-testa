@@ -2,7 +2,7 @@ import { computed, ref } from 'vue'
 import { api, setUnauthorizedHandler } from '@/lib/api'
 
 export type Role = 'admin' | 'teacher' | 'student'
-/** 單位內角色（與後端相同）：負責人、出題、監考、評分 */
+/** Roles within a unit (same as the backend): owner, author, proctor, grader */
 export type UnitRole = 'OWNER' | 'AUTHOR' | 'PROCTOR' | 'GRADER'
 export interface UnitMembership {
   id: number
@@ -13,12 +13,12 @@ export interface UnitMembership {
 export interface User {
   name: string
   email: string
-  /** 介面用的粗分類：系統管理員、教職員、考生。細的權限看 units 裡的角色，而且最終由後端判斷。 */
+  /** Coarse kind for the UI: administrator, staff, candidate. Fine-grained access comes from unit roles and is decided by the backend. */
   role: Role
   unit: string
-  /** 考生的准考證號 */
+  /** Candidate number */
   ticket?: string
-  /** 教職員：所屬單位與角色 */
+  /** Staff: units and roles */
   units?: UnitMembership[]
   mustChangePassword?: boolean
 }
@@ -26,7 +26,7 @@ export interface User {
 export const ROLE_LABEL: Record<Role, string> = { admin: '系統管理員', teacher: '教職員', student: '考生' }
 export const UNIT_ROLE_LABEL: Record<UnitRole, string> = { OWNER: '負責人', AUTHOR: '出題', PROCTOR: '監考', GRADER: '評分' }
 
-/** 開發用示範帳號，對應後端 dev profile 建立的資料（server/…/Bootstrap.java）。只在開發模式的登入頁顯示。 */
+/** Demo accounts matching the backend dev profile (server/.../Bootstrap.java). Shown on the login page in development only. */
 export const DEMO_ACCOUNTS = [
   { label: '教師', name: '林老師', email: 'teacher@testa.tw', password: 'testa-teacher' },
   { label: '承辦人', name: '王承辦', email: 'officer@testa.tw', password: 'testa-officer' },
@@ -53,7 +53,7 @@ function fromMe(me: Me): User {
   }
 }
 
-/** 考生登入後後端回傳的狀態（細節在 useCandidate） */
+/** Candidate state returned after sign-in (details in useCandidate) */
 interface CandidateMe {
   name: string
   ticket: string
@@ -63,7 +63,7 @@ const fromCandidate = (c: CandidateMe): User => ({ name: c.name, email: c.ticket
 
 const user = ref<User | null>(null)
 
-/** 開機時向後端確認登入狀態：先問是不是教職員，不是再問是不是考生。路由守衛會等它完成。 */
+/** At start-up ask the backend who is signed in: staff first, then candidate. Route guards wait for this. */
 const ready: Promise<void> = api<Me>('/auth/me', { quiet401: true })
   .then((me) => void (user.value = fromMe(me)))
   .catch(() =>
@@ -72,10 +72,10 @@ const ready: Promise<void> = api<Me>('/auth/me', { quiet401: true })
       .catch(() => void (user.value = null)),
   )
 
-/** 被登出的原因，登入頁顯示一次。 */
+/** Why the user was signed out, shown once on the login page. */
 export const signedOutNotice = ref<{ role: Role; text: string } | null>(null)
 
-// Session 過期、帳號被停用、密碼被重設、考生在別台電腦登入、後端重新啟動：清掉身分，帶回登入頁
+// Session expired, account disabled, password reset, candidate signed in elsewhere, backend restarted: clear identity and go to login
 setUnauthorizedHandler(() => {
   if (user.value) {
     signedOutNotice.value =
@@ -88,14 +88,14 @@ setUnauthorizedHandler(() => {
 })
 
 export function useAuth() {
-  /** 教職員登入。 */
+  /** Staff sign-in. */
   async function login(email: string, password: string) {
     const me = await api<Me>('/auth/login', { method: 'POST', body: { email, password }, quiet401: true })
     user.value = fromMe(me)
     return user.value
   }
 
-  /** 重新向後端取得自己的資料（改密碼、角色異動後）。 */
+  /** Reloads one's own profile (after a password or role change). */
   async function refresh() {
     user.value = fromMe(await api<Me>('/auth/me'))
   }
@@ -105,7 +105,7 @@ export function useAuth() {
     await refresh()
   }
 
-  /** 考生登入：准考證號 + 登入碼，必須在某場已發布考試的名單上。 */
+  /** Candidate sign-in: candidate number + login code, must be on the roster of a published exam. */
   async function loginCandidate(ticket: string, code: string) {
     const me = await api<CandidateMe>('/candidate/login', { method: 'POST', body: { ticket, code }, quiet401: true })
     user.value = fromCandidate(me)
