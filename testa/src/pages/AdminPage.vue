@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
-import { Ban, Building2, Check, ChevronDown, CircleCheck, Copy, DatabaseBackup, KeyRound, Plus, RotateCw, ScrollText, Settings, ShieldCheck, UserCog, Users, X } from 'lucide-vue-next'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { Ban, Building2, Check, ChevronDown, CircleCheck, Copy, DatabaseBackup, KeyRound, Plus, RotateCw, ScrollText, Search, Settings, ShieldCheck, UserCog, Users, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import EmergencyView from '@/components/app/EmergencyView.vue'
 import UnitMembers from '@/components/app/UnitMembers.vue'
@@ -69,6 +69,12 @@ const fail = (e: unknown) => toast.error((e as Error).message)
 
 // ── Users ────────────────────────────────────────────
 const staff = ref<Staff[]>([])
+const staffQuery = ref('')
+const shownStaff = computed(() => {
+  const q = staffQuery.value.trim().toLowerCase()
+  if (!q) return staff.value
+  return staff.value.filter((s) => [s.name, s.email, ...s.roles.map((r) => r.unitName)].some((t) => t.toLowerCase().includes(q)))
+})
 const creating = ref(false)
 const draft = reactive({ email: '', name: '', systemAdmin: false })
 const createError = ref('')
@@ -352,8 +358,12 @@ watch(tab, load)
 
     <!-- Users -->
     <section v-if="tab === 'staff'" class="card">
-      <div class="flex items-center justify-between gap-3 px-5 py-4 sm:px-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
         <p class="text-[15px] text-ink-2">{{ staff.length }} 位教職員</p>
+        <label v-if="staff.length > 8" class="relative ml-auto w-full max-w-64 max-sm:order-last max-sm:max-w-none">
+          <Search class="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-ink-3" aria-hidden="true" />
+          <input v-model="staffQuery" type="search" class="field h-10 pl-10" placeholder="搜尋姓名、Email 或單位" aria-label="搜尋教職員" />
+        </label>
         <Button v-if="!creating" variant="primary" class="rounded-full" @click="creating = true"><Plus />新增帳號</Button>
       </div>
 
@@ -383,7 +393,7 @@ watch(tab, load)
       </form>
 
       <ul class="divide-y divide-line border-t border-line">
-        <li v-for="s in staff" :key="s.id" class="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5 sm:px-6" :class="!s.active && 'opacity-60'">
+        <li v-for="s in shownStaff" :key="s.id" class="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5 sm:px-6" :class="!s.active && 'opacity-60'">
           <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[15px] font-semibold text-brand-strong">
             {{ s.name.slice(0, 1).toUpperCase() }}
           </span>
@@ -410,6 +420,7 @@ watch(tab, load)
           />
           <span v-else class="text-sm text-ink-3">這是你自己</span>
         </li>
+        <li v-if="staffQuery.trim() && !shownStaff.length" class="px-5 py-6 text-[15px] text-ink-2 sm:px-6">找不到符合「{{ staffQuery.trim() }}」的教職員。</li>
       </ul>
     </section>
 

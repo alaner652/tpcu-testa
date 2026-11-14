@@ -232,14 +232,14 @@ const site = location.origin + location.pathname
       這場考試已於 {{ when(exam.archivedAt) }} 封存，只能檢視。考生不能再登入查成績。資料保留到 {{ retainLabel(exam.retainUntil) }}。
     </p>
 
-    <div role="tablist" aria-label="考試步驟" class="mt-5 mb-4 flex flex-wrap gap-1 px-4 md:px-0">
+    <div role="tablist" aria-label="考試步驟" class="thin-scroll mt-5 mb-4 flex gap-0.5 overflow-x-auto px-4 sm:gap-1 md:px-0">
       <button
         v-for="s in STEPS"
         :key="s.value"
         type="button"
         role="tab"
         :aria-selected="step === s.value"
-        class="inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-[15px] transition-colors"
+        class="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3 text-[15px] transition-colors sm:px-4"
         :class="step === s.value ? 'bg-brand font-medium text-brand-fg' : 'text-ink-2 hover:bg-ink/[0.06] hover:text-ink'"
         @click="step = s.value"
       >
@@ -312,18 +312,20 @@ const site = location.origin + location.pathname
             <p class="text-base font-medium">{{ c.name }}</p>
             <p class="text-sm text-ink-2 tabular-nums">{{ c.ticket }}<template v-if="c.dept">，{{ c.dept }}</template></p>
           </div>
-          <span v-if="c.locked" class="rounded-full bg-marker px-2.5 py-0.5 text-[13px] font-medium text-marker-ink">登入碼輸錯太多次，已鎖定</span>
-          <span v-if="c.leaveCount" class="rounded-full bg-marker px-2.5 py-0.5 text-[13px] font-medium text-marker-ink">離開畫面 {{ c.leaveCount }} 次</span>
-          <span v-if="c.extraMinutes" class="rounded-full bg-sunken px-2.5 py-0.5 text-[13px] font-medium text-ink-2">已補時 {{ c.extraMinutes }} 分鐘</span>
-          <span v-if="c.status === 'IN' && c.deadlineAt" class="text-sm text-ink-2 tabular-nums">作答到 {{ clockTime(c.deadlineAt) }}</span>
-          <!-- Before the exam everyone is "not signed in", so rows do not repeat it -->
-          <span
-            v-if="exam.status === 'live' || exam.status === 'ended'"
-            class="rounded-full px-2.5 py-0.5 text-[13px] font-medium"
-            :class="CANDIDATE_STATUS[c.status].class"
-          >
-            {{ CANDIDATE_STATUS[c.status].label }}
-          </span>
+          <div class="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
+            <span v-if="c.locked" class="rounded-full bg-marker px-2.5 py-0.5 text-[13px] font-medium text-marker-ink">登入碼輸錯太多次，已鎖定</span>
+            <span v-if="c.leaveCount" class="rounded-full bg-marker px-2.5 py-0.5 text-[13px] font-medium text-marker-ink">離開畫面 {{ c.leaveCount }} 次</span>
+            <span v-if="c.extraMinutes" class="rounded-full bg-sunken px-2.5 py-0.5 text-[13px] font-medium text-ink-2">已補時 {{ c.extraMinutes }} 分鐘</span>
+            <span v-if="c.status === 'IN' && c.deadlineAt" class="text-sm text-ink-2 tabular-nums">作答到 {{ clockTime(c.deadlineAt) }}</span>
+            <!-- Before the exam everyone is "not signed in", so rows do not repeat it -->
+            <span
+              v-if="exam.status === 'live' || exam.status === 'ended'"
+              class="rounded-full px-2.5 py-0.5 text-[13px] font-medium"
+              :class="CANDIDATE_STATUS[c.status].class"
+            >
+              {{ CANDIDATE_STATUS[c.status].label }}
+            </span>
+          </div>
           <Button v-if="c.locked && c.status !== 'DONE' && exam.status !== 'ended'" variant="primary" class="rounded-full" @click="reset(c)"><KeyRound />重設登入碼</Button>
           <MoreMenu :actions="rowActions(c)" :label="`${c.name} 的更多動作`" />
           <form v-if="extending === c.id && c.status === 'IN'" class="flex basis-full flex-wrap items-center gap-2 pt-1" @submit.prevent="extend(c)">
@@ -361,7 +363,10 @@ const site = location.origin + location.pathname
             <dt class="self-center text-ink-2">登入碼</dt>
             <dd class="text-2xl font-bold tracking-[0.14em] tabular-nums">{{ fmt(c.code) }}</dd>
           </dl>
-          <p class="mt-3 text-[12px] break-all text-ink-3">{{ when(exam.startAt) }} 開始，作答 {{ exam.duration }} 分鐘。登入網址：{{ site }}</p>
+          <p class="mt-3 text-[12px] text-ink-3">
+            {{ when(exam.startAt) }} 開始，作答 {{ exam.duration }} 分鐘。<br />
+            登入網址：<span class="font-medium break-all text-ink-2">{{ site }}</span>
+          </p>
         </li>
       </ul>
     </section>

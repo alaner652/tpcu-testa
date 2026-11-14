@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { ClipboardCheck, FileText, House, LibraryBig, Settings } from 'lucide-vue-next'
 import Logo from '@/components/app/Logo.vue'
 import UserMenu from '@/components/app/UserMenu.vue'
@@ -8,6 +9,10 @@ import { useGrading } from '@/composables/useGrading'
 
 const { user, isAdmin, isStudent } = useAuth()
 const { pending } = useGrading()
+const route = useRoute()
+/** Routes are flat (/exams/5 is not a child of /exams), so match on the path prefix */
+const active = (link: { to: string; exact: boolean }) =>
+  link.exact ? route.path === link.to : route.path === link.to || route.path.startsWith(link.to + '/')
 
 const links = computed(() =>
   isStudent.value ? [{ to: '/student', label: '我的考試', icon: FileText, exact: false, badge: 0 }] : staffLinks.value,
@@ -34,15 +39,15 @@ const staffLinks = computed(() => [
           <RouterLink
             v-for="link in links"
             :key="link.to"
-            v-slot="{ isActive, isExactActive, href, navigate }"
+            v-slot="{ href, navigate }"
             :to="link.to"
             custom
           >
             <a
               :href="href"
               class="relative flex items-center gap-1.5 px-3 text-[15px] transition-colors"
-              :class="(link.exact ? isExactActive : isActive) ? 'font-medium text-brand' : 'text-ink-2 hover:text-ink'"
-              :aria-current="(link.exact ? isExactActive : isActive) ? 'page' : undefined"
+              :class="active(link) ? 'font-medium text-brand' : 'text-ink-2 hover:text-ink'"
+              :aria-current="active(link) ? 'page' : undefined"
               @click="navigate"
             >
               <component :is="link.icon" class="size-4" aria-hidden="true" />{{ link.label }}
@@ -50,7 +55,7 @@ const staffLinks = computed(() => [
                 {{ link.badge }}
               </span>
               <span
-                v-if="link.exact ? isExactActive : isActive"
+                v-if="active(link)"
                 class="absolute inset-x-3 bottom-0 h-[3px] rounded-t-full bg-brand"
               />
             </a>
@@ -68,12 +73,12 @@ const staffLinks = computed(() => [
 
     <!-- Phone: bottom tabs -->
     <nav v-if="links.length > 1" class="flex shrink-0 border-t border-line bg-paper pb-[env(safe-area-inset-bottom)] md:hidden" aria-label="主要導覽">
-      <RouterLink v-for="link in links" :key="link.to" v-slot="{ isActive, isExactActive, href, navigate }" :to="link.to" custom>
+      <RouterLink v-for="link in links" :key="link.to" v-slot="{ href, navigate }" :to="link.to" custom>
         <a
           :href="href"
           class="relative flex h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px]"
-          :class="(link.exact ? isExactActive : isActive) ? 'font-medium text-brand' : 'text-ink-2'"
-          :aria-current="(link.exact ? isExactActive : isActive) ? 'page' : undefined"
+          :class="active(link) ? 'font-medium text-brand' : 'text-ink-2'"
+          :aria-current="active(link) ? 'page' : undefined"
           @click="navigate"
         >
           <component :is="link.icon" class="size-5" />

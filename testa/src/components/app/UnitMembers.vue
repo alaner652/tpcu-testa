@@ -161,8 +161,8 @@ async function remove(m: UnitMember) {
         </li>
       </ul>
       <form class="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_14rem_auto]" novalidate @submit.prevent="add">
-        <input v-model="draft.email" type="email" class="field bg-paper" placeholder="教職員的 Email" aria-label="教職員的 Email" />
-        <select v-model="draft.choice" class="field bg-paper" aria-label="角色">
+        <input v-model="draft.email" type="email" class="field" placeholder="教職員的 Email" aria-label="教職員的 Email" />
+        <select v-model="draft.choice" class="field" aria-label="角色">
           <option v-for="c in ROLE_CHOICES" :key="c.value" :value="c.value">{{ c.label }}</option>
         </select>
         <Button variant="primary" size="md" class="h-11 rounded-full" type="submit" :disabled="!draft.email.trim()"><Plus />加入</Button>

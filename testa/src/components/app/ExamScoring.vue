@@ -211,8 +211,8 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
         <template v-else-if="exam.archivedAt">考試已封存，成績沒有公布。</template>
         <template v-else-if="exam.status !== 'ended'">考試結束、申論全部評完後，才能公布成績。</template>
         <template v-else-if="!results.complete">還有 {{ results.itemsTotal - results.itemsLocked }} 份申論答案沒評完，全部評完才能公布。</template>
-        <template v-else>全部評分完成，可以公布成績。</template>
-        滿分 {{ results.fullMarks }} 分。
+        <template v-else>全部評分完成，可以公布成績。</template
+        >滿分 {{ results.fullMarks }} 分。
       </p>
       <a
         v-for="format in ['xlsx', 'csv']"
