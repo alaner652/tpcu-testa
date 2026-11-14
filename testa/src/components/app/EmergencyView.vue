@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { ChevronLeft } from 'lucide-vue-next'
+import { ChevronLeft, Eye, RotateCw } from 'lucide-vue-next'
 import Button from '@/components/ui/Button.vue'
 import { CANDIDATE_STATUS, EXAM_STATUS, when, type Candidate, type Exam } from '@/composables/useExams'
 import { api } from '@/lib/api'
@@ -64,7 +64,7 @@ const candidate = (ticket: string) => view.value?.candidates.find((c) => c.ticke
   <section class="card">
     <p v-if="error" class="flex items-center gap-3 px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
       <span class="min-w-0 flex-1">{{ error }}</span>
-      <Button variant="outline" class="rounded-full" @click="load">重試</Button>
+      <Button variant="outline" class="rounded-full" @click="load"><RotateCw />重試</Button>
     </p>
 
     <template v-else-if="view">
@@ -132,7 +132,7 @@ const candidate = (ticket: string) => view.value?.candidates.find((c) => c.ticke
             <p class="font-medium">{{ g.examName }}</p>
             <p class="text-sm text-ink-2">{{ g.unitName }}，{{ g.grantedByName }} 授權，有效到 {{ when(g.expiresAt) }}。理由：{{ g.reason }}</p>
           </div>
-          <Button variant="outline" class="rounded-full" @click="open(g)">檢視</Button>
+          <Button variant="outline" class="rounded-full" @click="open(g)"><Eye />檢視</Button>
         </li>
       </ul>
     </template>

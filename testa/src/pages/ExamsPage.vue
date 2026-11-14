@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
-import { Plus, X } from 'lucide-vue-next'
+import { Archive, ArchiveRestore, Check, CircleStop, Pencil, Plus, RotateCw, Send, Trash2, Undo2, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import Button from '@/components/ui/Button.vue'
 import Skeleton from '@/components/ui/Skeleton.vue'
@@ -183,7 +183,7 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
 
     <div v-if="loadError" class="card flex items-center gap-3 px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
       <span class="min-w-0 flex-1">{{ loadError }}</span>
-      <Button variant="outline" class="rounded-full" @click="load">重試</Button>
+      <Button variant="outline" class="rounded-full" @click="load"><RotateCw />重試</Button>
     </div>
 
     <div v-else-if="loading" class="space-y-3 px-4 md:px-0">
@@ -229,17 +229,13 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
             </RouterLink>
             <template v-if="exam.canManage">
               <template v-if="exam.status === 'draft'">
-                <Button variant="outline" class="rounded-full" @click="openForm(exam)">修改</Button>
-                <Button variant="danger" class="rounded-full" @click="doRemove(exam)">刪除</Button>
-                <Button variant="primary" class="rounded-full" @click="doPublish(exam)">發布</Button>
+                <Button variant="outline" class="rounded-full" @click="openForm(exam)"><Pencil />修改</Button>
+                <Button variant="danger" class="rounded-full" @click="doRemove(exam)"><Trash2 />刪除</Button>
+                <Button variant="primary" class="rounded-full" @click="doPublish(exam)"><Send />發布</Button>
               </template>
-              <Button v-else-if="exam.status === 'scheduled'" variant="outline" class="rounded-full" @click="doWithdraw(exam)">
-                取消發布
-              </Button>
-              <Button v-else-if="exam.status === 'live'" variant="outline" class="rounded-full hover:border-grade hover:text-grade" @click="doEnd(exam)">
-                結束考試
-              </Button>
-              <Button v-else-if="exam.status === 'ended'" variant="outline" class="rounded-full" @click="doArchive(exam)">封存</Button>
+              <Button v-else-if="exam.status === 'scheduled'" variant="outline" class="rounded-full" @click="doWithdraw(exam)"><Undo2 />取消發布</Button>
+              <Button v-else-if="exam.status === 'live'" variant="outline" class="rounded-full hover:border-grade hover:text-grade" @click="doEnd(exam)"><CircleStop />結束考試</Button>
+              <Button v-else-if="exam.status === 'ended'" variant="outline" class="rounded-full" @click="doArchive(exam)"><Archive />封存</Button>
             </template>
           </div>
         </div>
@@ -273,15 +269,15 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
                 開啟
               </RouterLink>
               <template v-if="exam.canManage">
-                <Button variant="outline" class="rounded-full" @click="doUnarchive(exam)">取消封存</Button>
-                <Button v-if="canPurge(exam)" variant="danger" class="rounded-full" @click="((purging = exam), (purgeReason = ''))">刪除</Button>
+                <Button variant="outline" class="rounded-full" @click="doUnarchive(exam)"><ArchiveRestore />取消封存</Button>
+                <Button v-if="canPurge(exam)" variant="danger" class="rounded-full" @click="((purging = exam), (purgeReason = ''))"><Trash2 />刪除</Button>
               </template>
             </div>
           </div>
           <form v-if="purging === exam" class="mt-3 flex flex-wrap gap-2" @submit.prevent="doPurge">
             <input v-model="purgeReason" class="field min-w-0 flex-1 basis-64" maxlength="500" placeholder="刪除的理由（必填，會留在操作紀錄）" aria-label="刪除的理由" />
-            <Button variant="primary" size="md" class="h-11 rounded-full" type="submit" :disabled="!purgeReason.trim()">確定刪除</Button>
-            <Button size="md" class="h-11 rounded-full" @click="purging = null">取消</Button>
+            <Button variant="primary" size="md" class="h-11 rounded-full" type="submit" :disabled="!purgeReason.trim()"><Trash2 />確定刪除</Button>
+            <Button size="md" class="h-11 rounded-full" @click="purging = null"><X />取消</Button>
           </form>
         </li>
       </ul>
@@ -324,8 +320,8 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
           <p v-if="formError" class="text-sm text-grade" role="alert">{{ formError }}</p>
         </div>
         <footer class="flex shrink-0 justify-end gap-2 border-t border-line px-5 py-3">
-          <Button size="md" class="rounded-full" @click="formOpen = false">取消</Button>
-          <Button variant="primary" size="md" class="rounded-full" type="submit" :disabled="saving">{{ editing ? '儲存' : '建立草稿' }}</Button>
+          <Button size="md" class="rounded-full" @click="formOpen = false"><X />取消</Button>
+          <Button variant="primary" size="md" class="rounded-full" type="submit" :disabled="saving"><Check />{{ editing ? '儲存' : '建立草稿' }}</Button>
         </footer>
       </form>
     </SidePanel>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { Plus, Trash2 } from 'lucide-vue-next'
+import { Plus, RotateCw, Trash2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import Button from '@/components/ui/Button.vue'
 import Skeleton from '@/components/ui/Skeleton.vue'
@@ -50,7 +50,7 @@ const incomplete = (bank: Bank) => bank.questions.filter((q) => issuesOf(q).leng
 
     <div v-if="loadError" class="card flex items-center gap-3 px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
       <span class="min-w-0 flex-1">{{ loadError }}</span>
-      <Button variant="outline" class="rounded-full" @click="load">重試</Button>
+      <Button variant="outline" class="rounded-full" @click="load"><RotateCw />重試</Button>
     </div>
 
     <div v-else-if="loading" class="grid gap-3 px-4 sm:grid-cols-2 md:px-0 lg:grid-cols-3">

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Ban, RotateCw, ShieldCheck } from 'lucide-vue-next'
 import { onMounted, reactive, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import Button from '@/components/ui/Button.vue'
@@ -93,7 +94,7 @@ const state = (g: Grant) => (g.active ? `有效到 ${when(g.expiresAt)}` : g.rev
 <template>
   <p v-if="error" class="card flex items-center gap-3 px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
     <span class="min-w-0 flex-1">{{ error }}</span>
-    <Button variant="outline" class="rounded-full" @click="load">重試</Button>
+    <Button variant="outline" class="rounded-full" @click="load"><RotateCw />重試</Button>
   </p>
 
   <div v-else-if="data" class="space-y-3">
@@ -125,7 +126,7 @@ const state = (g: Grant) => (g.active ? `有效到 ${when(g.expiresAt)}` : g.rev
           <span class="mb-1.5 block text-sm font-medium">理由（必填，會留在操作紀錄）</span>
           <input v-model="form.reason" class="field" maxlength="500" placeholder="例如：考生申訴成績，需要協助查證" />
         </label>
-        <Button variant="primary" size="md" class="rounded-full" type="submit" :disabled="sending || !form.staffId || !form.reason.trim()">授權</Button>
+        <Button variant="primary" size="md" class="rounded-full" type="submit" :disabled="sending || !form.staffId || !form.reason.trim()"><ShieldCheck />授權</Button>
       </form>
     </section>
 
@@ -148,7 +149,7 @@ const state = (g: Grant) => (g.active ? `有效到 ${when(g.expiresAt)}` : g.rev
               <template v-else>還沒有檢視過</template>
             </p>
           </div>
-          <Button v-if="g.active" variant="danger" class="rounded-full" @click="revoke(g)">撤銷</Button>
+          <Button v-if="g.active" variant="danger" class="rounded-full" @click="revoke(g)"><Ban />撤銷</Button>
         </li>
       </ul>
     </section>

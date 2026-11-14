@@ -142,9 +142,7 @@ async function submit() {
             <PointsStepper v-model="score" label="給分" />
             <span class="text-sm text-ink-3">滿分 {{ current.points }}</span>
           </div>
-          <Button variant="primary" size="md" class="rounded-full" :disabled="sending" @click="submit">
-            送出，看下一份
-          </Button>
+          <Button variant="primary" size="md" class="rounded-full" :disabled="sending" @click="submit"><Check />送出，看下一份</Button>
         </div>
         <p v-if="score > current.points" class="mt-2 text-sm text-grade" role="alert">給分不能超過滿分 {{ current.points }} 分。</p>
         <p class="mt-3 text-[13px] text-ink-3">送出後不能自己修改。真的需要更正，請承辦人重開這份答卷的評分。</p>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, watch } from 'vue'
-import { Copy, Plus } from 'lucide-vue-next'
+import { Ban, Building2, Check, ChevronDown, CircleCheck, Copy, DatabaseBackup, KeyRound, Plus, RotateCw, ScrollText, Settings, ShieldCheck, UserCog, Users, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import EmergencyView from '@/components/app/EmergencyView.vue'
 import UnitMembers from '@/components/app/UnitMembers.vue'
@@ -52,12 +52,12 @@ const { settings } = useWorkspace()
 const { confirm } = useConfirm()
 
 const TABS = [
-  { value: 'staff', label: '使用者' },
-  { value: 'units', label: '單位' },
-  { value: 'audit', label: '操作紀錄' },
-  { value: 'backups', label: '備份' },
-  { value: 'emergency', label: '緊急檢視' },
-  { value: 'settings', label: '系統設定' },
+  { value: 'staff', label: '使用者', icon: UserCog },
+  { value: 'units', label: '單位', icon: Building2 },
+  { value: 'audit', label: '操作紀錄', icon: ScrollText },
+  { value: 'backups', label: '備份', icon: DatabaseBackup },
+  { value: 'emergency', label: '緊急檢視', icon: ShieldCheck },
+  { value: 'settings', label: '系統設定', icon: Settings },
 ] as const
 // 系統設定還沒接後端，正式版不顯示
 const tabs = TABS.filter((t) => t.value !== 'settings' || DEMO_FEATURES)
@@ -335,17 +335,17 @@ watch(tab, load)
         type="button"
         role="tab"
         :aria-selected="tab === t.value"
-        class="h-10 shrink-0 rounded-full px-4 text-[15px] transition-colors"
+        class="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-4 text-[15px] transition-colors"
         :class="tab === t.value ? 'bg-brand font-medium text-brand-fg' : 'text-ink-2 hover:bg-ink/[0.06] hover:text-ink'"
         @click="tab = t.value"
       >
-        {{ t.label }}
+        <component :is="t.icon" class="size-4" aria-hidden="true" />{{ t.label }}
       </button>
     </div>
 
     <p v-if="loadError" class="card mb-4 flex items-center gap-3 px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
       <span class="min-w-0 flex-1">{{ loadError }}</span>
-      <Button variant="outline" class="rounded-full" @click="load">重試</Button>
+      <Button variant="outline" class="rounded-full" @click="load"><RotateCw />重試</Button>
     </p>
 
     <!-- 使用者 -->
@@ -360,7 +360,7 @@ watch(tab, load)
         <div class="mt-2 flex flex-wrap items-center gap-2">
           <code class="rounded-control bg-paper px-3 py-1.5 text-lg font-semibold tracking-wider select-all">{{ issued.password }}</code>
           <Button variant="outline" class="rounded-full" @click="copyPassword"><Copy />複製</Button>
-          <Button class="rounded-full" @click="issued = null">我已經記下來了</Button>
+          <Button class="rounded-full" @click="issued = null"><Check />我已經記下來了</Button>
         </div>
         <p class="mt-2 text-sm text-ink-2">這組密碼只會顯示這一次，請親自交給對方。對方登入後必須先換成自己的密碼。</p>
       </div>
@@ -369,8 +369,8 @@ watch(tab, load)
         <div class="grid gap-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto_auto]">
           <input v-model="draft.email" type="email" class="field bg-paper" placeholder="Email（登入帳號）" aria-label="Email" />
           <input v-model="draft.name" class="field bg-paper" placeholder="姓名" aria-label="姓名" />
-          <Button variant="primary" size="md" class="h-11 rounded-full" type="submit" :disabled="saving">建立帳號</Button>
-          <Button size="md" class="h-11 rounded-full" @click="((creating = false), (createError = ''))">取消</Button>
+          <Button variant="primary" size="md" class="h-11 rounded-full" type="submit" :disabled="saving"><Check />建立帳號</Button>
+          <Button size="md" class="h-11 rounded-full" @click="((creating = false), (createError = ''))"><X />取消</Button>
         </div>
         <label class="mt-3 flex items-center gap-2 text-[15px]">
           <input v-model="draft.systemAdmin" type="checkbox" class="size-4 accent-brand" />
@@ -397,13 +397,13 @@ watch(tab, load)
             <p class="text-sm text-ink-2">{{ rolesText(s) || (s.systemAdmin ? '' : '尚未加入任何單位') }}</p>
           </div>
           <template v-if="s.email !== user?.email">
-            <Button variant="outline" class="rounded-full" @click="resetPassword(s)">重設密碼</Button>
+            <Button variant="outline" class="rounded-full" @click="resetPassword(s)"><KeyRound />重設密碼</Button>
             <Button
               variant="outline"
-              :class="s.active ? 'w-16 rounded-full hover:border-grade hover:text-grade' : 'w-16 rounded-full'"
+              :class="s.active ? 'w-20 rounded-full hover:border-grade hover:text-grade' : 'w-20 rounded-full'"
               @click="toggleActive(s)"
             >
-              {{ s.active ? '停用' : '啟用' }}
+              <component :is="s.active ? Ban : CircleCheck" />{{ s.active ? '停用' : '啟用' }}
             </Button>
           </template>
           <span v-else class="text-sm text-ink-3">這是你自己</span>
@@ -424,15 +424,13 @@ watch(tab, load)
               <span class="truncate">{{ u.name }}</span>
               <span v-if="!u.active" class="shrink-0 rounded-full bg-sunken px-2 py-0.5 text-xs font-normal text-ink-2">已停用</span>
             </p>
-            <Button variant="outline" class="rounded-full" :aria-expanded="openUnit === u.id" @click="toggleMembers(u)">
-              {{ openUnit === u.id ? '收合' : '成員與角色' }}
-            </Button>
+            <Button variant="outline" class="rounded-full" :aria-expanded="openUnit === u.id" @click="toggleMembers(u)"><Users />{{ openUnit === u.id ? '收合' : '成員與角色' }}</Button>
             <Button
               variant="outline"
-              :class="u.active ? 'w-16 rounded-full hover:border-grade hover:text-grade' : 'w-16 rounded-full'"
+              :class="u.active ? 'w-20 rounded-full hover:border-grade hover:text-grade' : 'w-20 rounded-full'"
               @click="toggleUnit(u)"
             >
-              {{ u.active ? '停用' : '啟用' }}
+              <component :is="u.active ? Ban : CircleCheck" />{{ u.active ? '停用' : '啟用' }}
             </Button>
           </div>
 
@@ -456,7 +454,7 @@ watch(tab, load)
         </li>
       </ul>
       <div v-if="audit.length < auditTotal" class="border-t border-line px-5 py-3 text-center sm:px-6">
-        <Button variant="outline" class="rounded-full" @click="loadAudit(auditPage + 1)">載入更早的紀錄</Button>
+        <Button variant="outline" class="rounded-full" @click="loadAudit(auditPage + 1)"><ChevronDown />載入更早的紀錄</Button>
       </div>
     </section>
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
 import { useRoute } from 'vue-router'
-import { ChevronLeft, LoaderCircle, Printer, Upload } from 'lucide-vue-next'
+import { ChartColumn, Check, ChevronLeft, KeyRound, ListChecks, LoaderCircle, Printer, RotateCw, ShieldCheck, Ticket, TimerReset, Trash2, Upload, Users, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import Button from '@/components/ui/Button.vue'
 import EmergencyAccess from '@/components/app/EmergencyAccess.vue'
@@ -32,14 +32,14 @@ const fail = (e: unknown) => toast.error((e as Error).message)
 
 type Step = 'roster' | 'tickets' | 'grading' | 'results' | 'access'
 // 評分與成績只有負責人看得到（監考碰不到分數）
-const STEPS = computed<{ value: Step; label: string }[]>(() => [
-  { value: 'roster', label: '考生' },
-  { value: 'tickets', label: '登入單' },
+const STEPS = computed<{ value: Step; label: string; icon: Component }[]>(() => [
+  { value: 'roster', label: '考生', icon: Users },
+  { value: 'tickets', label: '登入單', icon: Ticket },
   ...(exam.value?.canManage && exam.value.status !== 'draft'
     ? ([
-        { value: 'grading', label: '評分' },
-        { value: 'results', label: '成績' },
-        { value: 'access', label: '緊急檢視' },
+        { value: 'grading', label: '評分', icon: ListChecks },
+        { value: 'results', label: '成績', icon: ChartColumn },
+        { value: 'access', label: '緊急檢視', icon: ShieldCheck },
       ] as const)
     : []),
 ])
@@ -212,17 +212,17 @@ const site = location.origin + location.pathname
         type="button"
         role="tab"
         :aria-selected="step === s.value"
-        class="h-10 rounded-full px-4 text-[15px] transition-colors"
+        class="inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-[15px] transition-colors"
         :class="step === s.value ? 'bg-brand font-medium text-brand-fg' : 'text-ink-2 hover:bg-ink/[0.06] hover:text-ink'"
         @click="step = s.value"
       >
-        {{ s.label }}
+        <component :is="s.icon" class="size-4" aria-hidden="true" />{{ s.label }}
       </button>
     </div>
 
     <p v-if="listError" class="card mb-3 flex items-center gap-3 px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
       <span class="min-w-0 flex-1">{{ listError }}</span>
-      <Button variant="outline" class="rounded-full" @click="loadList">重試</Button>
+      <Button variant="outline" class="rounded-full" @click="loadList"><RotateCw />重試</Button>
     </p>
 
     <!-- 考生：名單與監考 -->
@@ -266,10 +266,8 @@ const site = location.origin + location.pathname
           <template v-if="preview.problems.length">有問題的資料不會匯入，修正後再上傳一次即可。</template>系統會自動排座位並產生登入碼。
         </p>
         <div class="mt-4 flex flex-wrap justify-end gap-2">
-          <Button size="md" class="rounded-full" @click="preview = null">取消</Button>
-          <Button variant="primary" size="md" class="rounded-full" :disabled="busy || !preview.rows.length" @click="doImport">
-            匯入 {{ preview.rows.length }} 位考生
-          </Button>
+          <Button size="md" class="rounded-full" @click="preview = null"><X />取消</Button>
+          <Button variant="primary" size="md" class="rounded-full" :disabled="busy || !preview.rows.length" @click="doImport"><Check />匯入 {{ preview.rows.length }} 位考生</Button>
         </div>
       </div>
 
@@ -299,17 +297,17 @@ const site = location.origin + location.pathname
           >
             {{ CANDIDATE_STATUS[c.status].label }}
           </span>
-          <Button v-if="c.status === 'IN' && exam.status === 'live'" variant="outline" class="rounded-full" @click="startExtend(c)">補時</Button>
-          <Button v-if="c.status !== 'DONE' && exam.status !== 'ended'" variant="outline" class="rounded-full" @click="reset(c)">重設登入碼</Button>
-          <Button v-if="exam.canManage && c.status === 'IDLE' && exam.status !== 'ended'" variant="danger" class="rounded-full" @click="removeCandidate(c)">移除</Button>
+          <Button v-if="c.status === 'IN' && exam.status === 'live'" variant="outline" class="rounded-full" @click="startExtend(c)"><TimerReset />補時</Button>
+          <Button v-if="c.status !== 'DONE' && exam.status !== 'ended'" variant="outline" class="rounded-full" @click="reset(c)"><KeyRound />重設登入碼</Button>
+          <Button v-if="exam.canManage && c.status === 'IDLE' && exam.status !== 'ended'" variant="danger" class="rounded-full" @click="removeCandidate(c)"><Trash2 />移除</Button>
           <form v-if="extending === c.id && c.status === 'IN'" class="flex basis-full flex-wrap items-center gap-2 pt-1" @submit.prevent="extend(c)">
             <label class="text-[15px] text-ink-2" :for="`extend-min-${c.id}`">補</label>
             <select :id="`extend-min-${c.id}`" v-model.number="extendMinutes" class="field h-11 w-28">
               <option v-for="m in EXTEND_OPTIONS" :key="m" :value="m">{{ m }} 分鐘</option>
             </select>
             <input v-model="extendReason" class="field h-11 min-w-0 flex-1 basis-56" maxlength="200" placeholder="原因（必填，會留在操作紀錄），例如：電腦當機換座位" aria-label="補時的原因" />
-            <Button variant="primary" size="md" class="h-11 rounded-full" type="submit" :disabled="!extendReason.trim()">確定補時</Button>
-            <Button size="md" class="h-11 rounded-full" type="button" @click="extending = null">取消</Button>
+            <Button variant="primary" size="md" class="h-11 rounded-full" type="submit" :disabled="!extendReason.trim()"><Check />確定補時</Button>
+            <Button size="md" class="h-11 rounded-full" type="button" @click="extending = null"><X />取消</Button>
           </form>
         </li>
       </ul>

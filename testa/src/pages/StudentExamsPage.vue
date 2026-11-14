@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { LogIn, RotateCw } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from '@/components/ui/Button.vue'
@@ -49,7 +50,7 @@ const enter = () => router.push({ name: 'student-exam', params: { id: 'now' } })
 
     <div v-if="error" class="card flex items-center gap-3 px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
       <span class="min-w-0 flex-1">{{ error }}</span>
-      <Button variant="outline" class="rounded-full" @click="refresh">重試</Button>
+      <Button variant="outline" class="rounded-full" @click="refresh"><RotateCw />重試</Button>
     </div>
     <Skeleton v-else-if="!state || !view" class="mx-4 h-28 rounded-card md:mx-0" />
 
@@ -64,15 +65,15 @@ const enter = () => router.push({ name: 'student-exam', params: { id: 'now' } })
           <p class="mt-1 text-sm text-ink-2 tabular-nums">准考證號 {{ state.ticket }}，座位第 {{ state.seat }} 號</p>
         </div>
 
-        <Button v-if="view === 'open'" variant="primary" size="md" class="rounded-full" @click="enter">進入考試</Button>
-        <Button v-else-if="view === 'resume'" variant="primary" size="md" class="rounded-full" @click="enter">繼續作答</Button>
+        <Button v-if="view === 'open'" variant="primary" size="md" class="rounded-full" @click="enter"><LogIn />進入考試</Button>
+        <Button v-else-if="view === 'resume'" variant="primary" size="md" class="rounded-full" @click="enter"><LogIn />繼續作答</Button>
         <p v-else-if="view === 'done' && !result" class="max-w-52 text-sm text-ink-2">
           你的作答已經送出。成績會在評分完成後由承辦單位公布，公布後可以回到這裡查詢。
         </p>
         <template v-else-if="view === 'done'" />
         <div v-else-if="view === 'upcoming'" class="text-right">
           <p class="text-sm text-ink-2">開始時間到了才能進入</p>
-          <Button variant="outline" class="mt-2 rounded-full" @click="refresh">重新整理</Button>
+          <Button variant="outline" class="mt-2 rounded-full" @click="refresh"><RotateCw />重新整理</Button>
         </div>
         <p v-else class="text-sm text-ink-2">考試已經結束，你沒有作答紀錄。</p>
       </div>
