@@ -85,7 +85,7 @@ public class AttemptService {
         Instant now = Instant.now();
         // 同一個准考證號可能出現在不同場考試，各有各的登入碼
         List<Candidate> found = candidateRepo.findByTicketWithExam(ticket).stream()
-                .filter(c -> c.getExam().getStatus() != Exam.Status.DRAFT).toList();
+                .filter(c -> c.getExam().getStatus() != Exam.Status.DRAFT && !c.getExam().isArchived()).toList();
         if (found.isEmpty()) {
             audit.recordAs("CANDIDATE_LOGIN_FAILED", "ANONYMOUS", null, ticket, "unknown_ticket");
             throw new ApiException(HttpStatus.UNAUTHORIZED, "unauthorized", BAD_LOGIN);

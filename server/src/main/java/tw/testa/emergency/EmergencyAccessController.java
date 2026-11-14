@@ -1,0 +1,61 @@
+package tw.testa.emergency;
+
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+import jakarta.validation.Valid;
+import tw.testa.emergency.EmergencyAccessService.Grant;
+import tw.testa.emergency.EmergencyAccessService.GrantRequest;
+import tw.testa.emergency.EmergencyAccessService.Overview;
+import tw.testa.emergency.EmergencyAccessService.View;
+
+@RestController
+@RequestMapping("/api")
+public class EmergencyAccessController {
+    private final EmergencyAccessService service;
+
+    public EmergencyAccessController(EmergencyAccessService service) {
+        this.service = service;
+    }
+
+    // 單位負責人
+    @GetMapping("/exams/{examId}/emergency-access")
+    public Overview overview(@PathVariable Long examId) {
+        return service.overview(examId);
+    }
+
+    @PostMapping("/exams/{examId}/emergency-access")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Grant grant(@PathVariable Long examId, @Valid @RequestBody GrantRequest body) {
+        return service.grant(examId, body);
+    }
+
+    @DeleteMapping("/exams/{examId}/emergency-access/{grantId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void revoke(@PathVariable Long examId, @PathVariable Long grantId) {
+        service.revoke(examId, grantId);
+    }
+
+    // 系統管理員
+    @GetMapping("/admin/emergency-access")
+    @PreAuthorize("@access.isSystemAdmin()")
+    public List<Grant> mine() {
+        return service.mine();
+    }
+
+    @GetMapping("/admin/emergency-access/{grantId}")
+    @PreAuthorize("@access.isSystemAdmin()")
+    public View view(@PathVariable Long grantId) {
+        return service.view(grantId);
+    }
+}

@@ -143,7 +143,7 @@ class GradingTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$[?(@.staffId==" + g1Id + ")].done").value(org.hamcrest.Matchers.contains(3)));
 
         score(g2, "甲的 e1 作答", "9", 204);     // 平均 8.5
-        score(g2, "甲的 e2 作答", "10", 204);    // 18 與 10 差 8 > 20×0.3 → 標記；平均 14
+        score(g2, "甲的 e2 作答", "10", 204);    // 18 與 10 差 8 > 20×0.2 → 標記；平均 14
         score(g2, "乙的 e1 作答", "4.5", 204);   // 平均 3.75 → 3.8
 
         var r = mvc.perform(get("/api/exams/" + exam + "/results").session(owner)).andExpect(status().isOk())

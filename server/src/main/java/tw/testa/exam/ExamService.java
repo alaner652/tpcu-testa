@@ -52,11 +52,15 @@ public class ExamService {
     private final AccessGuard access;
     private final AuditService audit;
     private final tw.testa.attempt.AttemptService attempts;
+    private final tw.testa.config.TestaProperties props;
+    private static final java.time.ZoneId TAIPEI = java.time.ZoneId.of("Asia/Taipei");
 
     public ExamService(ExamRepository examRepo, CandidateRepository candidateRepo, BankRepository bankRepo,
             BankService bankService, UnitRoleRepository roleRepo, StaffRepository staffRepo, AccessGuard access,
-            AuditService audit, @org.springframework.context.annotation.Lazy tw.testa.attempt.AttemptService attempts) {
+            AuditService audit, @org.springframework.context.annotation.Lazy tw.testa.attempt.AttemptService attempts,
+            tw.testa.config.TestaProperties props) {
         this.attempts = attempts;
+        this.props = props;
         this.examRepo = examRepo;
         this.candidateRepo = candidateRepo;
         this.bankRepo = bankRepo;
@@ -174,12 +178,76 @@ public class ExamService {
         return toDto(e, counts(List.of(id)).get(id), true);
     }
 
+    /** 封存：考試變成唯讀，考生不能再登入查成績。資料還在，可以取消封存。 */
     @Transactional
-    public void delete(Long id) {
+    public ExamDto archive(Long id) {
         Exam e = findManaged(id);
-        if (e.getStatus() != Exam.Status.DRAFT) throw ApiException.conflict("not_draft", "只有草稿可以刪除。");
-        audit.record("EXAM_DELETED", "exam", e.getId(), e.getUnit().getId(), null, e.getName());
+        if (e.getStatus() != Exam.Status.ENDED) throw ApiException.conflict("not_ended", "考試結束後才能封存。");
+        if (e.isArchived()) throw ApiException.conflict("archived", "這場考試已經封存了。");
+        e.setArchivedAt(Instant.now());
+        audit.record("EXAM_ARCHIVED", "exam", e.getId(), e.getUnit().getId(), null, e.getName());
+        return toDto(e, counts(List.of(id)).get(id), true);
+    }
+
+    @Transactional
+    public ExamDto unarchive(Long id) {
+        Exam e = findManaged(id);
+        if (!e.isArchived()) throw ApiException.conflict("not_archived", "這場考試沒有封存。");
+        e.setArchivedAt(null);
+        audit.record("EXAM_UNARCHIVED", "exam", e.getId(), e.getUnit().getId(), null, e.getName());
+        return toDto(e, counts(List.of(id)).get(id), true);
+    }
+
+    /**
+     * 刪除。草稿可以直接刪；考過的考試要先封存，而且過了保存期限才能刪。
+     * 刪除會連同考生名單、答卷、評分一起消失，無法復原；操作紀錄只留下考試名稱與人數。
+     */
+    @Transactional
+    public void delete(Long id, String reason) {
+        Exam e = findManaged(id);
+        if (e.getStatus() == Exam.Status.DRAFT) {
+            audit.record("EXAM_DELETED", "exam", e.getId(), e.getUnit().getId(), null, e.getName());
+            examRepo.delete(e);
+            return;
+        }
+        if (!e.isArchived()) throw ApiException.conflict("not_archived", "考過的考試要先封存，才能刪除。");
+        Instant until = retainUntil(e);
+        if (until == null) throw ApiException.conflict("not_ended", "考試結束後才能刪除。");
+        if (Instant.now().isBefore(until)) {
+            throw ApiException.conflict("retained", "這場考試的資料要保留到 "
+                    + java.time.LocalDate.ofInstant(until.minusSeconds(1), TAIPEI) + "，之後才能刪除。");
+        }
+        if (reason == null || reason.isBlank()) throw ApiException.badRequest("no_reason", "請填寫刪除的理由。");
+        audit.record("EXAM_PURGED", "exam", e.getId(), e.getUnit().getId(), reason.trim(),
+                e.getName() + "，考生 " + candidateRepo.countByExamId(id) + " 位");
         examRepo.delete(e);
+    }
+
+    /** 保存期限：考試結束那一年 + N 年的年底（台北時間）。還沒結束的考試沒有期限。 */
+    Instant retainUntil(Exam e) {
+        if (e.getEndedAt() == null) return null;
+        int year = java.time.LocalDate.ofInstant(e.getEndedAt(), TAIPEI).getYear() + props.retention().years();
+        return java.time.LocalDate.of(year + 1, 1, 1).atStartOfDay(TAIPEI).toInstant();
+    }
+
+    // ── 緊急檢視（系統管理員）────────────────────────────
+    // 這兩個方法不檢查單位角色。呼叫端（EmergencyAccessService）必須已經確認授權有效並寫入操作紀錄。
+
+    @Transactional(readOnly = true)
+    public ExamDto getForEmergency(Long id) {
+        Exam e = examRepo.findById(id).orElseThrow(() -> ApiException.notFound("找不到這場考試。"));
+        return toDto(e, counts(List.of(id)).get(id), false);
+    }
+
+    /** 名單與作答狀態；登入碼不給（拿到登入碼就能冒充考生）。 */
+    @Transactional(readOnly = true)
+    public List<CandidateDto> candidatesForEmergency(Long examId) {
+        Instant now = Instant.now();
+        return candidateRepo.findByExamIdOrderBySeatAscIdAsc(examId).stream().map(c -> {
+            CandidateDto d = toDto(c, now);
+            return new CandidateDto(d.id(), d.ticket(), d.name(), d.dept(), d.seat(), null, d.status(), d.locked(),
+                    d.leaveCount());
+        }).toList();
     }
 
     // ── 考生名單 ─────────────────────────────────────────
@@ -256,6 +324,7 @@ public class ExamService {
     public String resetCode(Long examId, Long candidateId) {
         Exam e = findVisible(examId);
         Candidate c = findCandidate(examId, candidateId);
+        if (e.isArchived()) throw ApiException.conflict("archived", "這場考試已經封存，不能再更動。");
         if (c.getStatus() == Candidate.Status.DONE) throw ApiException.conflict("done", "這位考生已經交卷了。");
         c.setLoginCode(randomCode());
         c.setFailedLogins(0);
@@ -299,6 +368,7 @@ public class ExamService {
     }
 
     private static void requireOpen(Exam e) {
+        if (e.isArchived()) throw ApiException.conflict("archived", "這場考試已經封存，不能再更動。");
         if (e.getStatus() == Exam.Status.ENDED) throw ApiException.conflict("ended", "考試已經結束，不能再匯入考生。");
     }
 
@@ -312,7 +382,7 @@ public class ExamService {
         return map;
     }
 
-    private static ExamDto toDto(Exam e, long[] counts, boolean canManage) {
+    private ExamDto toDto(Exam e, long[] counts, boolean canManage) {
         long[] c = counts == null ? new long[3] : counts;
         // 已發布的考試以快照為準；草稿沒有快照，題數在前端從題庫看
         ExamSnapshot snap = e.getSnapshot();
@@ -323,7 +393,8 @@ public class ExamService {
         return new ExamDto(e.getId(), e.getUnit().getId(), e.getUnit().getName(), e.getName(),
                 bank == null ? null : bank.getId(), snap != null ? snap.bankName() : bank == null ? null : bank.getName(),
                 e.getStartAt(), e.getDuration(), e.getMode(), e.phase(Instant.now()), questionCount, total,
-                c[0] + c[1] + c[2], c[1], c[2], canManage, e.getResultsPublishedAt());
+                c[0] + c[1] + c[2], c[1], c[2], canManage, e.getResultsPublishedAt(),
+                e.getArchivedAt(), retainUntil(e));
     }
 
     private static CandidateDto toDto(Candidate c, Instant now) {

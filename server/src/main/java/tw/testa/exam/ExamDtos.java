@@ -14,10 +14,14 @@ import jakarta.validation.constraints.Size;
 public final class ExamDtos {
     private ExamDtos() {}
 
-    /** status：draft / scheduled / live / ended。canManage：我是不是這場考試所屬單位的負責人。 */
+    /**
+     * status：draft / scheduled / live / ended。canManage：我是不是這場考試所屬單位的負責人。
+     * retainUntil：資料要保留到什麼時候（考試結束後才有）；封存而且過了這個時間才能刪除。
+     */
     public record ExamDto(Long id, Long unitId, String unitName, String name, Long bankId, String bankName,
             Instant startAt, int duration, Exam.Mode mode, String status, int questionCount, BigDecimal totalPoints,
-            long takers, long inProgress, long submitted, boolean canManage, Instant resultsPublishedAt) {}
+            long takers, long inProgress, long submitted, boolean canManage, Instant resultsPublishedAt,
+            Instant archivedAt, Instant retainUntil) {}
 
     public record CreateExamRequest(
             @NotBlank(message = "請輸入考試名稱。") @Size(max = 200, message = "考試名稱太長了。") String name,
@@ -50,4 +54,6 @@ public final class ExamDtos {
     public record ImportResult(int added, long total) {}
 
     public record CodeDto(String code) {}
+
+    public record DeleteRequest(@Size(max = 500) String reason) {}
 }

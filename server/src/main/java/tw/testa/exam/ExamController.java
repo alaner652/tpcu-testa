@@ -73,8 +73,18 @@ public class ExamController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Long id) {
-        exams.delete(id);
+    public void delete(@PathVariable Long id, @Valid @RequestBody(required = false) ExamDtos.DeleteRequest body) {
+        exams.delete(id, body == null ? null : body.reason());
+    }
+
+    @PostMapping("/{id}/archive")
+    public ExamDto archive(@PathVariable Long id) {
+        return exams.archive(id);
+    }
+
+    @PostMapping("/{id}/unarchive")
+    public ExamDto unarchive(@PathVariable Long id) {
+        return exams.unarchive(id);
     }
 
     @GetMapping("/{id}/candidates")

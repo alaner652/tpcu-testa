@@ -145,6 +145,7 @@ public class GradingService {
     @Transactional
     public List<GraderInfo> setGraders(Long examId, List<Long> staffIds) {
         Exam e = ownedExam(examId);
+        requireNotArchived(e);
         if (e.getResultsPublishedAt() != null) throw ApiException.conflict("published", "成績已經公布，不能再更改評分者。");
         Set<Long> wanted = new HashSet<>(staffIds);
         Set<Long> current = new HashSet<>(assignedGraders(examId));
@@ -184,6 +185,7 @@ public class GradingService {
     @Transactional
     public void reopen(Long examId, String anonId, String questionId, String reason) {
         Exam e = ownedExam(examId);
+        requireNotArchived(e);
         if (e.getResultsPublishedAt() != null) throw ApiException.conflict("published", "成績已經公布，不能重開評分。");
         Long attemptId = jdbc.query("select id from attempt where exam_id = ? and anon_id = ?",
                 rs -> rs.next() ? rs.getLong(1) : null, examId, anonId);
@@ -200,6 +202,7 @@ public class GradingService {
     @Transactional
     public Results publish(Long examId) {
         Exam e = ownedExam(examId);
+        requireNotArchived(e);
         if (e.getResultsPublishedAt() != null) throw ApiException.conflict("published", "成績已經公布過了。");
         if (e.getStatus() != Exam.Status.ENDED) throw ApiException.conflict("not_ended", "考試結束後才能公布成績。");
         Results r = compute(e);
@@ -392,8 +395,19 @@ public class GradingService {
         boolean mine = assignedGraders(examId).contains(access.current().id())
                 && access.hasUnitRole(e.getUnit().getId(), Role.GRADER) && e.getSnapshot() != null;
         if (!mine) throw ApiException.notFound("找不到這場考試。");
+        requireNotArchived(e);
         if (e.getResultsPublishedAt() != null) throw ApiException.conflict("published", "成績已經公布，評分已關閉。");
         return e;
+    }
+
+    private static void requireNotArchived(Exam e) {
+        if (e.isArchived()) throw ApiException.conflict("archived", "這場考試已經封存，不能再更動。");
+    }
+
+    /** 緊急檢視用：不檢查單位角色。呼叫端（EmergencyAccessService）必須已經確認授權有效並寫入操作紀錄。 */
+    @Transactional(readOnly = true)
+    public Results resultsForEmergency(Long examId) {
+        return compute(examRepo.findById(examId).orElseThrow(() -> ApiException.notFound("找不到這場考試。")));
     }
 
     private Exam ownedExam(Long examId) {

@@ -72,6 +72,9 @@ public class Exam {
     @Column(name = "results_published_at")
     private Instant resultsPublishedAt;
 
+    @Column(name = "archived_at")
+    private Instant archivedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -95,6 +98,9 @@ public class Exam {
         };
     }
 
+    public Instant getArchivedAt() { return archivedAt; }
+    public void setArchivedAt(Instant at) { this.archivedAt = at; }
+    public boolean isArchived() { return archivedAt != null; }
     public Instant getResultsPublishedAt() { return resultsPublishedAt; }
     public void setResultsPublishedAt(Instant at) { this.resultsPublishedAt = at; }
     public Long getId() { return id; }
