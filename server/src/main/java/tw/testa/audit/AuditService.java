@@ -12,7 +12,7 @@ import tw.testa.auth.StaffPrincipal;
 
 /**
  * 寫入操作紀錄。跟著呼叫端的交易走：動作沒成功就不留「成功」紀錄。
- * 登入失敗這類要獨立留存的，用 {@link #recordNow}。
+ * 登入這類 SecurityContext 還沒有人的，用 {@link #recordAs}（跟著交易）或 {@link #recordNow}（獨立交易）。
  */
 @Service
 public class AuditService {
@@ -32,7 +32,17 @@ public class AuditService {
         save(action, targetType, targetId, null, null, null, null, null);
     }
 
-    /** 獨立交易，並可指定行為人（登入當下 SecurityContext 還沒有人）。 */
+    /** 指定行為人（登入當下 SecurityContext 還沒有人），跟著呼叫端的交易走。 */
+    @Transactional
+    public void recordAs(String action, String actorType, Long actorId, String actorLabel, String detail) {
+        save(action, null, null, null, null, detail, actorType, new Object[] { actorId, actorLabel });
+    }
+
+    /**
+     * 獨立交易，並可指定行為人。
+     * 不要在另一個交易裡面呼叫：它會再跟連線池要一條連線，同時很多人進來時（整間教室一起登入）
+     * 每個請求都佔著一條、又等第二條，連線池會整個卡死。已經在交易裡就用 {@link #recordAs}。
+     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordNow(String action, String actorType, Long actorId, String actorLabel, String detail) {
         save(action, null, null, null, null, detail, actorType, new Object[] { actorId, actorLabel });

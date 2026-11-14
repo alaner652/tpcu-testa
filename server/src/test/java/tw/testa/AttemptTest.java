@@ -114,6 +114,42 @@ class AttemptTest extends IntegrationTestBase {
         candidate(ticket, read(reset, "$.code"));
     }
 
+    /** 整間教室同時登入：登入只能用一條資料庫連線，否則人數超過連線池大小就會互相卡死。 */
+    @Test
+    void 很多考生同時登入不會把連線池卡死() throws Exception {
+        publish();
+        int n = 40;
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(n);
+        var ready = new java.util.concurrent.CountDownLatch(n);
+        var go = new java.util.concurrent.CountDownLatch(1);
+        try {
+            var calls = new java.util.ArrayList<java.util.concurrent.Future<Integer>>();
+            for (int i = 0; i < n; i++) {
+                // 一半是名單上沒有的准考證號，一半是對的帳密（成功與失敗兩條路都要寫操作紀錄）
+                String body = i % 2 == 0 ? "{\"ticket\":\"NOBODY-%d\",\"code\":\"000000\"}".formatted(i)
+                        : "{\"ticket\":\"%s\",\"code\":\"%s\"}".formatted(ticket2, code2);
+                calls.add(pool.submit(() -> {
+                    ready.countDown();
+                    go.await();
+                    return mvc.perform(json(post("/api/candidate/login"), body)).andReturn().getResponse().getStatus();
+                }));
+            }
+            ready.await();
+            go.countDown();
+            int ok = 0;
+            int rejected = 0;
+            for (var c : calls) {
+                int status = c.get(15, java.util.concurrent.TimeUnit.SECONDS);
+                if (status == 200) ok++;
+                else if (status == 401) rejected++;
+            }
+            assertThat(ok).isEqualTo(n / 2);
+            assertThat(rejected).isEqualTo(n / 2);
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
     @Test
     void 考生與教職員的API互相隔離() throws Exception {
         publish();

@@ -73,7 +73,11 @@ public class AttemptService {
 
     // ── 登入 ─────────────────────────────────────────────
 
-    /** 准考證號 + 登入碼。只有名單上、而且考試已發布的考生進得來。 */
+    /**
+     * 准考證號 + 登入碼。只有名單上、而且考試已發布的考生進得來。
+     * 登入失敗（ApiException）交易照樣提交，所以失敗次數、鎖定、操作紀錄都會留下來；
+     * 操作紀錄跟著這個交易寫（recordAs），整個登入只用一條資料庫連線。
+     */
     @Transactional(noRollbackFor = ApiException.class)
     public Candidate login(String rawTicket, String rawCode) {
         String ticket = rawTicket.trim().toUpperCase();
@@ -83,11 +87,11 @@ public class AttemptService {
         List<Candidate> found = candidateRepo.findByTicketWithExam(ticket).stream()
                 .filter(c -> c.getExam().getStatus() != Exam.Status.DRAFT).toList();
         if (found.isEmpty()) {
-            audit.recordNow("CANDIDATE_LOGIN_FAILED", "ANONYMOUS", null, ticket, "unknown_ticket");
+            audit.recordAs("CANDIDATE_LOGIN_FAILED", "ANONYMOUS", null, ticket, "unknown_ticket");
             throw new ApiException(HttpStatus.UNAUTHORIZED, "unauthorized", BAD_LOGIN);
         }
         if (found.stream().anyMatch(c -> c.getLockedUntil() != null && c.getLockedUntil().isAfter(now))) {
-            audit.recordNow("CANDIDATE_LOGIN_FAILED", "ANONYMOUS", null, ticket, "locked");
+            audit.recordAs("CANDIDATE_LOGIN_FAILED", "ANONYMOUS", null, ticket, "locked");
             throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "locked", "登入碼輸錯太多次，已暫時鎖定。請洽監考人員重設登入碼。");
         }
         Candidate match = found.stream().filter(c -> sameCode(c.getLoginCode(), code))
@@ -103,14 +107,14 @@ public class AttemptService {
                     c.setFailedLogins(0);
                 }
             }
-            audit.recordNow("CANDIDATE_LOGIN_FAILED", "ANONYMOUS", null, ticket, "bad_code");
+            audit.recordAs("CANDIDATE_LOGIN_FAILED", "ANONYMOUS", null, ticket, "bad_code");
             throw new ApiException(HttpStatus.UNAUTHORIZED, "unauthorized", BAD_LOGIN);
         }
         match.setFailedLogins(0);
         match.setLockedUntil(null);
         boolean replaced = match.getSessionVersion() > 0 && match.getStatus() == Candidate.Status.IN;
         match.newSession();
-        audit.recordNow("CANDIDATE_LOGIN", "CANDIDATE", match.getId(), ticket, replaced ? "replaced_session" : null);
+        audit.recordAs("CANDIDATE_LOGIN", "CANDIDATE", match.getId(), ticket, replaced ? "replaced_session" : null);
         return match;
     }
 
