@@ -21,12 +21,16 @@ const total = computed(() => items.value.length)
 const done = computed(() => items.value.filter((i) => i.myScore !== null).length)
 const current = computed(() => items.value.find((i) => i.myScore === null) ?? null)
 
-const score = ref(0)
+/** Starts blank so a grader cannot submit 0 by accident; submitted scores cannot be changed by the grader */
+const score = ref<number | null>(null)
 const comment = ref('')
+const missing = ref(false)
 watch(current, () => {
-  score.value = 0
+  score.value = null
   comment.value = ''
+  missing.value = false
 })
+watch(score, (v) => v !== null && (missing.value = false))
 
 async function open(id: number) {
   examId.value = id
@@ -54,13 +58,19 @@ async function submit() {
   const item = current.value
   // Over full marks already shows a red hint. The button stays enabled: the score field updates on blur,
   // so a disabled button would only light up on the first click and need a second one to submit
-  if (!item || examId.value == null || sending.value || score.value > item.points) return
+  const value = score.value
+  if (!item || examId.value == null || sending.value) return
+  if (value === null) {
+    missing.value = true
+    return
+  }
+  if (value > item.points) return
   sending.value = true
   try {
-    await sendScore(examId.value, item, score.value, comment.value)
-    item.myScore = score.value
+    await sendScore(examId.value, item, value, comment.value)
+    item.myScore = value
     item.myComment = comment.value
-    toast.success(`已送出 ${item.anonId} 第 ${item.number} 題：${score.value} 分`)
+    toast.success(`已送出 ${item.anonId} 第 ${item.number} 題：${value} 分`)
     load()
   } catch (e) {
     toast.error((e as Error).message)
@@ -132,20 +142,24 @@ async function submit() {
       </section>
 
       <section class="card px-5 py-6 sm:px-10">
-        <label class="block">
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="text-[15px] font-medium">給分</span>
+          <PointsStepper v-model="score" label="給分" allow-empty />
+          <span class="text-sm text-ink-3">滿分 {{ current.points }}</span>
+        </div>
+        <!-- Fixed height: the score updates on blur, and a line appearing or disappearing would move the button under the click -->
+        <p class="mt-2 min-h-5 text-sm text-grade" role="alert">
+          <template v-if="missing">請先給分，0 分也要填 0。</template>
+          <template v-else-if="score !== null && score > current.points">給分不能超過滿分 {{ current.points }} 分。</template>
+        </p>
+        <label class="mt-3 block">
           <span class="mb-1.5 block text-sm font-medium">評語（可以不寫）</span>
           <textarea v-model="comment" rows="2" maxlength="2000" class="field h-auto py-2.5" />
         </label>
-        <div class="mt-5 flex flex-wrap items-center justify-between gap-4">
-          <div class="flex items-center gap-3">
-            <span class="text-[15px] font-medium">給分</span>
-            <PointsStepper v-model="score" label="給分" />
-            <span class="text-sm text-ink-3">滿分 {{ current.points }}</span>
-          </div>
+        <div class="mt-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+          <p class="min-w-0 flex-1 basis-60 text-[13px] text-ink-3">送出後不能自己修改。真的需要更正，請承辦人重開這份答卷的評分。</p>
           <Button variant="primary" size="md" class="rounded-full" :disabled="sending" @click="submit"><Check />送出，看下一份</Button>
         </div>
-        <p v-if="score > current.points" class="mt-2 text-sm text-grade" role="alert">給分不能超過滿分 {{ current.points }} 分。</p>
-        <p class="mt-3 text-[13px] text-ink-3">送出後不能自己修改。真的需要更正，請承辦人重開這份答卷的評分。</p>
       </section>
     </div>
   </div>

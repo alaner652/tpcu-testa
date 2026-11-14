@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { Minus, Plus } from 'lucide-vue-next'
 
-const model = defineModel<number>({ required: true })
-/** What the number is (for screen readers): points when authoring, a score when grading */
-const { label = '配分' } = defineProps<{ label?: string }>()
+const model = defineModel<number | null>({ required: true })
+/** What the number is (for screen readers): points when authoring, a score when grading. allowEmpty: the field may be left blank (null) */
+const { label = '配分', allowEmpty = false } = defineProps<{ label?: string; allowEmpty?: boolean }>()
 
 function clamp(value: number) {
   return Math.min(100, Math.max(0, Math.round(value * 2) / 2))
 }
 function onInput(event: Event) {
-  const value = Number((event.target as HTMLInputElement).value)
-  model.value = Number.isFinite(value) ? clamp(value) : 0
+  const raw = (event.target as HTMLInputElement).value.trim()
+  const value = Number(raw)
+  model.value = raw === '' && allowEmpty ? null : Number.isFinite(value) ? clamp(value) : 0
 }
 </script>
 
@@ -21,19 +22,20 @@ function onInput(event: Event) {
         type="button"
         :aria-label="`減少${label}`"
         class="flex h-full w-9 items-center justify-center rounded-l-full text-ink-2 hover:bg-ink/[0.06] hover:text-ink disabled:opacity-40"
-        :disabled="model <= 0"
-        @click="model = clamp(model - 1)"
+        :disabled="model === null || model <= 0"
+        @click="model = clamp((model ?? 0) - 1)"
       >
         <Minus class="size-3.5" />
       </button>
       <input
-        :value="model"
+        :value="model ?? ''"
         type="number"
         inputmode="decimal"
         min="0"
         max="100"
         step="1"
         :aria-label="label"
+        :placeholder="allowEmpty ? '–' : undefined"
         class="h-full w-8 [appearance:textfield] bg-transparent text-center text-[15px] font-semibold text-ink tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none"
         @change="onInput"
       />
@@ -41,7 +43,7 @@ function onInput(event: Event) {
         type="button"
         :aria-label="`增加${label}`"
         class="flex h-full w-9 items-center justify-center rounded-r-full text-ink-2 hover:bg-ink/[0.06] hover:text-ink"
-        @click="model = clamp(model + 1)"
+        @click="model = clamp((model ?? 0) + 1)"
       >
         <Plus class="size-3.5" />
       </button>

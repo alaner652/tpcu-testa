@@ -24,6 +24,12 @@ const list = ref<Candidate[]>([])
 const listError = ref('')
 const count = (status: Candidate['status']) => list.value.filter((c) => c.status === status).length
 const locked = computed(() => list.value.filter((c) => c.locked || c.leaveCount > 0))
+/** Proctors click a count to show only those candidates */
+const filter = ref<Candidate['status'] | 'ATTENTION' | null>(null)
+const shown = computed(() =>
+  filter.value === null ? list.value : filter.value === 'ATTENTION' ? locked.value : list.value.filter((c) => c.status === filter.value),
+)
+const toggleFilter = (f: Candidate['status'] | 'ATTENTION') => (filter.value = filter.value === f ? null : f)
 const STATUS_COUNTS = [
   { status: 'IN', label: '作答中' },
   { status: 'DONE', label: '已交卷' },
@@ -211,12 +217,14 @@ const site = location.origin + location.pathname
       <RouterLink to="/exams" class="inline-flex h-9 items-center gap-1 rounded-full pr-3 text-sm text-ink-2 hover:text-ink">
         <ChevronLeft class="size-4" />考試
       </RouterLink>
-      <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h1 class="text-[24px] leading-tight font-bold sm:text-[30px]">{{ exam.name }}</h1>
-        <span class="rounded-full px-2.5 py-0.5 text-[13px] font-medium" :class="EXAM_STATUS[exam.status].class">
-          {{ EXAM_STATUS[exam.status].label }}
-        </span>
-        <MoreMenu class="ml-auto" :actions="headerActions" label="更多" />
+      <div class="mt-1 flex items-start gap-3">
+        <div class="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
+          <h1 class="text-[24px] leading-tight font-bold sm:text-[30px]">{{ exam.name }}</h1>
+          <span class="rounded-full px-2.5 py-0.5 text-[13px] font-medium" :class="EXAM_STATUS[exam.status].class">
+            {{ EXAM_STATUS[exam.status].label }}
+          </span>
+        </div>
+        <MoreMenu class="shrink-0" :actions="headerActions" label="更多" />
       </div>
       <p class="mt-1.5 text-[15px] text-ink-2">
         {{ when(exam.startAt) }}，作答 {{ exam.duration }} 分鐘。題庫：<RouterLink
@@ -259,16 +267,29 @@ const site = location.origin + location.pathname
         <p v-if="exam.status === 'draft' || exam.status === 'scheduled'" class="text-[15px] text-ink-2">
           <strong class="font-semibold text-ink tabular-nums">{{ list.length }}</strong> 位考生
         </p>
-        <dl v-else class="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-[15px] text-ink-2">
-          <div v-for="g in STATUS_COUNTS" :key="g.status" class="flex items-baseline gap-1.5">
-            <dd class="order-first text-xl font-bold text-ink tabular-nums">{{ count(g.status) }}</dd>
-            <dt>{{ g.label }}</dt>
-          </div>
-          <div v-if="locked.length" class="flex items-baseline gap-1.5 text-grade">
-            <dd class="order-first text-xl font-bold tabular-nums">{{ locked.length }}</dd>
-            <dt>需要注意</dt>
-          </div>
-        </dl>
+        <div v-else role="group" aria-label="依狀態篩選考生" class="-mx-2.5 flex flex-wrap items-center gap-x-1 gap-y-1 text-[15px] text-ink-2">
+          <button
+            v-for="g in STATUS_COUNTS"
+            :key="g.status"
+            type="button"
+            class="flex h-10 items-baseline gap-1.5 rounded-full px-2.5 pt-1.5 transition-colors hover:bg-ink/[0.06]"
+            :class="filter === g.status && 'bg-brand-soft text-brand-strong hover:bg-brand-soft'"
+            :aria-pressed="filter === g.status"
+            @click="toggleFilter(g.status)"
+          >
+            <span class="text-xl leading-none font-bold text-ink tabular-nums">{{ count(g.status) }}</span>{{ g.label }}
+          </button>
+          <button
+            v-if="locked.length"
+            type="button"
+            class="flex h-10 items-baseline gap-1.5 rounded-full px-2.5 pt-1.5 text-grade transition-colors hover:bg-grade-soft"
+            :class="filter === 'ATTENTION' && 'bg-grade-soft'"
+            :aria-pressed="filter === 'ATTENTION'"
+            @click="toggleFilter('ATTENTION')"
+          >
+            <span class="text-xl leading-none font-bold tabular-nums">{{ locked.length }}</span>需要注意
+          </button>
+        </div>
         <template v-if="exam.canManage && exam.status !== 'ended' && !preview">
           <input ref="fileInput" type="file" accept=".xlsx,.csv" class="hidden" @change="onFile" />
           <Button variant="primary" class="rounded-full" :disabled="busy" @click="fileInput?.click()">
@@ -306,7 +327,7 @@ const site = location.origin + location.pathname
       </div>
 
       <ul v-else-if="list.length" class="divide-y divide-line border-t border-line">
-        <li v-for="c in list" :key="c.id" class="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-5 py-3 sm:px-6">
+        <li v-for="c in shown" :key="c.id" class="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-5 py-3 sm:px-6">
           <span class="w-8 text-sm text-ink-3 tabular-nums" title="座位">{{ c.seat }}</span>
           <div class="min-w-0 flex-1 basis-40">
             <p class="text-base font-medium">{{ c.name }}</p>
@@ -337,6 +358,9 @@ const site = location.origin + location.pathname
             <Button variant="primary" size="md" class="h-11 rounded-full" type="submit" :disabled="!extendReason.trim()"><Check />確定補時</Button>
             <Button size="md" class="h-11 rounded-full" type="button" @click="extending = null"><X />取消</Button>
           </form>
+        </li>
+        <li v-if="!shown.length" class="px-5 py-6 text-[15px] text-ink-2 sm:px-6">
+          目前沒有這個狀態的考生。<button type="button" class="rounded-sm font-medium text-brand underline-offset-2 hover:underline" @click="filter = null">顯示全部</button>
         </li>
       </ul>
       <p v-if="live && list.length" class="border-t border-line px-5 py-3 text-sm text-ink-3 sm:px-6">每 10 秒自動更新。</p>
