@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
-import { Archive, ArchiveRestore, Check, CircleStop, Pencil, Plus, RotateCw, Send, Trash2, Undo2, X } from 'lucide-vue-next'
+import { computed, reactive, ref, type Component } from 'vue'
+import { Archive, ArchiveRestore, CalendarClock, Check, ChevronRight, CircleAlert, CircleCheck, CircleStop, Clock, ListChecks, Pencil, Plus, RotateCw, Send, Trash2, Undo2, Upload, X } from 'lucide-vue-next'
+import MoreMenu, { type MoreAction } from '@/components/ui/MoreMenu.vue'
 import { toast } from 'vue-sonner'
 import Button from '@/components/ui/Button.vue'
 import Skeleton from '@/components/ui/Skeleton.vue'
@@ -8,7 +9,7 @@ import SidePanel from '@/components/ui/SidePanel.vue'
 import { useAuth } from '@/composables/useAuth'
 import { useBanks } from '@/composables/useBanks'
 import { useConfirm } from '@/composables/useConfirm'
-import { canPurge, EXAM_STATUS, MODE_LABEL, retainLabel, toLocalInput, useExams, when, type Exam, type ExamMode } from '@/composables/useExams'
+import { canPurge, EXAM_STATUS, retainLabel, toLocalInput, useExams, when, type Exam, type ExamMode } from '@/composables/useExams'
 
 const { exams, loading, loadError, load, create, update, publish, withdraw, end, remove, archive, unarchive } = useExams()
 const { banks } = useBanks()
@@ -171,6 +172,44 @@ async function doPurge() {
   }
 }
 
+/** 卡片上的一句話：這場考試現在該做什麼。新手照著做就好。 */
+function nextStep(exam: Exam): { text: string; icon: Component; todo: boolean } {
+  const time = `${when(exam.startAt)}，${exam.duration} 分鐘`
+  if (!exam.bankName) return { text: '題庫已刪除，請按「⋯」→ 修改，重新選擇題庫', icon: CircleAlert, todo: true }
+  switch (exam.status) {
+    case 'draft':
+      if (!exam.takers) return { text: '下一步：點進去匯入考生名單', icon: Upload, todo: true }
+      if (!exam.startAt) return { text: '下一步：按「⋯」→ 修改，設定開始時間', icon: CalendarClock, todo: true }
+      return { text: `${time}，${exam.takers} 位考生。確認無誤就可以發布`, icon: Send, todo: true }
+    case 'scheduled':
+      return { text: `${time}。記得先點進去印登入單`, icon: CalendarClock, todo: false }
+    case 'live':
+      return exam.takers && exam.submitted === exam.takers
+        ? { text: '全部考生都交卷了，可以結束考試', icon: CircleStop, todo: true }
+        : { text: `${time}，考試進行中`, icon: Clock, todo: false }
+    default:
+      return exam.resultsPublishedAt
+        ? { text: `${when(exam.startAt)}，成績已公布`, icon: CircleCheck, todo: false }
+        : { text: '下一步：點進去評分、公布成績', icon: ListChecks, todo: true }
+  }
+}
+
+function moreActions(exam: Exam): MoreAction[] {
+  switch (exam.status) {
+    case 'draft':
+      return [
+        { label: '修改', icon: Pencil, run: () => openForm(exam) },
+        { label: '刪除', icon: Trash2, run: () => doRemove(exam), danger: true },
+      ]
+    case 'scheduled':
+      return [{ label: '取消發布（改回草稿）', icon: Undo2, run: () => doWithdraw(exam) }]
+    case 'ended':
+      return [{ label: '封存', icon: Archive, run: () => doArchive(exam) }]
+    default:
+      return []
+  }
+}
+
 const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam.takers) * 100) : 0)
 </script>
 
@@ -203,44 +242,29 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
     <template v-else>
     <p v-if="!current.length" class="card px-5 py-6 text-[15px] text-ink-2 sm:px-6">目前沒有進行中或待處理的考試，其餘都已封存。</p>
     <ul v-else class="space-y-3">
-      <li v-for="exam in current" :key="exam.id" class="card px-5 py-5 sm:px-6">
-        <div class="flex flex-wrap items-start gap-x-4 gap-y-3">
-          <div class="min-w-0 flex-1 basis-64">
+      <li v-for="exam in current" :key="exam.id" class="card relative px-5 py-4 transition-shadow hover:shadow-lift sm:px-6">
+        <div class="flex items-center gap-x-3 gap-y-2">
+          <div class="min-w-0 flex-1">
             <p class="flex flex-wrap items-center gap-2">
               <span class="rounded-full px-2.5 py-0.5 text-[13px] font-medium" :class="EXAM_STATUS[exam.status].class">
                 {{ EXAM_STATUS[exam.status].label }}
               </span>
-              <span class="text-lg font-semibold">{{ exam.name }}</span>
+              <!-- 整張卡片都可以點：連結蓋滿卡片，按鈕疊在上面 -->
+              <RouterLink :to="`/exams/${exam.id}`" class="text-lg font-semibold after:absolute after:inset-0 after:rounded-card">
+                {{ exam.name }}
+              </RouterLink>
             </p>
-            <p class="mt-1.5 text-sm text-ink-2 tabular-nums">
-              {{ when(exam.startAt) }}，{{ exam.duration }} 分鐘，{{ MODE_LABEL[exam.mode] }}，<span :class="!exam.bankName && 'text-grade'">{{
-                exam.bankName ?? '題庫已刪除，請重新選擇'
-              }}</span
-              ><template v-if="exam.status === 'ended'">，{{ exam.submitted }} / {{ exam.takers }} 人交卷</template
-              ><template v-else-if="exam.status !== 'live'">，{{ exam.takers }} 位考生</template>
+            <p class="mt-1 flex items-center gap-1.5 text-sm tabular-nums" :class="nextStep(exam).todo ? 'font-medium text-brand-strong' : 'text-ink-2'">
+              <component :is="nextStep(exam).icon" class="size-4 shrink-0" aria-hidden="true" />{{ nextStep(exam).text }}
             </p>
           </div>
-          <div class="flex shrink-0 flex-wrap items-center gap-2">
-            <RouterLink
-              :to="`/exams/${exam.id}`"
-              class="inline-flex h-9 items-center rounded-full border border-line-strong px-3 text-sm font-medium transition-colors hover:border-brand hover:text-brand"
-            >
-              開啟
-            </RouterLink>
-            <template v-if="exam.canManage">
-              <template v-if="exam.status === 'draft'">
-                <Button variant="outline" class="rounded-full" @click="openForm(exam)"><Pencil />修改</Button>
-                <Button variant="danger" class="rounded-full" @click="doRemove(exam)"><Trash2 />刪除</Button>
-                <Button variant="primary" class="rounded-full" @click="doPublish(exam)"><Send />發布</Button>
-              </template>
-              <Button v-else-if="exam.status === 'scheduled'" variant="outline" class="rounded-full" @click="doWithdraw(exam)"><Undo2 />取消發布</Button>
-              <Button v-else-if="exam.status === 'live'" variant="outline" class="rounded-full hover:border-grade hover:text-grade" @click="doEnd(exam)"><CircleStop />結束考試</Button>
-              <Button v-else-if="exam.status === 'ended'" variant="outline" class="rounded-full" @click="doArchive(exam)"><Archive />封存</Button>
-            </template>
-          </div>
+          <Button v-if="exam.canManage && exam.status === 'draft'" variant="primary" class="relative z-10 rounded-full" @click="doPublish(exam)"><Send />發布</Button>
+          <Button v-else-if="exam.canManage && exam.status === 'live'" variant="outline" class="relative z-10 rounded-full hover:border-grade hover:text-grade" @click="doEnd(exam)"><CircleStop />結束考試</Button>
+          <MoreMenu v-if="exam.canManage" :actions="moreActions(exam)" />
+          <ChevronRight v-if="!exam.canManage || exam.status === 'ended' || exam.status === 'scheduled'" class="size-5 shrink-0 text-ink-3" aria-hidden="true" />
         </div>
 
-        <div v-if="exam.status === 'live'" class="mt-4 flex items-center gap-3">
+        <div v-if="exam.status === 'live'" class="mt-3 flex items-center gap-3">
           <div class="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-sunken">
             <div class="h-full rounded-full bg-brand" :style="{ width: `${percent(exam)}%` }" />
           </div>
@@ -252,29 +276,24 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
     <details v-if="archived.length" class="mt-6">
       <summary class="cursor-pointer px-4 text-[15px] font-medium text-ink-2 hover:text-ink md:px-0">已封存的考試（{{ archived.length }}）</summary>
       <ul class="card mt-3 divide-y divide-line">
-        <li v-for="exam in archived" :key="exam.id" class="px-5 py-4 sm:px-6">
-          <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <div class="min-w-0 flex-1 basis-64">
-              <p class="text-base font-medium">{{ exam.name }}</p>
+        <li v-for="exam in archived" :key="exam.id" class="relative px-5 py-4 transition-colors hover:bg-sunken sm:px-6">
+          <div class="flex items-center gap-x-3">
+            <div class="min-w-0 flex-1">
+              <RouterLink :to="`/exams/${exam.id}`" class="text-base font-medium after:absolute after:inset-0">{{ exam.name }}</RouterLink>
               <p class="mt-0.5 text-sm text-ink-2 tabular-nums">
                 {{ when(exam.startAt) }}，{{ exam.submitted }} / {{ exam.takers }} 人交卷。<template v-if="canPurge(exam)">保存期限已過（{{ retainLabel(exam.retainUntil) }}），可以刪除。</template
                 ><template v-else>資料保留到 {{ retainLabel(exam.retainUntil) }}。</template>
               </p>
             </div>
-            <div class="flex shrink-0 flex-wrap items-center gap-2">
-              <RouterLink
-                :to="`/exams/${exam.id}`"
-                class="inline-flex h-9 items-center rounded-full border border-line-strong px-3 text-sm font-medium transition-colors hover:border-brand hover:text-brand"
-              >
-                開啟
-              </RouterLink>
-              <template v-if="exam.canManage">
-                <Button variant="outline" class="rounded-full" @click="doUnarchive(exam)"><ArchiveRestore />取消封存</Button>
-                <Button v-if="canPurge(exam)" variant="danger" class="rounded-full" @click="((purging = exam), (purgeReason = ''))"><Trash2 />刪除</Button>
-              </template>
-            </div>
+            <MoreMenu
+              v-if="exam.canManage"
+              :actions="[
+                { label: '取消封存', icon: ArchiveRestore, run: () => doUnarchive(exam) },
+                ...(canPurge(exam) ? [{ label: '永久刪除', icon: Trash2, run: () => ((purging = exam), (purgeReason = '')), danger: true }] : []),
+              ]"
+            />
           </div>
-          <form v-if="purging === exam" class="mt-3 flex flex-wrap gap-2" @submit.prevent="doPurge">
+          <form v-if="purging === exam" class="relative z-10 mt-3 flex flex-wrap gap-2" @submit.prevent="doPurge">
             <input v-model="purgeReason" class="field min-w-0 flex-1 basis-64" maxlength="500" placeholder="刪除的理由（必填，會留在操作紀錄）" aria-label="刪除的理由" />
             <Button variant="primary" size="md" class="h-11 rounded-full" type="submit" :disabled="!purgeReason.trim()"><Trash2 />確定刪除</Button>
             <Button size="md" class="h-11 rounded-full" @click="purging = null"><X />取消</Button>
@@ -304,18 +323,11 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
           <label class="block">
             <span class="mb-1.5 block text-sm font-medium">開始時間</span>
             <input v-model="form.start" type="datetime-local" class="field" />
-            <span class="mt-1 block text-[13px] text-ink-3">可以先留空，發布前再設定。</span>
+            <span class="mt-1 block text-[13px] text-ink-3">可以先空著，發布前再填。</span>
           </label>
           <label class="block">
             <span class="mb-1.5 block text-sm font-medium">作答時間（分鐘）</span>
             <input v-model.number="form.duration" type="number" min="1" max="600" inputmode="numeric" class="field" />
-          </label>
-          <label class="block">
-            <span class="mb-1.5 block text-sm font-medium">施測方式</span>
-            <select v-model="form.mode" class="field">
-              <option value="CLASSROOM">電腦教室（監考在場）</option>
-              <option value="ONLINE">純線上（考生用自己的電腦）</option>
-            </select>
           </label>
           <p v-if="formError" class="text-sm text-grade" role="alert">{{ formError }}</p>
         </div>

@@ -5,6 +5,7 @@ import { toast } from 'vue-sonner'
 import EmergencyView from '@/components/app/EmergencyView.vue'
 import UnitMembers from '@/components/app/UnitMembers.vue'
 import Button from '@/components/ui/Button.vue'
+import MoreMenu from '@/components/ui/MoreMenu.vue'
 import Switch from '@/components/ui/Switch.vue'
 import { UNIT_ROLE_LABEL, useAuth, type UnitRole } from '@/composables/useAuth'
 import { useConfirm } from '@/composables/useConfirm'
@@ -396,16 +397,16 @@ watch(tab, load)
             <p class="truncate text-sm text-ink-2">{{ s.email }}</p>
             <p class="text-sm text-ink-2">{{ rolesText(s) || (s.systemAdmin ? '' : '尚未加入任何單位') }}</p>
           </div>
-          <template v-if="s.email !== user?.email">
-            <Button variant="outline" class="rounded-full" @click="resetPassword(s)"><KeyRound />重設密碼</Button>
-            <Button
-              variant="outline"
-              :class="s.active ? 'w-20 rounded-full hover:border-grade hover:text-grade' : 'w-20 rounded-full'"
-              @click="toggleActive(s)"
-            >
-              <component :is="s.active ? Ban : CircleCheck" />{{ s.active ? '停用' : '啟用' }}
-            </Button>
-          </template>
+          <MoreMenu
+            v-if="s.email !== user?.email"
+            :label="`${s.name} 的更多動作`"
+            :actions="[
+              { label: '重設密碼', icon: KeyRound, run: () => resetPassword(s) },
+              s.active
+                ? { label: '停用帳號', icon: Ban, run: () => toggleActive(s), danger: true }
+                : { label: '重新啟用', icon: CircleCheck, run: () => toggleActive(s) },
+            ]"
+          />
           <span v-else class="text-sm text-ink-3">這是你自己</span>
         </li>
       </ul>
@@ -425,13 +426,14 @@ watch(tab, load)
               <span v-if="!u.active" class="shrink-0 rounded-full bg-sunken px-2 py-0.5 text-xs font-normal text-ink-2">已停用</span>
             </p>
             <Button variant="outline" class="rounded-full" :aria-expanded="openUnit === u.id" @click="toggleMembers(u)"><Users />{{ openUnit === u.id ? '收合' : '成員與角色' }}</Button>
-            <Button
-              variant="outline"
-              :class="u.active ? 'w-20 rounded-full hover:border-grade hover:text-grade' : 'w-20 rounded-full'"
-              @click="toggleUnit(u)"
-            >
-              <component :is="u.active ? Ban : CircleCheck" />{{ u.active ? '停用' : '啟用' }}
-            </Button>
+            <MoreMenu
+              :label="`${u.name} 的更多動作`"
+              :actions="[
+                u.active
+                  ? { label: '停用單位', icon: Ban, run: () => toggleUnit(u), danger: true }
+                  : { label: '重新啟用', icon: CircleCheck, run: () => toggleUnit(u) },
+              ]"
+            />
           </div>
 
           <div v-if="openUnit === u.id" class="border-t border-line bg-sunken/60 px-5 py-4 sm:px-6">

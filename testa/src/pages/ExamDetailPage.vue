@@ -4,10 +4,11 @@ import { useRoute } from 'vue-router'
 import { ChartColumn, Check, ChevronLeft, KeyRound, ListChecks, LoaderCircle, Printer, RotateCw, ShieldCheck, Ticket, TimerReset, Trash2, Upload, Users, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import Button from '@/components/ui/Button.vue'
+import MoreMenu, { type MoreAction } from '@/components/ui/MoreMenu.vue'
 import EmergencyAccess from '@/components/app/EmergencyAccess.vue'
 import ExamScoring from '@/components/app/ExamScoring.vue'
 import { useConfirm } from '@/composables/useConfirm'
-import { CANDIDATE_STATUS, EXAM_STATUS, MODE_LABEL, retainLabel, useExams, when, type Candidate, type RosterPreview } from '@/composables/useExams'
+import { CANDIDATE_STATUS, EXAM_STATUS, retainLabel, useExams, when, type Candidate, type RosterPreview } from '@/composables/useExams'
 
 /**
  * 一場考試要做的事都在這一頁：考生（名單與監考）、登入單、評分、成績。
@@ -39,11 +40,26 @@ const STEPS = computed<{ value: Step; label: string; icon: Component }[]>(() => 
     ? ([
         { value: 'grading', label: '評分', icon: ListChecks },
         { value: 'results', label: '成績', icon: ChartColumn },
-        { value: 'access', label: '緊急檢視', icon: ShieldCheck },
       ] as const)
     : []),
+  // 緊急檢視很少用，收在標題旁的「⋯」裡；打開時才出現在分頁列
+  ...(step.value === 'access' ? ([{ value: 'access', label: '緊急檢視', icon: ShieldCheck }] as const) : []),
 ])
 const step = ref<Step>('roster')
+// 考試結束後，直接打開下一步要做的分頁
+watch(
+  () => exam.value?.id,
+  () => {
+    const e = exam.value
+    if (e?.canManage && e.status === 'ended') step.value = e.resultsPublishedAt ? 'results' : 'grading'
+  },
+  { immediate: true },
+)
+const headerActions = computed<MoreAction[]>(() =>
+  exam.value?.canManage && exam.value.status !== 'draft'
+    ? [{ label: '緊急檢視授權（給系統管理員）', icon: ShieldCheck, run: () => (step.value = 'access') }]
+    : [],
+)
 
 async function loadList() {
   if (!exam.value) return
@@ -123,6 +139,16 @@ async function reset(candidate: Candidate) {
   }
 }
 
+function rowActions(c: Candidate): MoreAction[] {
+  const e = exam.value
+  if (!e || e.archivedAt || e.status === 'ended') return []
+  return [
+    ...(c.status === 'IN' && e.status === 'live' ? [{ label: '補時', icon: TimerReset, run: () => startExtend(c) }] : []),
+    ...(c.status !== 'DONE' && !c.locked ? [{ label: '重設登入碼', icon: KeyRound, run: () => reset(c) }] : []),
+    ...(e.canManage && c.status === 'IDLE' ? [{ label: '從名單移除', icon: Trash2, run: () => removeCandidate(c), danger: true }] : []),
+  ]
+}
+
 // 補時：考生因為設備問題損失時間時，把截止時間往後延
 const extending = ref<number | null>(null)
 const extendMinutes = ref(5)
@@ -190,9 +216,10 @@ const site = location.origin + location.pathname
         <span class="rounded-full px-2.5 py-0.5 text-[13px] font-medium" :class="EXAM_STATUS[exam.status].class">
           {{ EXAM_STATUS[exam.status].label }}
         </span>
+        <MoreMenu class="ml-auto" :actions="headerActions" label="更多" />
       </div>
       <p class="mt-1.5 text-[15px] text-ink-2">
-        {{ when(exam.startAt) }}，作答 {{ exam.duration }} 分鐘，{{ MODE_LABEL[exam.mode] }}。題庫：<RouterLink
+        {{ when(exam.startAt) }}，作答 {{ exam.duration }} 分鐘。題庫：<RouterLink
           v-if="exam.bankId"
           :to="`/banks/${exam.bankId}`"
           class="rounded-sm text-brand underline-offset-2 hover:underline"
@@ -297,9 +324,8 @@ const site = location.origin + location.pathname
           >
             {{ CANDIDATE_STATUS[c.status].label }}
           </span>
-          <Button v-if="c.status === 'IN' && exam.status === 'live'" variant="outline" class="rounded-full" @click="startExtend(c)"><TimerReset />補時</Button>
-          <Button v-if="c.status !== 'DONE' && exam.status !== 'ended'" variant="outline" class="rounded-full" @click="reset(c)"><KeyRound />重設登入碼</Button>
-          <Button v-if="exam.canManage && c.status === 'IDLE' && exam.status !== 'ended'" variant="danger" class="rounded-full" @click="removeCandidate(c)"><Trash2 />移除</Button>
+          <Button v-if="c.locked && c.status !== 'DONE' && exam.status !== 'ended'" variant="primary" class="rounded-full" @click="reset(c)"><KeyRound />重設登入碼</Button>
+          <MoreMenu :actions="rowActions(c)" :label="`${c.name} 的更多動作`" />
           <form v-if="extending === c.id && c.status === 'IN'" class="flex basis-full flex-wrap items-center gap-2 pt-1" @submit.prevent="extend(c)">
             <label class="text-[15px] text-ink-2" :for="`extend-min-${c.id}`">補</label>
             <select :id="`extend-min-${c.id}`" v-model.number="extendMinutes" class="field h-11 w-28">

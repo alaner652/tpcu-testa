@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { ClipboardCheck, FileText, House, LibraryBig, Settings, Users } from 'lucide-vue-next'
+import { ClipboardCheck, FileText, House, LibraryBig, Settings } from 'lucide-vue-next'
 import Logo from '@/components/app/Logo.vue'
 import UserMenu from '@/components/app/UserMenu.vue'
 import { useAuth, type UnitRole } from '@/composables/useAuth'
@@ -20,7 +20,6 @@ const staffLinks = computed(() => [
   ...(can('AUTHOR', 'OWNER') ? [{ to: '/banks', label: '題庫', icon: LibraryBig, exact: false, badge: 0 }] : []),
   ...(can('OWNER', 'PROCTOR') ? [{ to: '/exams', label: '考試', icon: FileText, exact: false, badge: 0 }] : []),
   ...(can('GRADER') ? [{ to: '/grading', label: '閱卷', icon: ClipboardCheck, exact: false, badge: pending.value }] : []),
-  ...(can('OWNER') ? [{ to: '/members', label: '成員', icon: Users, exact: false, badge: 0 }] : []),
   ...(isAdmin.value ? [{ to: '/admin', label: '管理', icon: Settings, exact: false, badge: 0 }] : []),
 ])
 </script>
@@ -46,7 +45,7 @@ const staffLinks = computed(() => [
               :aria-current="(link.exact ? isExactActive : isActive) ? 'page' : undefined"
               @click="navigate"
             >
-              {{ link.label }}
+              <component :is="link.icon" class="size-4" aria-hidden="true" />{{ link.label }}
               <span v-if="link.badge" class="rounded-full bg-grade px-1.5 text-xs leading-5 font-semibold text-white dark:text-desk">
                 {{ link.badge }}
               </span>

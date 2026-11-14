@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { DropdownMenuRoot, DropdownMenuSeparator, DropdownMenuTrigger } from 'reka-ui'
-import { KeyRound, LogOut, Moon, Sun } from 'lucide-vue-next'
+import { KeyRound, LogOut, Moon, Sun, Users } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import MenuContent from '@/components/ui/MenuContent.vue'
@@ -44,6 +44,10 @@ async function signOut() {
       <MenuItem class="h-10" @select="toggle">
         <component :is="dark ? Sun : Moon" />
         {{ dark ? '切換為淺色' : '切換為深色' }}
+      </MenuItem>
+      <MenuItem v-if="user.units?.some((u) => u.roles.includes('OWNER'))" class="h-10" @select="router.push({ name: 'members' })">
+        <Users />
+        單位成員
       </MenuItem>
       <MenuItem v-if="user.role !== 'student'" class="h-10" @select="router.push({ name: 'password' })">
         <KeyRound />
