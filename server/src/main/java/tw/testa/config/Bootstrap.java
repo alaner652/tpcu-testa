@@ -31,9 +31,8 @@ import tw.testa.unit.UnitRoleRepository;
 import tw.testa.unit.UnitType;
 
 /**
- * Start-up data.
- * 1. With no system administrator in the database, create the first one from testa.bootstrap-admin.
- * 2. With testa.dev-seed=true (dev profile), create the demo units and accounts used by the frontend prototype.
+ * Demo data for the dev profile (testa.dev-seed=true): a system administrator, units, accounts and a live exam.
+ * Production has no seed; the first administrator is created through first-run setup (SetupService).
  */
 @Component
 public class Bootstrap implements ApplicationRunner {
@@ -62,22 +61,12 @@ public class Bootstrap implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        var admin = props.bootstrapAdmin();
+        if (!props.devSeed()) return;
         if (!staffRepo.existsBySystemAdminTrue()) {
-            if (admin.email().isBlank() || admin.password().isBlank()) {
-                log.warn("資料庫裡還沒有系統管理員。請設定 TESTA_ADMIN_EMAIL 與 TESTA_ADMIN_PASSWORD 後重新啟動。");
-            } else {
-                Staff s = new Staff(admin.email(), encoder.encode(admin.password()), admin.name(), true);
-                // The first production password comes from the environment and must be changed after sign-in
-                s.setMustChangePassword(!props.devSeed());
-                staffRepo.save(s);
-                log.info("已建立第一位系統管理員：{}", s.getEmail());
-            }
+            staffRepo.save(new Staff("admin@testa.tw", encoder.encode("testa-admin"), "陳主任", true));
         }
-        if (props.devSeed()) {
-            seedDemo();
-            seedDemoExam();
-        }
+        seedDemo();
+        seedDemoExam();
     }
 
     /** Demo exam: published and live, candidate A115-0001 / 482915 can sign in right away (demo button on the login page). */
@@ -110,7 +99,7 @@ public class Bootstrap implements ApplicationRunner {
         examRepo.save(exam);
         candidateRepo.save(new Candidate(exam, "A115-0001", "王小明", "資訊工程科", 1, "482915"));
         candidateRepo.save(new Candidate(exam, "A115-0002", "李宜華", "電機工程科", 2, "135790"));
-        log.info("已建立示範考試：考生 A115-0001，登入碼 482915");
+        log.info("Created demo exam: candidate A115-0001, login code 482915");
     }
 
     private void seedDemo() {
@@ -127,6 +116,6 @@ public class Bootstrap implements ApplicationRunner {
             roleRepo.save(new UnitRole(admission, t, Role.AUTHOR));
             roleRepo.save(new UnitRole(admission, t, Role.GRADER));
         }
-        log.info("已建立示範資料：招生組、officer@testa.tw、teacher@testa.tw、teacher2@testa.tw、teacher3@testa.tw");
+        log.info("Created demo data: one unit and the accounts officer@, teacher@, teacher2@ and teacher3@testa.tw");
     }
 }

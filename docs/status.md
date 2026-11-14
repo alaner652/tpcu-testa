@@ -6,7 +6,7 @@ Last reviewed: 2026-11-15.
 
 | Status | Milestone | Scope |
 | --- | --- | --- |
-| Done | 1. Backend skeleton and login | Staff login, sessions, CSRF, units and roles, permission checks, audit log, admin pages |
+| Done | 1. Backend skeleton and login | First-run setup with a one-time token (no default credentials), staff login, sessions, CSRF, units and roles, permission checks, audit log, admin pages |
 | Done | 2. Question banks | Bank editor on the API, autosave, version conflict detection |
 | Done | 3. Exams and rosters | Create, publish (freezes a snapshot of the questions), end. Roster import (.xlsx, .csv including Big5), login codes, printable login slips, proctoring page |
 | Done | 4. Taking the exam | Candidate number + login code, single session per candidate, paper without answers, server-side timer, autosave, resume after disconnect, submit, auto-submit on timeout, auto-grading |
@@ -21,13 +21,14 @@ Last reviewed: 2026-11-15.
 | Area | What |
 | --- | --- |
 | Deployment | Image build, Nginx (static files, SPA routing, security headers, rate limit), daily backup, restore into an emptied database |
-| Mock exam | `deploy/smoke-test.py` runs through Nginx from writing questions to candidates checking scores, plus emergency access (grant, view, revoke) and archiving. Re-run on 2026-11-15 against freshly built production images |
+| Mock exam | `deploy/smoke-test.py` runs through Nginx from first-run setup and writing questions to candidates checking scores, plus emergency access (grant, view, revoke) and archiving. Re-run on 2026-11-15 against freshly built production images |
+| First-run setup | On a fresh production install: sign-in redirects to setup, a wrong token is rejected, the token from the log creates the administrator, setup then closes. Concurrent setup requests create exactly one administrator (integration test) |
 | Load | 300 candidates from one IP signing in, answering and submitting at once: 8,400 requests, no failures, p99 12 ms |
 | Sessions in the database | Mock exam on production images; sessions survive a backend restart; 300 candidates hitting the backend directly, 12,000 requests, no failures (p50 15 ms, p95 109 ms) |
 | Failure cases | Backend restart mid-exam, database restart, the same candidate signing in twice, lockout after wrong login codes and reset, officer ending the exam early, auto-submit at time-up (including candidates who never reconnect), proctor adding time just before time-up (countdown extends, no auto-submit) |
 | HTTPS | Behind a reverse proxy with a self-signed certificate and `TESTA_COOKIE_SECURE=true`, the full mock exam passes. With `set_real_ip_from`, rate limits and the audit log use the real client IP and forged `X-Forwarded-For` is ignored |
 | Browser (Chromium) | Candidates: sign-in, all four question types, reload and resume, resend after disconnect, being kicked, submit, time-up, checking scores (including 390 and 320 px widths). Staff: password change, authoring, creating exams, Big5 roster import, login slips, proctoring, grading, publishing, export. Admin pages. Archive and unarchive, emergency access grant and view, grader disagreement warnings (grading page, results page, confirm before publishing) |
-| Automated tests | 40 backend integration tests (Testcontainers with real PostgreSQL); 19 frontend unit tests |
+| Automated tests | 42 backend integration tests (Testcontainers with real PostgreSQL); 19 frontend unit tests |
 
 ### Needs the real site
 

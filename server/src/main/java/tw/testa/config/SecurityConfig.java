@@ -38,7 +38,7 @@ public class SecurityConfig {
         http
             .authorizeHttpRequests(a -> a
                 .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
-                .requestMatchers("/api/auth/login", "/api/auth/csrf", "/api/health", "/api/candidate/login").permitAll()
+                .requestMatchers("/api/auth/login", "/api/auth/setup", "/api/auth/csrf", "/api/health", "/api/candidate/login").permitAll()
                 .requestMatchers("/api/auth/logout").authenticated()
                 // Candidates may only reach /api/candidate, never staff APIs, and vice versa
                 .requestMatchers("/api/candidate/**").hasRole("CANDIDATE")

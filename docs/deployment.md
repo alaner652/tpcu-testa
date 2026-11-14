@@ -15,14 +15,17 @@ Only Nginx is exposed (port 80 by default). All four containers are in `docker-c
 ## Going live
 
 ```bash
-cp deploy/env.example .env      # database password and the first system administrator
+cp deploy/env.example .env      # at least the database password
 docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml logs server | grep "setup token"
 ```
+
+Then open the site: with no system administrator yet it shows the first-run setup page. Enter the setup token from the log and create the first administrator. Setup closes for good once an administrator exists, so there are no default credentials and no administrator password in `.env`. Only people who can read the server log (or `.env`) can complete setup; do it right after the first start.
 
 | Variable | Meaning |
 | --- | --- |
 | `TESTA_DB_PASSWORD` | Database password; generate a long random string |
-| `TESTA_ADMIN_EMAIL`, `TESTA_ADMIN_PASSWORD` | First system administrator. Used only while the database has none; must change the password after signing in |
+| `TESTA_SETUP_TOKEN` | Optional fixed first-run setup token; when blank a random one is logged at start-up. Useless once setup is done |
 | `TESTA_HTTP_PORT` | Public port, default 80 |
 | `TESTA_COOKIE_SECURE` | Keep `true` behind HTTPS |
 | `TESTA_BACKUP_DIR`, `BACKUP_KEEP_DAYS` | Where backups go (default `./backups`) and for how many days (default 30) |

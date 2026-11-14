@@ -35,11 +35,9 @@ server:
   forward-headers-strategy: native
 
 testa:
-  # On first start with no system administrator in the database, create one with these credentials.
-  bootstrap-admin:
-    email: ${TESTA_ADMIN_EMAIL:}
-    password: ${TESTA_ADMIN_PASSWORD:}
-    name: ${TESTA_ADMIN_NAME:系統管理員}
+  # First-run setup token. Leave blank to have a random one written to the log while there is no system administrator.
+  setup:
+    token: ${TESTA_SETUP_TOKEN:}
   login:
     max-failures: 5
     lock-minutes: 15

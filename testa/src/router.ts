@@ -14,6 +14,7 @@ export const router = createRouter({
   history: embedded ? createMemoryHistory() : createWebHashHistory(),
   routes: [
     { path: '/login', name: 'login', component: () => import('@/pages/LoginPage.vue'), meta: { public: true } },
+    { path: '/setup', name: 'setup', component: () => import('@/pages/SetupPage.vue'), meta: { public: true } },
     { path: '/password', name: 'password', component: () => import('@/pages/PasswordPage.vue') },
     {
       path: '/',
@@ -42,7 +43,7 @@ router.beforeEach(async (to) => {
   // Wait for the backend to say whether someone is signed in
   await ready
   if (!to.meta.public && !user.value) return { name: 'login' }
-  if (to.name === 'login' && user.value) return { name: 'home' }
+  if ((to.name === 'login' || to.name === 'setup') && user.value) return { name: 'home' }
   // After signing in with a temporary password, change it before anything else
   if (user.value?.mustChangePassword) return to.name === 'password' ? true : { name: 'password' }
   if (to.name === 'password') return isStudent.value ? { name: 'student' } : true

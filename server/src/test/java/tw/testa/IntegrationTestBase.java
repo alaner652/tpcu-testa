@@ -1,9 +1,11 @@
 package tw.testa;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -19,8 +21,7 @@ import com.jayway.jsonpath.JsonPath;
 
 /** Shared integration test setup: real PostgreSQL (Testcontainers) and the full Spring Security filter chain. */
 @SpringBootTest(properties = {
-        "testa.bootstrap-admin.email=admin@test.tw",
-        "testa.bootstrap-admin.password=admin-password",
+        "testa.setup.token=" + IntegrationTestBase.SETUP_TOKEN,
         "testa.login.max-failures=3",
         // MockMvc tests carry sign-in state in a MockHttpSession; JDBC sessions are covered over real HTTP by deploy/smoke-test.py
         "spring.autoconfigure.exclude=org.springframework.boot.session.jdbc.autoconfigure.JdbcSessionAutoConfiguration",
@@ -29,6 +30,7 @@ import com.jayway.jsonpath.JsonPath;
 public abstract class IntegrationTestBase {
     protected static final String ADMIN_EMAIL = "admin@test.tw";
     protected static final String ADMIN_PASSWORD = "admin-password";
+    protected static final String SETUP_TOKEN = "test-setup-token";
 
     @ServiceConnection
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17-alpine");
@@ -39,6 +41,15 @@ public abstract class IntegrationTestBase {
 
     @Autowired
     protected MockMvc mvc;
+
+    /** The first system administrator is created once, through first-run setup, by whichever test runs first. */
+    @BeforeEach
+    void ensureAdmin() throws Exception {
+        MvcResult r = mvc.perform(get("/api/auth/setup")).andExpect(status().isOk()).andReturn();
+        if (!(Boolean) read(r, "$.required")) return;
+        mvc.perform(json(post("/api/auth/setup"), "{\"token\":\"%s\",\"email\":\"%s\",\"name\":\"Admin\",\"password\":\"%s\"}"
+                .formatted(SETUP_TOKEN, ADMIN_EMAIL, ADMIN_PASSWORD))).andExpect(status().isOk());
+    }
 
     protected MockHttpSession login(String email, String password) throws Exception {
         MockHttpSession session = new MockHttpSession();

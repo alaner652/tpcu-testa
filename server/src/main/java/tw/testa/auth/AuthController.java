@@ -22,7 +22,9 @@ import org.springframework.web.bind.annotation.RestController;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import tw.testa.staff.Staff;
 
 @RestController
@@ -31,9 +33,12 @@ public class AuthController {
     private final AuthService auth;
     private final AccessGuard access;
     private final SecurityContextRepository contextRepo;
+    private final SetupService setup;
 
-    public AuthController(AuthService auth, AccessGuard access, SecurityContextRepository contextRepo) {
+    public AuthController(AuthService auth, AccessGuard access, SecurityContextRepository contextRepo,
+            SetupService setup) {
         this.auth = auth;
+        this.setup = setup;
         this.access = access;
         this.contextRepo = contextRepo;
     }
@@ -43,6 +48,28 @@ public class AuthController {
 
     public record PasswordRequest(@NotBlank(message = "請輸入目前的密碼。") String currentPassword,
             @NotBlank(message = "請輸入新密碼。") String newPassword) {}
+
+    public record SetupRequest(@NotBlank(message = "請輸入設定碼。") String token,
+            @NotBlank(message = "請輸入 Email。") @Email(message = "Email 格式不正確。") @Size(max = 254) String email,
+            @NotBlank(message = "請輸入姓名。") @Size(max = 100) String name,
+            @NotBlank(message = "請輸入密碼。") String password) {}
+
+    public record SetupStatus(boolean required) {}
+
+    @GetMapping("/setup")
+    public SetupStatus setupStatus() {
+        return new SetupStatus(setup.required());
+    }
+
+    /** First-run setup: creates the first system administrator with the setup token and signs them in. */
+    @PostMapping("/setup")
+    public AuthService.Me createFirstAdmin(@Valid @RequestBody SetupRequest body, HttpServletRequest request,
+            HttpServletResponse response) {
+        Staff staff = setup.createFirstAdmin(body.token(), body.email(), body.name(), body.password());
+        if (request.getSession(false) != null) request.changeSessionId();
+        signIn(staff, request, response);
+        return auth.me(staff.getId());
+    }
 
     /** Called once at frontend start-up to get the XSRF-TOKEN cookie; writes send it back in the X-XSRF-TOKEN header. */
     @GetMapping("/csrf")

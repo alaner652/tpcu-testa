@@ -204,6 +204,7 @@ const toggleMembers = (u: Unit) => (openUnit.value = openUnit.value === u.id ? n
 
 // ── Audit log ────────────────────────────────────────
 const ACTION_LABEL: Record<string, string> = {
+  SYSTEM_SETUP: '初始設定',
   LOGIN: '登入',
   LOGIN_FAILED: '登入失敗',
   LOGOUT: '登出',

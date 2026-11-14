@@ -5,6 +5,7 @@ import { CircleAlert, LoaderCircle } from 'lucide-vue-next'
 import Logo from '@/components/app/Logo.vue'
 import { DEMO_ACCOUNTS, signedOutNotice, useAuth } from '@/composables/useAuth'
 import { DEMO_CANDIDATE } from '@/composables/useWorkspace'
+import { api } from '@/lib/api'
 
 /** One login page, two identities: candidates use candidate number + login code, staff use account and password. */
 const { login, loginCandidate } = useAuth()
@@ -23,6 +24,11 @@ if (signedOutNotice.value) {
   error.value = signedOutNotice.value.text
   signedOutNotice.value = null
 }
+// A fresh installation has no administrator yet: go to first-run setup
+api<{ required: boolean }>('/auth/setup', { quiet401: true })
+  .then((s) => void (s.required && router.replace({ name: 'setup' })))
+  .catch(() => {})
+
 /** Demo identities only in development */
 const showDemo = import.meta.env.DEV
 
