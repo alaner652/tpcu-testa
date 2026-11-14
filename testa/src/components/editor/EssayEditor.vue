@@ -2,6 +2,7 @@
 import type { Question } from '@/types/question'
 import AutoTextarea from '@/components/ui/AutoTextarea.vue'
 import Switch from '@/components/ui/Switch.vue'
+import { DEMO_FEATURES } from '@/lib/flags'
 
 const props = defineProps<{ question: Question }>()
 
@@ -38,7 +39,7 @@ function onLimit(event: Event) {
         />
         字
       </label>
-      <label class="flex max-w-sm items-start gap-2.5">
+      <label v-if="DEMO_FEATURES" class="flex max-w-sm items-start gap-2.5">
         <Switch v-model="question.aiGrading" class="mt-0.5" />
         <span>
           <span class="block text-sm text-ink">AI 輔助評分</span>

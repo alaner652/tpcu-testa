@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import Skeleton from '@/components/ui/Skeleton.vue'
 import { useBanks } from '@/composables/useBanks'
+import { DEMO_FEATURES } from '@/lib/flags'
 import { issuesOf } from '@/lib/question'
 import AddQuestionBar from './AddQuestionBar.vue'
 import AnswerBubble from './AnswerBubble.vue'
@@ -101,7 +102,7 @@ function onDuration(event: Event) {
         </div>
         <h2 class="mt-5 text-2xl font-bold">這份題庫還沒有題目</h2>
         <p class="mt-2 mb-6 max-w-md text-[15px] text-ink-2">
-          選一種題型開始出題，或上傳現有的 Word、PDF 考卷，讓 AI 幫你拆成一題一題。
+          選一種題型開始出題<template v-if="DEMO_FEATURES">，或上傳現有的 Word、PDF 考卷，讓 AI 幫你拆成一題一題</template>。
         </p>
         <AddQuestionBar @import="$emit('import')" />
       </div>

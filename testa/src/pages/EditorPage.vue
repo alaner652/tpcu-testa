@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { defineAsyncComponent, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useEventListener, useMediaQuery } from '@vueuse/core'
 import { toast } from 'vue-sonner'
 import SidePanel from '@/components/ui/SidePanel.vue'
-import AiImportPanel from '@/components/editor/AiImportPanel.vue'
+import { DEMO_FEATURES } from '@/lib/flags'
 import EditorToolbar from '@/components/editor/EditorToolbar.vue'
 import EditorTopBar from '@/components/editor/EditorTopBar.vue'
 import ExamPreview from '@/components/editor/ExamPreview.vue'
@@ -23,6 +23,8 @@ const wide = useMediaQuery('(min-width: 1280px)')
 
 const mode = ref<'edit' | 'preview'>('edit')
 const overviewOpen = ref(false)
+// AI 匯入還是示範（假資料），只在開發模式才有入口、才會載入
+const AiImportPanel = DEMO_FEATURES ? defineAsyncComponent(() => import('@/components/editor/AiImportPanel.vue')) : null
 const importOpen = ref(false)
 const scroller = ref<HTMLElement | null>(null)
 const exam = ref<InstanceType<typeof ExamPreview> | null>(null)
@@ -153,7 +155,7 @@ watch(store.bankId, (id) => {
       <QuestionOverview @navigate="onOverviewNavigate" />
     </SidePanel>
 
-    <SidePanel v-model:open="importOpen" :docked="false" side="right" title="AI 匯入題目">
+    <SidePanel v-if="AiImportPanel" v-model:open="importOpen" :docked="false" side="right" title="AI 匯入題目">
       <AiImportPanel @close="importOpen = false" @done="importOpen = false" />
     </SidePanel>
   </div>

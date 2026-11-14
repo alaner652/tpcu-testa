@@ -6,6 +6,7 @@ import MenuItem from '@/components/ui/MenuItem.vue'
 import Tip from '@/components/ui/Tip.vue'
 import { useBanks } from '@/composables/useBanks'
 import { useQuestionActions } from '@/composables/useQuestionActions'
+import { DEMO_FEATURES } from '@/lib/flags'
 import { QUESTION_TYPES } from '@/lib/question'
 
 /**
@@ -59,7 +60,7 @@ const item = vertical
       </MenuContent>
     </DropdownMenuRoot>
 
-    <Tip label="AI 匯入 Word 或 PDF" :side="vertical ? 'left' : 'top'">
+    <Tip v-if="DEMO_FEATURES" label="AI 匯入 Word 或 PDF" :side="vertical ? 'left' : 'top'">
       <button type="button" :class="item" aria-label="AI 匯入題目" @click="$emit('import')">
         <Sparkles class="size-5" />
         <span v-if="!vertical">AI 匯入</span>

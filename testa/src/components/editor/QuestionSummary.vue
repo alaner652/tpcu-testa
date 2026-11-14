@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Question } from '@/types/question'
+import { DEMO_FEATURES } from '@/lib/flags'
 import { LETTERS } from '@/lib/utils'
 import AnswerBubble from './AnswerBubble.vue'
 import MathText from './MathText.vue'
@@ -48,7 +49,7 @@ defineProps<{ question: Question }>()
     </ul>
 
     <p v-else class="mt-2.5 text-sm text-ink-2">
-      人工閱卷<template v-if="question.aiGrading">，AI 提供建議分數</template
+      人工閱卷<template v-if="DEMO_FEATURES && question.aiGrading">，AI 提供建議分數</template
       ><template v-if="question.wordLimit">，上限 {{ question.wordLimit }} 字</template>
     </p>
   </div>

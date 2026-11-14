@@ -52,6 +52,10 @@ docker compose -f docker-compose.prod.yml up -d --build
 - 公布成績＝開放考生查詢自己的分數（設計文件待確認事項第 7 項，暫定這樣做）。
 - 中文字型用系統內建黑體，英數字型隨前端打包，不連外部 CDN。
 
+## 只在開發模式出現的示範功能
+
+AI 匯入題目（假資料）、申論題的「AI 輔助評分」開關、後台「系統設定」分頁都還沒接後端，設計文件也寫明第一版不做 AI。這三樣由 `testa/src/lib/flags.ts` 的 `DEMO_FEATURES` 控制，`npm run dev` 看得到，正式建置（`npm run build`）不顯示。
+
 ## 後端慣例
 
 - 權限檢查只走 `AccessGuard`（`@PreAuthorize("@access...")` 或 `access.require*`）。系統管理員不會自動通過單位角色檢查。

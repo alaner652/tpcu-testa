@@ -8,6 +8,7 @@ import Switch from '@/components/ui/Switch.vue'
 import { UNIT_ROLE_LABEL, useAuth, type UnitRole } from '@/composables/useAuth'
 import { useConfirm } from '@/composables/useConfirm'
 import { useWorkspace } from '@/composables/useWorkspace'
+import { DEMO_FEATURES } from '@/lib/flags'
 import { api } from '@/lib/api'
 
 /**
@@ -55,6 +56,8 @@ const TABS = [
   { value: 'audit', label: '操作紀錄' },
   { value: 'settings', label: '系統設定' },
 ] as const
+// 系統設定還沒接後端，正式版不顯示
+const tabs = TABS.filter((t) => t.value !== 'settings' || DEMO_FEATURES)
 const tab = ref<(typeof TABS)[number]['value']>('staff')
 
 const loadError = ref('')
@@ -298,7 +301,7 @@ watch(tab, load)
 
     <div role="tablist" class="mb-4 flex gap-1 overflow-x-auto px-4 md:px-0">
       <button
-        v-for="t in TABS"
+        v-for="t in tabs"
         :key="t.value"
         type="button"
         role="tab"
@@ -429,7 +432,7 @@ watch(tab, load)
     </section>
 
     <!-- 系統設定（尚未接後端） -->
-    <section v-else class="card divide-y divide-line">
+    <section v-else-if="DEMO_FEATURES" class="card divide-y divide-line">
       <p class="px-5 py-4 text-sm text-ink-2 sm:px-6">這一頁還是示範，設定不會儲存到伺服器。</p>
       <label class="block px-5 py-5 sm:px-6">
         <span class="mb-1.5 block text-[15px] font-medium">平台名稱</span>
