@@ -126,6 +126,13 @@ def main():
         c.call('PUT', '/candidate/answers/q1', {'choices': [choice]})
         c.call('PUT', '/candidate/answers/q2', {'blanks': {'b1': blank}})
         c.call('PUT', '/candidate/answers/e1', {'essay': essay})
+        if ticket == rows[0]['ticket']:
+            # 監考補時：剩餘時間會變長
+            cid = next(x['id'] for x in roster if x['ticket'] == ticket)
+            before = c.call('GET', '/candidate/me')['attempt']['remainingSeconds']
+            officer.call('POST', f'/exams/{exam}/candidates/{cid}/extend', {'minutes': 5, 'reason': '冒煙測試'})
+            after = c.call('GET', '/candidate/me')['attempt']['remainingSeconds']
+            assert 290 <= after - before <= 300, (before, after)
         state = c.call('POST', '/candidate/submit')
         assert state['attempt']['submittedAt'] and state['result'] is None
         # 交卷後不能再改
@@ -135,7 +142,7 @@ def main():
     Client(base).call('POST', '/candidate/login', {'ticket': rows[0]['ticket'], 'code': '000000'}, expect=(401,))
     take(rows[0]['ticket'], 'b', '玉山', '我想學習。')
     take(rows[1]['ticket'], 'a', '阿里山', '因為有興趣。')
-    step('兩位考生登入、作答、交卷（試卷不含答案；錯的登入碼被拒絕；交卷後不能改）')
+    step('兩位考生登入、作答、交卷（試卷不含答案；錯的登入碼被拒絕；監考補時；交卷後不能改）')
 
     officer.call('PUT', f'/exams/{exam}/graders', {'staffIds': [people['teacher'][1], people['teacher2'][1]]})
     for grader, scores in ((teacher, {'我想學習。': 16, '因為有興趣。': 10}), (teacher2, {'我想學習。': 18, '因為有興趣。': 11})):

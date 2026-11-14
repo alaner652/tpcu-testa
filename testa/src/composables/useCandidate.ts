@@ -74,6 +74,10 @@ export function useCandidate() {
         save: async (questionId, answer) =>
           (await api<{ remainingSeconds: number }>(`/candidate/answers/${encodeURIComponent(questionId)}`, { method: 'PUT', body: answer }))
             .remainingSeconds,
+        sync: async () => {
+          const s = await api<CandidateState>('/candidate/me', { quiet401: true })
+          return s.attempt && !s.attempt.submittedAt ? s.attempt.remainingSeconds : 0
+        },
         submit: async () => {
           state.value = await api<CandidateState>('/candidate/submit', { method: 'POST' })
         },

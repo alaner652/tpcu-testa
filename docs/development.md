@@ -47,7 +47,7 @@
 | 🗃️ | 資料表變更一律新增 Flyway migration，不改舊檔 |
 | 💬 | 錯誤回 problem+json：`detail` 是可以直接顯示給使用者的中文，`code` 給程式判斷 |
 | 🙈 | 送到考生端的資料只走 `AttemptDtos`，不能包含答案、解析、評分規準（`AttemptTest` 有檢查） |
-| ⏱️ | 計時、收卷、批改只在後端做（`AttemptService`）；前端的倒數只是顯示 |
+| ⏱️ | 計時、收卷、批改只在後端做（`AttemptService`）；前端的倒數只是顯示，每 30 秒與時間到之前會向後端對時（監考補時靠這個生效） |
 | 📜 | 不可逆或敏感的動作寫入 `AuditService`；`audit_log` 在資料庫層禁止 update／delete |
 | 🚪 | 系統管理員看考試只能走 `EmergencyAccessService`；`*ForEmergency` 方法不檢查角色，不要從別的地方呼叫 |
 | 🪪 | Session 裡的身分（`StaffPrincipal`、`CandidatePrincipal`）要能序列化 |

@@ -123,6 +123,32 @@ async function reset(candidate: Candidate) {
   }
 }
 
+// 補時：考生因為設備問題損失時間時，把截止時間往後延
+const extending = ref<number | null>(null)
+const extendMinutes = ref(5)
+const extendReason = ref('')
+const EXTEND_OPTIONS = [5, 10, 15, 30, 60]
+const clockTime = (iso: string) => new Date(iso).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })
+
+function startExtend(candidate: Candidate) {
+  extending.value = candidate.id
+  extendMinutes.value = 5
+  extendReason.value = ''
+}
+
+async function extend(candidate: Candidate) {
+  if (!exam.value || !extendReason.value.trim()) return
+  try {
+    const updated = await store.extendTime(exam.value.id, candidate.id, extendMinutes.value, extendReason.value.trim())
+    list.value = list.value.map((c) => (c.id === updated.id ? updated : c))
+    extending.value = null
+    toast.success(`已替 ${candidate.name} 補時 ${extendMinutes.value} 分鐘${updated.deadlineAt ? `，作答到 ${clockTime(updated.deadlineAt)}` : ''}`)
+  } catch (e) {
+    fail(e)
+    await loadList()
+  }
+}
+
 async function removeCandidate(candidate: Candidate) {
   if (!exam.value) return
   const ok = await confirm({
@@ -263,6 +289,8 @@ const site = location.origin + location.pathname
           </div>
           <span v-if="c.locked" class="rounded-full bg-marker px-2.5 py-0.5 text-[13px] font-medium text-marker-ink">登入碼輸錯太多次，已鎖定</span>
           <span v-if="c.leaveCount" class="rounded-full bg-marker px-2.5 py-0.5 text-[13px] font-medium text-marker-ink">離開畫面 {{ c.leaveCount }} 次</span>
+          <span v-if="c.extraMinutes" class="rounded-full bg-sunken px-2.5 py-0.5 text-[13px] font-medium text-ink-2">已補時 {{ c.extraMinutes }} 分鐘</span>
+          <span v-if="c.status === 'IN' && c.deadlineAt" class="text-sm text-ink-2 tabular-nums">作答到 {{ clockTime(c.deadlineAt) }}</span>
           <!-- 考試還沒開始時每個人都是「尚未登入」，不用每一列都寫 -->
           <span
             v-if="exam.status === 'live' || exam.status === 'ended'"
@@ -271,8 +299,18 @@ const site = location.origin + location.pathname
           >
             {{ CANDIDATE_STATUS[c.status].label }}
           </span>
+          <Button v-if="c.status === 'IN' && exam.status === 'live'" variant="outline" class="rounded-full" @click="startExtend(c)">補時</Button>
           <Button v-if="c.status !== 'DONE' && exam.status !== 'ended'" variant="outline" class="rounded-full" @click="reset(c)">重設登入碼</Button>
           <Button v-if="exam.canManage && c.status === 'IDLE' && exam.status !== 'ended'" variant="danger" class="rounded-full" @click="removeCandidate(c)">移除</Button>
+          <form v-if="extending === c.id && c.status === 'IN'" class="flex basis-full flex-wrap items-center gap-2 pt-1" @submit.prevent="extend(c)">
+            <label class="text-[15px] text-ink-2" :for="`extend-min-${c.id}`">補</label>
+            <select :id="`extend-min-${c.id}`" v-model.number="extendMinutes" class="field h-11 w-28">
+              <option v-for="m in EXTEND_OPTIONS" :key="m" :value="m">{{ m }} 分鐘</option>
+            </select>
+            <input v-model="extendReason" class="field h-11 min-w-0 flex-1 basis-56" maxlength="200" placeholder="原因（必填，會留在操作紀錄），例如：電腦當機換座位" aria-label="補時的原因" />
+            <Button variant="primary" size="md" class="h-11 rounded-full" type="submit" :disabled="!extendReason.trim()">確定補時</Button>
+            <Button size="md" class="h-11 rounded-full" type="button" @click="extending = null">取消</Button>
+          </form>
         </li>
       </ul>
       <p v-if="live && list.length" class="border-t border-line px-5 py-3 text-sm text-ink-3 sm:px-6">每 10 秒自動更新。</p>

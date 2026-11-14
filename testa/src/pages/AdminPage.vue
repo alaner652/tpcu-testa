@@ -240,6 +240,7 @@ const ACTION_LABEL: Record<string, string> = {
   CANDIDATE_LOGOUT: '考生登出',
   ATTEMPT_STARTED: '開始作答',
   ATTEMPT_SUBMITTED: '交卷',
+  ATTEMPT_EXTENDED: '補時',
   GRADER_ASSIGNED: '指派評分者',
   GRADER_UNASSIGNED: '取消指派評分者',
   GRADING_REOPENED: '重開評分',

@@ -44,6 +44,10 @@ export interface Candidate {
   locked: boolean
   /** 作答中離開考試畫面的次數 */
   leaveCount: number
+  /** 作答中才有：這位考生的截止時間（含補時） */
+  deadlineAt: string | null
+  /** 監考累計補了幾分鐘 */
+  extraMinutes: number
 }
 export interface RosterRow {
   ticket: string
@@ -159,6 +163,8 @@ export function useExams() {
       api<{ added: number; total: number }>(`/exams/${examId}/candidates`, { method: 'POST', body: { rows } }),
     resetCode: (examId: number, candidateId: number) =>
       api<{ code: string }>(`/exams/${examId}/candidates/${candidateId}/reset-code`, { method: 'POST' }),
+    extendTime: (examId: number, candidateId: number, minutes: number, reason: string) =>
+      api<Candidate>(`/exams/${examId}/candidates/${candidateId}/extend`, { method: 'POST', body: { minutes, reason } }),
     removeCandidate: (examId: number, candidateId: number) =>
       api(`/exams/${examId}/candidates/${candidateId}`, { method: 'DELETE' }),
   }

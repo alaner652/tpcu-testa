@@ -63,8 +63,44 @@ const timer = setInterval(() => {
   if (submitted.value || questions.value.length === 0) return
   elapsed.value += 1
   now.value = Date.now()
-  if (remaining.value === 0 && !submitting.value) submit('作答時間到，已自動交卷', true)
+  if (remaining.value === 0 && !submitting.value) onTimeUp()
+  else if (props.remote?.sync && elapsed.value % SYNC_EVERY === 0) syncClock()
 }, 1000)
+
+// 正式考試：定期向伺服器對時。監考補時後，倒數會跟著變長
+const SYNC_EVERY = 30
+let syncing = false
+async function syncClock(): Promise<number | null> {
+  if (!props.remote?.sync || syncing) return null
+  syncing = true
+  try {
+    const left = await props.remote.sync()
+    if (submitted.value) return left
+    const before = remaining.value
+    if (left > 0) deadline.value = Date.now() + left * 1000
+    // 多出一分鐘以上才提示，避免把網路延遲當成補時
+    if (left - before >= 50) toast.success(`監考人員已延長你的作答時間，約 ${Math.round((left - before) / 60)} 分鐘`, { duration: 10000 })
+    return left
+  } catch {
+    return null
+  } finally {
+    syncing = false
+  }
+}
+
+/** 畫面上的時間到了：先問伺服器是不是真的到了（可能剛被補時），再交卷。 */
+let checkingTimeUp = false
+async function onTimeUp() {
+  if (checkingTimeUp) return
+  checkingTimeUp = true
+  try {
+    const left = await syncClock()
+    if (left != null && left > 0) return
+    await submit('作答時間到，已自動交卷', true)
+  } finally {
+    checkingTimeUp = false
+  }
+}
 onBeforeUnmount(() => {
   clearInterval(timer)
   clearTimeout(saveTimer)

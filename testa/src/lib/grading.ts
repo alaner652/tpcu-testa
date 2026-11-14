@@ -15,6 +15,8 @@ export interface RemoteExam {
   /** 存一題的答案，回傳伺服器算的剩餘秒數 */
   save(questionId: string, answer: Pick<Attempt, 'choices' | 'blanks' | 'essay'>): Promise<number>
   submit(): Promise<void>
+  /** 向伺服器對時，回傳剩餘秒數（監考補時後會變長）；已經收卷回傳 0 */
+  sync?(): Promise<number>
 }
 
 export function emptyAttempt(): Attempt {
