@@ -168,6 +168,32 @@ def main():
     assert logs['items'], '操作紀錄沒有公布成績'
     step('匯出 CSV、權限隔離、操作紀錄')
 
+    # 緊急檢視：負責人授權後，系統管理員才看得到，而且看不到登入碼
+    overview = officer.call('GET', f'/exams/{exam}/emergency-access')
+    admin_id = next(a['staffId'] for a in overview['admins'] if a['email'] == admin_email)
+    teacher.call('GET', f'/exams/{exam}/emergency-access', expect=(403, 404))
+    grant = officer.call('POST', f'/exams/{exam}/emergency-access',
+                         {'staffId': admin_id, 'reason': '冒煙測試', 'hours': 1})['id']
+    assert any(g['id'] == grant for g in admin.call('GET', '/admin/emergency-access'))
+    view = admin.call('GET', f'/admin/emergency-access/{grant}', raw=True).decode()
+    assert '王小明' in view, view[:300]
+    for code in codes.values():
+        assert code not in view, '緊急檢視洩漏了登入碼'
+    admin.call('GET', f'/exams/{exam}/results', expect=(404,))              # 一般的路徑仍然不通
+    officer.call('DELETE', f'/exams/{exam}/emergency-access/{grant}')
+    admin.call('GET', f'/admin/emergency-access/{grant}', expect=(403, 404))
+    for action in ('EMERGENCY_ACCESS_GRANTED', 'EMERGENCY_ACCESS_VIEWED', 'EMERGENCY_ACCESS_REVOKED'):
+        assert admin.call('GET', f'/admin/audit-logs?action={action}')['items'], f'操作紀錄沒有 {action}'
+    step('緊急檢視：授權、檢視（不含登入碼）、撤銷，都有操作紀錄')
+
+    # 封存：考生不能再登入；保存期限內不能刪除
+    archived = officer.call('POST', f'/exams/{exam}/archive')
+    assert archived['archivedAt'] and archived['retainUntil'], archived
+    Client(base).call('POST', '/candidate/login',
+                      {'ticket': rows[0]['ticket'], 'code': codes[rows[0]['ticket']]}, expect=(401,))
+    officer.call('DELETE', f'/exams/{exam}', {'reason': '冒煙測試'}, expect=(409,))
+    step(f'封存考試：考生不能再登入，保存期限（{archived["retainUntil"][:10]}）內不能刪除')
+
     print(f'\n全部通過。系統管理員目前的密碼：{admin_password}')
 
 

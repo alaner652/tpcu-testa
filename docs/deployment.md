@@ -67,6 +67,6 @@ docker compose -f docker-compose.prod.yml start server
 python3 deploy/smoke-test.py http://主機:埠 管理員帳號 管理員密碼
 ```
 
-用真的 HTTP 走完一場模擬考：建帳號、題庫、考試、作答、評分、公布、考生查成績。
+用真的 HTTP 走完一場模擬考：建帳號、題庫、考試、作答、評分、公布、考生查成績、緊急檢視、封存。
 
 > ⚠️ **只對測試環境執行。** 它會在資料庫留下「冒煙測試」開頭的資料，而且會把管理員的臨時密碼換掉。
