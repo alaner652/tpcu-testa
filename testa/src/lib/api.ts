@@ -68,6 +68,11 @@ export async function api<T = void>(path: string, { method = 'GET', body, quiet4
     // 不是 JSON（例如後端沒啟動時代理回的 502）
   }
   if (res.status === 401 && !quiet401) onUnauthorized?.()
-  const fallback = res.status >= 500 ? '伺服器暫時無法處理，請稍後再試。' : '操作沒有成功，請再試一次。'
+  const fallback =
+    res.status === 429
+      ? '現在同時使用的人比較多，請等幾秒再試一次。'
+      : res.status >= 500
+        ? '伺服器暫時無法處理，請稍後再試。'
+        : '操作沒有成功，請再試一次。'
   throw new ApiError(problem.detail ?? fallback, res.status, problem.code, problem.errors)
 }

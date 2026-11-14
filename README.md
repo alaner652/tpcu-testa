@@ -33,7 +33,7 @@ dev profile 的示範帳號（登入頁有一鍵登入）：
 4. 考生作答：完成。准考證號＋登入碼登入、單一連線、試卷不含答案、伺服器計時、自動儲存、斷線續考、交卷、逾時自動收卷、自動批改。
 5. 評分：完成（規則為暫定值，待確認）。每場考試指派 1 到多位評分者；匿名、互相看不到分數；全部送出後取平均（小數一位）；差距超過配分三成會標記（`testa.grading.flag-ratio`）；承辦人可填理由重開評分。
 6. 成績與監考：完成。成績表、公布成績、匯出 CSV、監考頁（狀態、鎖定、離開畫面次數）。成績公布後，考生用准考證號＋登入碼登入可以看到自己的總分與「選擇填空／申論」兩個小計（看不到答案、評語、各題得分；是否開放查詢仍待確認）。
-7. 部署與試考：正式環境的設定（`docker-compose.prod.yml`、`server/Dockerfile`、`testa/Dockerfile`、`deploy/`）已在開發機上實際建置並驗證過（2026-11-14）：映像檔建置、Nginx（靜態檔、SPA 路由、安全標頭、登入限流）、每日備份、清空資料庫後從備份還原、用 `deploy/smoke-test.py` 透過 Nginx 走完一場模擬考、150 個同時登入。**還沒做的**：在學校的主機與電腦教室用真的瀏覽器跑一場模擬考、HTTPS 反向代理後面的實測。
+7. 部署與試考：正式環境的設定（`docker-compose.prod.yml`、`server/Dockerfile`、`testa/Dockerfile`、`deploy/`）已在開發機上實際建置並驗證過（2026-11-14）：映像檔建置、Nginx（靜態檔、SPA 路由、安全標頭、登入限流）、每日備份、清空資料庫後從備份還原、用 `deploy/smoke-test.py` 透過 Nginx 走完一場模擬考、150 個同時登入、60 位考生同時作答到交卷（2400 個請求，零錯誤，p95 33 ms）。**還沒做的**：在學校的主機與電腦教室用真的瀏覽器跑一場模擬考、HTTPS 反向代理後面的實測。
 
 ## 部署
 
@@ -43,6 +43,8 @@ docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 對外只開 Nginx（預設 80 埠）。HTTPS 由學校的反向代理負責；區網純 HTTP 時要把 `.env` 的 `TESTA_COOKIE_SECURE` 設成 `false`，否則登入後會立刻被登出。登入狀態存在後端記憶體，後端重啟後所有人要重新登入（考生的作答進度不受影響）。
+
+**前面有反向代理時。** Nginx 的限流與操作紀錄裡的 IP 都以來源 IP 計算。如果前面還有一台代理，所有人看起來都來自那台代理，會共用同一份限流額度；照 `deploy/nginx.conf` 開頭的說明設定 `set_real_ip_from`。
 
 **備份與還原。** 資料庫每天備份到 `TESTA_BACKUP_DIR`（預設 `./backups`），保留 `BACKUP_KEEP_DAYS` 天。要立刻多備份一次：`docker compose -f docker-compose.prod.yml restart backup`。還原會把資料庫整個換成備份當時的內容，先停後端：
 
