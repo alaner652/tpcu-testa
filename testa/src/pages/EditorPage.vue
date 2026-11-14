@@ -110,6 +110,9 @@ useEventListener(window, 'keydown', (event: KeyboardEvent) => {
 // 網址中的題庫 id 與目前開啟的題庫保持一致
 const route = useRoute()
 const router = useRouter()
+// 直接開這個網址或重新整理時，題庫還在載入：先記下網址指定的題庫。
+// 否則載入完會先落到第一份題庫，再把網址改過去，結果開到別份題庫。
+if (store.loading.value && route.params.id) store.bankId.value = route.params.id as string
 watch(
   [() => route.params.id as string, store.loading],
   ([id, loading]) => {

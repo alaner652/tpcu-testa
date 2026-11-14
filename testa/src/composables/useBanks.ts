@@ -126,8 +126,12 @@ const reviewCount = computed(() => questions.value.filter((q) => q.review).lengt
 const authorUnits = computed(() => (useAuth().user.value?.units ?? []).filter((u) => u.roles.includes('AUTHOR')))
 
 /** 依目前登入的身分載入題庫。登入、登出後都要呼叫。 */
+let loadSeq = 0
 async function load() {
   const { user, ready } = useAuth()
+  // 開機時會被連續呼叫兩次（確認登入狀態前後各一次）。只採用最後一次的結果，
+  // 否則較早的那次載入完、使用者開始打字後，較晚回來的那次會把剛打的字蓋掉。
+  const seq = ++loadSeq
   hydrated = false
   loading.value = true
   loadError.value = ''
@@ -141,21 +145,26 @@ async function load() {
   if (!user.value || mock) {
     banks.value = []
   } else {
+    let loaded: Bank[] = []
+    let failure = ''
     try {
-      banks.value = (await api<ApiBank[]>('/banks')).map(fromApi)
-      banks.value.forEach((b) => lastSaved.set(b.id, snapshot(b)))
+      loaded = (await api<ApiBank[]>('/banks')).map(fromApi)
     } catch (e) {
-      banks.value = []
-      loadError.value = (e as Error).message
+      failure = (e as Error).message
     }
+    if (seq !== loadSeq) return
+    banks.value = loaded
+    loadError.value = failure
+    banks.value.forEach((b) => lastSaved.set(b.id, snapshot(b)))
   }
+  if (seq !== loadSeq) return
   if (!banks.value.some((b) => b.id === bankId.value)) bankId.value = banks.value[0]?.id ?? ''
   activeId.value = questions.value[0]?.id ?? null
   loading.value = false
   savedAt.value = new Date()
   saveState.value = 'saved'
   await nextTick()
-  hydrated = true
+  if (seq === loadSeq) hydrated = true
 }
 
 function select(id: string | null) {

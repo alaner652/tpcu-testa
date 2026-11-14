@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { DEMO_FEATURES } from '@/lib/flags'
 import { computed, ref } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import { Search, X } from 'lucide-vue-next'
@@ -127,7 +128,7 @@ function go(id: string) {
     <ul v-if="!loading && questions.length && !keyword" class="mt-4 space-y-1.5 px-1 text-[13px] text-ink-2">
       <li class="flex items-center gap-2"><span class="size-3 rounded-full bg-brand-soft shadow-[inset_0_0_0_1px_var(--brand)]" />已完成</li>
       <li class="flex items-center gap-2"><span class="size-3 rounded-full shadow-[inset_0_0_0_1.5px_var(--grade)]" />未完成</li>
-      <li class="flex items-center gap-2"><span class="size-3 rounded-full bg-marker shadow-[inset_0_0_0_1px_var(--marker-ink)]" />AI 匯入待確認</li>
+      <li v-if="DEMO_FEATURES" class="flex items-center gap-2"><span class="size-3 rounded-full bg-marker shadow-[inset_0_0_0_1px_var(--marker-ink)]" />AI 匯入待確認</li>
       <li class="pt-1 text-ink-3">拖曳圓圈可以調整題目順序。</li>
     </ul>
   </div>
