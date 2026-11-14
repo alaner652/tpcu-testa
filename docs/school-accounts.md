@@ -1,6 +1,6 @@
 # School accounts for internal exams (proposal)
 
-Status: proposed 2026-11-15, not implemented. Scope: midterms, finals and quizzes where teachers and students sign in with their school accounts, teachers pick their classes, and students see their own classes' exams.
+Status: proposed 2026-11-15, deferred until after the admission exam launch (decided 2026-11-15); not implemented. Scope: midterms, finals and quizzes where teachers and students sign in with their school accounts, teachers pick their classes, and students see their own classes' exams.
 
 ## Decision: same backend, separate module
 
