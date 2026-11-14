@@ -5,6 +5,7 @@ import { LoaderCircle, X } from 'lucide-vue-next'
 import Logo from '@/components/app/Logo.vue'
 import ExamPreview from '@/components/editor/ExamPreview.vue'
 import Skeleton from '@/components/ui/Skeleton.vue'
+import { useAuth } from '@/composables/useAuth'
 import { useCandidate } from '@/composables/useCandidate'
 import { useConfirm } from '@/composables/useConfirm'
 import type { RemoteExam } from '@/lib/grading'
@@ -14,6 +15,7 @@ import type { Bank } from '@/types/question'
 const router = useRouter()
 const { state, load, open, reportLeave } = useCandidate()
 const { confirm } = useConfirm()
+const { user } = useAuth()
 
 const loading = ref(true)
 const error = ref('')
@@ -76,6 +78,8 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
 
 // 還沒交卷就離開（含瀏覽器上一頁）時先確認
 onBeforeRouteLeave(async () => {
+  // 登入已失效（在別處登入、後端重啟）：留在這裡也存不了答案，不要攔，直接回登入頁
+  if (!user.value) return true
   if (finished.value || !started.value || !paper.value) return true
   return confirm({
     title: '還沒交卷，確定要離開？',

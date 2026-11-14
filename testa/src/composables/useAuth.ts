@@ -72,9 +72,16 @@ const ready: Promise<void> = api<Me>('/auth/me', { quiet401: true })
       .catch(() => void (user.value = null)),
   )
 
-// Session 過期、帳號被停用、密碼被重設、考生在別台電腦登入：清掉身分，帶回登入頁
+/** 被登出的原因，登入頁顯示一次。 */
+export const signedOutNotice = ref<{ role: Role; text: string } | null>(null)
+
+// Session 過期、帳號被停用、密碼被重設、考生在別台電腦登入、後端重新啟動：清掉身分，帶回登入頁
 setUnauthorizedHandler(() => {
   if (user.value) {
+    signedOutNotice.value =
+      user.value.role === 'student'
+        ? { role: 'student', text: '你的登入已經失效（可能在另一台裝置登入了，或系統剛重新啟動）。請重新登入，已經儲存的答案都還在。' }
+        : { role: user.value.role, text: '登入已經失效，請重新登入。' }
     user.value = null
     location.hash = '#/login'
   }

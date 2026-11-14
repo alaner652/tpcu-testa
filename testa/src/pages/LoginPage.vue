@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { CircleAlert, LoaderCircle } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import Logo from '@/components/app/Logo.vue'
-import { DEMO_ACCOUNTS, useAuth } from '@/composables/useAuth'
+import { DEMO_ACCOUNTS, signedOutNotice, useAuth } from '@/composables/useAuth'
 import { DEMO_CANDIDATE } from '@/composables/useWorkspace'
 
 /** 同一個登入頁，兩種身分：考生用准考證號＋登入碼，教職員用帳號密碼。 */
@@ -18,6 +18,12 @@ const email = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
+// 被系統登出後回到這裡：說明原因，並停在原本的身分
+if (signedOutNotice.value) {
+  who.value = signedOutNotice.value.role === 'student' ? 'candidate' : 'staff'
+  error.value = signedOutNotice.value.text
+  signedOutNotice.value = null
+}
 /** 示範身分只在開發模式顯示 */
 const showDemo = import.meta.env.DEV
 
