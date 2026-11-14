@@ -193,4 +193,10 @@
   .ticket {
     break-inside: avoid;
   }
+  /* macOS 的 Chrome 把蘋方（PingFang）輸出成 PDF 時中文會整個消失（2026-11 實測），
+     列印時改用一定能內嵌的黑體；Windows 沒有 Heiti TC，會照常落到微軟正黑體。 */
+  body,
+  body * {
+    font-family: 'IBM Plex Sans', 'Noto Sans TC', 'Heiti TC', 'Microsoft JhengHei', 'PingFang TC', sans-serif !important;
+  }
 }

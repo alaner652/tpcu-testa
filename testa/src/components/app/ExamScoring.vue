@@ -117,7 +117,8 @@ async function publish() {
 
 const n = (v: number | null) => (v == null ? '—' : String(v))
 const flagged = computed(() => results.value?.items.filter((i) => i.flagged) ?? [])
-const STATUS = { IDLE: '缺考', IN: '作答中', DONE: '已交卷' } as const
+// 考試還沒結束時，沒登入的人只是「還沒來」，結束後才算缺考
+const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' : '尚未作答', IN: '作答中', DONE: '已交卷' }) as const)
 </script>
 
 <template>

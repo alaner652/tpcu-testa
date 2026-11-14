@@ -52,7 +52,9 @@ onMounted(async () => {
 
 async function submit() {
   const item = current.value
-  if (!item || examId.value == null || sending.value) return
+  // 超過滿分時畫面上已經有紅字提示。按鈕不停用：給分欄位要離開焦點才更新，
+  // 停用的話改完分數第一次點只會讓按鈕亮起來，要點第二次才送得出去
+  if (!item || examId.value == null || sending.value || score.value > item.points) return
   sending.value = true
   try {
     await sendScore(examId.value, item, score.value, comment.value)
@@ -135,10 +137,10 @@ async function submit() {
         <div class="mt-5 flex flex-wrap items-center justify-between gap-4">
           <div class="flex items-center gap-3">
             <span class="text-[15px] font-medium">給分</span>
-            <PointsStepper v-model="score" />
+            <PointsStepper v-model="score" label="給分" />
             <span class="text-sm text-ink-3">滿分 {{ current.points }}</span>
           </div>
-          <Button variant="primary" size="md" class="rounded-full" :disabled="score > current.points || sending" @click="submit">
+          <Button variant="primary" size="md" class="rounded-full" :disabled="sending" @click="submit">
             送出，看下一份
           </Button>
         </div>

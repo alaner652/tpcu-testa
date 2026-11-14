@@ -287,7 +287,7 @@ const site = location.origin + location.pathname
             <dt class="self-center text-ink-2">登入碼</dt>
             <dd class="text-2xl font-bold tracking-[0.14em] tabular-nums">{{ fmt(c.code) }}</dd>
           </dl>
-          <p class="mt-3 text-[12px] break-all text-ink-3">{{ when(exam.startAt) }}開始，作答 {{ exam.duration }} 分鐘。登入網址：{{ site }}</p>
+          <p class="mt-3 text-[12px] break-all text-ink-3">{{ when(exam.startAt) }} 開始，作答 {{ exam.duration }} 分鐘。登入網址：{{ site }}</p>
         </li>
       </ul>
     </section>
