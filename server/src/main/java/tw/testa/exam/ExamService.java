@@ -244,9 +244,9 @@ public class ExamService {
     public List<CandidateDto> candidatesForEmergency(Long examId) {
         Instant now = Instant.now();
         return candidateRepo.findByExamIdOrderBySeatAscIdAsc(examId).stream().map(c -> {
-            CandidateDto d = toDto(c, now);
+            CandidateDto d = toDto(c, now, null);
             return new CandidateDto(d.id(), d.ticket(), d.name(), d.dept(), d.seat(), null, d.status(), d.locked(),
-                    d.leaveCount());
+                    d.leaveCount(), null, 0);
         }).toList();
     }
 
@@ -256,7 +256,9 @@ public class ExamService {
     public List<CandidateDto> candidates(Long examId) {
         findVisible(examId);
         Instant now = Instant.now();
-        return candidateRepo.findByExamIdOrderBySeatAscIdAsc(examId).stream().map(c -> toDto(c, now)).toList();
+        var byCandidate = attempts.byCandidate(examId);
+        return candidateRepo.findByExamIdOrderBySeatAscIdAsc(examId).stream()
+                .map(c -> toDto(c, now, byCandidate.get(c.getId()))).toList();
     }
 
     /** 檢查上傳的名單，不寫入資料庫。 */
@@ -333,6 +335,19 @@ public class ExamService {
         return c.getLoginCode();
     }
 
+    /** 監考補時：考生因設備問題損失時間時，把截止時間往後延。 */
+    @Transactional
+    public CandidateDto extendTime(Long examId, Long candidateId, ExamDtos.ExtendRequest req) {
+        Exam e = findVisible(examId);
+        Candidate c = findCandidate(examId, candidateId);
+        if (e.isArchived()) throw ApiException.conflict("archived", "這場考試已經封存，不能再更動。");
+        if (e.getStatus() != Exam.Status.PUBLISHED) throw ApiException.conflict("ended", "考試不在進行中，不能補時。");
+        var a = attempts.extend(candidateId, req.minutes());
+        audit.record("ATTEMPT_EXTENDED", "candidate", c.getId(), e.getUnit().getId(), req.reason().trim(),
+                "%s 補時 %d 分鐘（累計 %d 分鐘）".formatted(c.getTicket(), req.minutes(), a.getExtraMinutes()));
+        return toDto(c, Instant.now(), a);
+    }
+
     @Transactional
     public void removeCandidate(Long examId, Long candidateId) {
         Exam e = findManaged(examId);
@@ -397,9 +412,10 @@ public class ExamService {
                 e.getArchivedAt(), retainUntil(e));
     }
 
-    private static CandidateDto toDto(Candidate c, Instant now) {
+    private static CandidateDto toDto(Candidate c, Instant now, tw.testa.attempt.Attempt a) {
         return new CandidateDto(c.getId(), c.getTicket(), c.getName(), c.getDept(), c.getSeat(), c.getLoginCode(),
-                c.getStatus(), c.getLockedUntil() != null && c.getLockedUntil().isAfter(now), c.getLeaveCount());
+                c.getStatus(), c.getLockedUntil() != null && c.getLockedUntil().isAfter(now), c.getLeaveCount(),
+                a == null || a.isSubmitted() ? null : a.getDeadlineAt(), a == null ? 0 : a.getExtraMinutes());
     }
 
     /** 這題還缺什麼（與前端 issuesOf 相同的規則）；null 代表可以出題。 */

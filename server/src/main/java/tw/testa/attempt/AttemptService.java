@@ -50,6 +50,8 @@ public class AttemptService {
     private static final String ANON_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     /** 網路延遲的寬限：時間到的那一刻送出的最後一次存檔還是收 */
     private static final Duration GRACE = Duration.ofSeconds(10);
+    /** 一位考生累計最多補時幾分鐘 */
+    public static final int MAX_EXTRA_MINUTES = 120;
     private static final String BAD_LOGIN = "准考證號或登入碼不正確。請確認登入單上的資料，或洽監考人員。";
 
     private final CandidateRepository candidateRepo;
@@ -218,6 +220,29 @@ public class AttemptService {
                 if (!a.isSubmitted()) finalizeAttempt(a, now.isAfter(a.getDeadlineAt()) ? a.getDeadlineAt() : now, true);
             });
         }
+    }
+
+    /** 這場考試每位考生的作答（給監考頁顯示截止時間與補時）。 */
+    @Transactional(readOnly = true)
+    public Map<Long, Attempt> byCandidate(Long examId) {
+        Map<Long, Attempt> map = new HashMap<>();
+        for (Attempt a : attemptRepo.findByExamId(examId)) map.put(a.getCandidate().getId(), a);
+        return map;
+    }
+
+    /** 監考補時。權限由呼叫端（ExamService）檢查，呼叫端已在交易中。 */
+    @Transactional
+    public Attempt extend(Long candidateId, int minutes) {
+        Attempt a = attemptRepo.findForUpdateByCandidateId(candidateId)
+                .orElseThrow(() -> ApiException.conflict("not_started", "這位考生還沒有開始作答，不需要補時。"));
+        closeIfOverdue(a, Instant.now());
+        if (a.isSubmitted()) throw ApiException.conflict("done", "這位考生已經交卷了，不能補時。");
+        if (a.getExtraMinutes() + minutes > MAX_EXTRA_MINUTES) {
+            throw ApiException.conflict("too_much", "每位考生最多補時 %d 分鐘，這位已經補了 %d 分鐘。"
+                    .formatted(MAX_EXTRA_MINUTES, a.getExtraMinutes()));
+        }
+        a.extend(minutes);
+        return a;
     }
 
     // ── 內部 ─────────────────────────────────────────────

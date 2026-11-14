@@ -37,7 +37,11 @@ public final class ExamDtos {
             Exam.Mode mode) {}
 
     public record CandidateDto(Long id, String ticket, String name, String dept, int seat, String code,
-            Candidate.Status status, boolean locked, int leaveCount) {}
+            Candidate.Status status, boolean locked, int leaveCount, Instant deadlineAt, int extraMinutes) {}
+
+    public record ExtendRequest(
+            @NotNull(message = "請輸入要補幾分鐘。") @Min(value = 1, message = "至少補 1 分鐘。") @Max(value = 60, message = "一次最多補 60 分鐘。") Integer minutes,
+            @NotBlank(message = "請填寫補時的原因。") @Size(max = 200, message = "原因太長了。") String reason) {}
 
     public record RosterRow(@NotBlank(message = "缺少准考證號。") @Size(max = 40, message = "准考證號太長了。") String ticket,
             @NotBlank(message = "缺少姓名。") @Size(max = 100, message = "姓名太長了。") String name,

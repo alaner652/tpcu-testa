@@ -225,6 +225,42 @@ class AttemptTest extends IntegrationTestBase {
     }
 
     @Test
+    void 監考補時_截止時間延後_要填原因_有上限_交卷後不能補() throws Exception {
+        publish();
+        String url = "/api/exams/" + exam + "/candidates/";
+        long id = jdbc.queryForObject("select id from candidate where ticket = ?", Long.class, ticket);
+        // 還沒開始作答
+        mvc.perform(json(post(url + id + "/extend"), "{\"minutes\":5,\"reason\":\"電腦當機\"}").session(owner))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("not_started"));
+
+        MockHttpSession c = candidate(ticket, code);
+        mvc.perform(post("/api/candidate/start").with(csrf()).session(c)).andExpect(status().isOk());
+        // 剩不到一分鐘
+        jdbc.update("update attempt set deadline_at = now() + interval '30 seconds' where candidate_id = ?", id);
+        mvc.perform(json(post(url + id + "/extend"), "{\"minutes\":5}").session(owner)).andExpect(status().isBadRequest());
+        mvc.perform(json(post(url + id + "/extend"), "{\"minutes\":5,\"reason\":\"電腦當機\"}").session(c))
+                .andExpect(status().is4xxClientError());
+        mvc.perform(json(post(url + id + "/extend"), "{\"minutes\":5,\"reason\":\"電腦當機\"}").session(owner))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.extraMinutes").value(5))
+                .andExpect(jsonPath("$.deadlineAt").isNotEmpty());
+        var me = mvc.perform(get("/api/candidate/me").session(c)).andReturn();
+        assertThat(((Number) read(me, "$.attempt.remainingSeconds")).intValue()).isBetween(300, 330);
+        assertThat(jdbc.queryForObject("select count(*) from audit_log where action = 'ATTEMPT_EXTENDED' and reason = '電腦當機'",
+                Integer.class)).isEqualTo(1);
+        mvc.perform(get("/api/exams/" + exam + "/candidates").session(owner))
+                .andExpect(jsonPath("$[0].extraMinutes").value(5)).andExpect(jsonPath("$[1].extraMinutes").value(0));
+
+        // 累計上限 120 分鐘
+        mvc.perform(json(post(url + id + "/extend"), "{\"minutes\":60,\"reason\":\"停電\"}").session(owner)).andExpect(status().isOk());
+        mvc.perform(json(post(url + id + "/extend"), "{\"minutes\":60,\"reason\":\"停電\"}").session(owner))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("too_much"));
+
+        mvc.perform(post("/api/candidate/submit").with(csrf()).session(c)).andExpect(status().isOk());
+        mvc.perform(json(post(url + id + "/extend"), "{\"minutes\":5,\"reason\":\"電腦當機\"}").session(owner))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("done"));
+    }
+
+    @Test
     void 時間到伺服器拒收並自動收卷() throws Exception {
         publish();
         MockHttpSession c = candidate(ticket, code);

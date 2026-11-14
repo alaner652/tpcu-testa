@@ -53,6 +53,9 @@ public class Attempt {
     @Column(name = "final_score")
     private BigDecimal finalScore;
 
+    @Column(name = "extra_minutes", nullable = false)
+    private int extraMinutes;
+
     protected Attempt() {}
 
     public Attempt(Candidate candidate, Exam exam, Instant startedAt, Instant deadlineAt, String anonId) {
@@ -70,6 +73,12 @@ public class Attempt {
     public Exam getExam() { return exam; }
     public Instant getStartedAt() { return startedAt; }
     public Instant getDeadlineAt() { return deadlineAt; }
+    public int getExtraMinutes() { return extraMinutes; }
+    /** 補時：截止時間往後延，並累計補了幾分鐘。 */
+    public void extend(int minutes) {
+        this.deadlineAt = deadlineAt.plus(java.time.Duration.ofMinutes(minutes));
+        this.extraMinutes += minutes;
+    }
     public Instant getSubmittedAt() { return submittedAt; }
     public void setSubmittedAt(Instant submittedAt) { this.submittedAt = submittedAt; }
     public boolean isAutoSubmitted() { return autoSubmitted; }

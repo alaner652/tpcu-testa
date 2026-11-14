@@ -110,6 +110,12 @@ public class ExamController {
         return new CodeDto(exams.resetCode(id, candidateId));
     }
 
+    @PostMapping("/{id}/candidates/{candidateId}/extend")
+    public CandidateDto extendTime(@PathVariable Long id, @PathVariable Long candidateId,
+            @Valid @RequestBody ExamDtos.ExtendRequest body) {
+        return exams.extendTime(id, candidateId, body);
+    }
+
     @DeleteMapping("/{id}/candidates/{candidateId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void removeCandidate(@PathVariable Long id, @PathVariable Long candidateId) {
