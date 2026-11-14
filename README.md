@@ -17,6 +17,7 @@
 | 🚀 | [部署](docs/deployment.md) | 上線、HTTPS、備份與還原、部署後檢查 |
 | 🛠️ | [開發](docs/development.md) | 專案結構、後端慣例、測試 |
 | 🎨 | [前端](testa/README.md) | 頁面、元件結構、design tokens |
+| 🤖 | [AI 研究](docs/ai.md) | 本地模型實測：出題導入、改題、MCP 值不值得做 |
 
 ## 🧭 一場考試的流程
 
@@ -60,6 +61,7 @@ flowchart LR
 | [server/](server/) | 後端：Spring Boot、Flyway、Spring Session（存資料庫） |
 | [deploy/](deploy/) | Nginx 設定、備份腳本、環境變數範本、冒煙測試 |
 | [docs/](docs/) | 設計文件與說明 |
+| [tools/](tools/) | 開發工具：AI 本地模型評測 |
 
 ## ⚡ 快速開始
 
