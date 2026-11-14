@@ -37,6 +37,7 @@ const STATE = {
   done: { label: '已交卷', class: 'bg-brand-soft text-brand-strong' },
   missed: { label: '已結束', class: 'bg-sunken text-ink-2' },
 } as const
+const result = computed(() => state.value?.result ?? null)
 const enter = () => router.push({ name: 'student-exam', params: { id: 'now' } })
 </script>
 
@@ -66,13 +67,32 @@ const enter = () => router.push({ name: 'student-exam', params: { id: 'now' } })
 
         <Button v-if="view === 'open'" variant="primary" size="md" class="rounded-full" @click="enter">進入考試</Button>
         <Button v-else-if="view === 'resume'" variant="primary" size="md" class="rounded-full" @click="enter">繼續作答</Button>
-        <p v-else-if="view === 'done'" class="max-w-52 text-sm text-ink-2">你的作答已經送出。成績會在評分完成後由承辦單位公布。</p>
+        <p v-else-if="view === 'done' && !result" class="max-w-52 text-sm text-ink-2">
+          你的作答已經送出。成績會在評分完成後由承辦單位公布，公布後可以回到這裡查詢。
+        </p>
+        <template v-else-if="view === 'done'" />
         <div v-else-if="view === 'upcoming'" class="text-right">
           <p class="text-sm text-ink-2">開始時間到了才能進入</p>
           <Button variant="outline" class="mt-2 rounded-full" @click="refresh">重新整理</Button>
         </div>
         <p v-else class="text-sm text-ink-2">考試已經結束，你沒有作答紀錄。</p>
       </div>
+
+      <!-- 成績：承辦人公布之後才會出現，只有分數 -->
+      <section v-if="result" class="mt-5 border-t border-line pt-5" aria-labelledby="result-title">
+        <h2 id="result-title" class="text-sm font-medium text-ink-2">成績</h2>
+        <template v-if="result.total != null">
+          <p class="mt-1 tabular-nums">
+            <strong class="text-[40px] leading-none font-bold text-grade">{{ result.total }}</strong>
+            <span class="ml-1.5 text-[15px] text-ink-2">分，滿分 {{ result.fullMarks }} 分</span>
+          </p>
+          <p class="mt-2 text-sm text-ink-2 tabular-nums">
+            選擇與填空 {{ result.autoScore ?? 0 }} 分，申論 {{ result.essayScore ?? 0 }} 分
+          </p>
+        </template>
+        <p v-else class="mt-1 text-[15px]">沒有成績（缺考）</p>
+        <p class="mt-2 text-sm text-ink-3">{{ when(result.publishedAt) }} 公布。對成績有疑問請洽承辦單位。</p>
+      </section>
     </div>
   </div>
 </template>

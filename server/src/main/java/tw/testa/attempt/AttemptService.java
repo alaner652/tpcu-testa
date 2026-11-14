@@ -26,6 +26,7 @@ import tw.testa.attempt.AttemptDtos.Paper;
 import tw.testa.attempt.AttemptDtos.PaperBlank;
 import tw.testa.attempt.AttemptDtos.PaperChoice;
 import tw.testa.attempt.AttemptDtos.PaperQuestion;
+import tw.testa.attempt.AttemptDtos.Result;
 import tw.testa.attempt.AttemptDtos.State;
 import tw.testa.audit.AuditService;
 import tw.testa.bank.BankDtos.QuestionDto;
@@ -35,6 +36,8 @@ import tw.testa.exam.Candidate;
 import tw.testa.exam.CandidateRepository;
 import tw.testa.exam.Exam;
 import tw.testa.exam.ExamSnapshot;
+import tw.testa.grading.GradingDtos.CandidateResult;
+import tw.testa.grading.GradingService;
 
 /**
  * 考生端：登入、開始作答、存答案、交卷、自動批改。
@@ -52,12 +55,14 @@ public class AttemptService {
     private final CandidateRepository candidateRepo;
     private final AttemptRepository attemptRepo;
     private final AnswerRepository answerRepo;
+    private final GradingService grading;
     private final AuditService audit;
     private final TestaProperties props;
     private final TransactionTemplate tx;
 
     public AttemptService(CandidateRepository candidateRepo, AttemptRepository attemptRepo, AnswerRepository answerRepo,
-            AuditService audit, TestaProperties props, TransactionTemplate tx) {
+            GradingService grading, AuditService audit, TestaProperties props, TransactionTemplate tx) {
+        this.grading = grading;
         this.candidateRepo = candidateRepo;
         this.attemptRepo = attemptRepo;
         this.answerRepo = answerRepo;
@@ -275,7 +280,7 @@ public class AttemptService {
         return Math.max(0, Duration.between(now, a.getDeadlineAt()).getSeconds());
     }
 
-    private static State toState(Candidate c, Attempt a, Instant now) {
+    private State toState(Candidate c, Attempt a, Instant now) {
         Exam e = c.getExam();
         ExamSnapshot snap = e.getSnapshot();
         int count = snap == null ? 0 : snap.questions().size();
@@ -283,7 +288,15 @@ public class AttemptService {
                 : snap.questions().stream().map(QuestionDto::points).reduce(BigDecimal.ZERO, BigDecimal::add);
         return new State(c.getName(), c.getTicket(), c.getDept(), c.getSeat(),
                 new ExamInfo(e.getName(), e.getStartAt(), e.getDuration(), e.getMode(), e.phase(now), count, total),
-                a == null ? null : new AttemptInfo(a.getStartedAt(), a.getDeadlineAt(), a.getSubmittedAt(), remaining(a, now)));
+                a == null ? null : new AttemptInfo(a.getStartedAt(), a.getDeadlineAt(), a.getSubmittedAt(), remaining(a, now)),
+                result(c));
+    }
+
+    /** 成績公布之後，考生看得到自己的分數（只有分數）。c 一律來自 Session 裡的考生身分。 */
+    private Result result(Candidate c) {
+        CandidateResult r = grading.candidateResult(c.getExam(), c.getId());
+        return r == null ? null
+                : new Result(r.publishedAt(), r.fullMarks(), r.autoScore(), r.essayScore(), r.total());
     }
 
     /** 把題目送到考生端之前去掉所有答案：正確選項、填空答案、解析、評分規準。 */

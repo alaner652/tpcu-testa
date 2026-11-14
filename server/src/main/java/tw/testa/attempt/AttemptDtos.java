@@ -20,8 +20,13 @@ public final class AttemptDtos {
 
     public record AttemptInfo(Instant startedAt, Instant deadlineAt, Instant submittedAt, long remainingSeconds) {}
 
-    /** 考生登入後看到的全部：自己是誰、哪一場考試、作答到哪裡。 */
-    public record State(String name, String ticket, String dept, int seat, ExamInfo exam, AttemptInfo attempt) {}
+    /** 考生自己的成績。只有承辦人公布成績之後才會有；缺考的人 total 是 null。只有分數，沒有答案或評語。 */
+    public record Result(Instant publishedAt, BigDecimal fullMarks, BigDecimal autoScore, BigDecimal essayScore,
+            BigDecimal total) {}
+
+    /** 考生登入後看到的全部：自己是誰、哪一場考試、作答到哪裡、（公布後）成績。 */
+    public record State(String name, String ticket, String dept, int seat, ExamInfo exam, AttemptInfo attempt,
+            Result result) {}
 
     public record PaperChoice(String id, String text) {}
 

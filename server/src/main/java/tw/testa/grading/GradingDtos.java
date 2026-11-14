@@ -39,6 +39,10 @@ public final class GradingDtos {
     public record Results(BigDecimal fullMarks, int graders, int itemsTotal, int itemsLocked, boolean complete,
             Instant publishedAt, List<ResultRow> rows, List<ItemSummary> items) {}
 
+    /** 一位考生自己的成績（公布後）。缺考的人三個分數都是 null。 */
+    public record CandidateResult(Instant publishedAt, BigDecimal fullMarks, BigDecimal autoScore, BigDecimal essayScore,
+            BigDecimal total) {}
+
     public record ReopenRequest(@NotBlank String anonId, @NotBlank String questionId,
             @NotBlank(message = "請填寫重開評分的理由。") @Size(max = 500) String reason) {}
 }

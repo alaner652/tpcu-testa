@@ -84,6 +84,11 @@ class GradingTest extends IntegrationTestBase {
         mvc.perform(post("/api/candidate/submit").with(csrf()).session(s)).andExpect(status().isOk());
     }
 
+    private org.springframework.test.web.servlet.ResultActions candidateLogin(String ticket, String code) throws Exception {
+        return mvc.perform(json(post("/api/candidate/login"), "{\"ticket\":\"%s\",\"code\":\"%s\"}".formatted(ticket, code))
+                .session(new MockHttpSession())).andExpect(status().isOk());
+    }
+
     private void assign(long... ids) throws Exception {
         String list = java.util.Arrays.stream(ids).mapToObj(String::valueOf).collect(java.util.stream.Collectors.joining(","));
         mvc.perform(json(put("/api/exams/" + exam + "/graders"), "{\"staffIds\":[" + list + "]}").session(owner))
@@ -176,8 +181,19 @@ class GradingTest extends IntegrationTestBase {
         mvc.perform(json(put("/api/exams/" + exam + "/graders"), "{\"staffIds\":[" + g1Id + "]}").session(owner))
                 .andExpect(status().isConflict());
 
+        // 公布前：考生登入看不到成績
+        var codes = mvc.perform(get("/api/exams/" + exam + "/candidates").session(owner)).andReturn();
+        candidateLogin(p + "1", read(codes, "$[0].code")).andExpect(jsonPath("$.attempt.submittedAt").isNotEmpty())
+                .andExpect(jsonPath("$.result").isEmpty());
+
         mvc.perform(post("/api/exams/" + exam + "/results/publish").with(csrf()).session(owner)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.publishedAt").isNotEmpty()).andExpect(jsonPath("$.rows[0].total").value(28.5));
+        // 公布後：考生只看得到自己的分數；缺考的人沒有分數
+        candidateLogin(p + "1", read(codes, "$[0].code")).andExpect(jsonPath("$.result.total").value(28.5))
+                .andExpect(jsonPath("$.result.autoScore").value(5.0)).andExpect(jsonPath("$.result.essayScore").value(23.5))
+                .andExpect(jsonPath("$.result.fullMarks").value(35.0)).andExpect(jsonPath("$.result.publishedAt").isNotEmpty());
+        candidateLogin(p + "3", read(codes, "$[2].code")).andExpect(jsonPath("$.attempt").isEmpty())
+                .andExpect(jsonPath("$.result.total").isEmpty()).andExpect(jsonPath("$.result.fullMarks").value(35.0));
         // 公布後：評分關閉、不能重開
         mvc.perform(get("/api/grading/exams/" + exam + "/items").session(g1)).andExpect(status().isConflict());
         mvc.perform(json(post("/api/exams/" + exam + "/grading/reopen"),

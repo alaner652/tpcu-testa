@@ -101,7 +101,7 @@ async function reopen() {
 async function publish() {
   const ok = await confirm({
     title: '公布成績？',
-    description: '公布後評分會關閉，不能再重開評分或更換評分者。這個動作無法復原。',
+    description: '公布後考生用准考證號和登入碼登入，就能看到自己的分數。評分會關閉，不能再重開評分或更換評分者。這個動作無法復原。',
     confirmLabel: '公布成績',
     tone: 'danger',
   })

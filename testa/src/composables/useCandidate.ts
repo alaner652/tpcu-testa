@@ -19,6 +19,14 @@ export interface CandidateState {
     totalPoints: number
   }
   attempt: { startedAt: string; deadlineAt: string; submittedAt: string | null; remainingSeconds: number } | null
+  /** 承辦人公布成績之後才有。缺考的人 total 是 null。 */
+  result: {
+    publishedAt: string
+    fullMarks: number
+    autoScore: number | null
+    essayScore: number | null
+    total: number | null
+  } | null
 }
 
 interface Paper {

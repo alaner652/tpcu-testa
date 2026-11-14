@@ -24,6 +24,7 @@ import tw.testa.common.ApiException;
 import tw.testa.config.TestaProperties;
 import tw.testa.exam.Exam;
 import tw.testa.exam.ExamRepository;
+import tw.testa.grading.GradingDtos.CandidateResult;
 import tw.testa.grading.GradingDtos.GraderInfo;
 import tw.testa.grading.GradingDtos.GradingExam;
 import tw.testa.grading.GradingDtos.Item;
@@ -226,6 +227,25 @@ public class GradingService {
         }
         audit.record("RESULTS_EXPORTED", "exam", examId, e.getUnit().getId(), null, e.getName());
         return sb.toString();
+    }
+
+    // ── 考生 ─────────────────────────────────────────────
+
+    /**
+     * 考生查自己的成績：成績公布之後才有，公布前一律 null。
+     * 這裡不檢查教職員權限，呼叫端（AttemptService）必須已經確認 candidateId 就是登入的考生本人。
+     */
+    @Transactional(readOnly = true)
+    public CandidateResult candidateResult(Exam e, Long candidateId) {
+        if (e.getResultsPublishedAt() == null) return null;
+        String ticket = jdbc.query("select ticket from candidate where id = ? and exam_id = ?",
+                rs -> rs.next() ? rs.getString(1) : null, candidateId, e.getId());
+        if (ticket == null) return null;
+        Results r = compute(e);
+        // 准考證號在同一場考試裡不會重複
+        ResultRow row = r.rows().stream().filter(x -> x.ticket().equals(ticket)).findFirst().orElse(null);
+        if (row == null) return null;
+        return new CandidateResult(r.publishedAt(), r.fullMarks(), row.autoScore(), row.essayScore(), row.total());
     }
 
     // ── 內部 ─────────────────────────────────────────────
