@@ -5,47 +5,52 @@
 
 /*
  * Testa design tokens
- * 取材自教室：黑板綠（品牌、正確答案）、紅筆（配分）、黃粉筆（待確認）、鉛筆（考生作答、文字）。
+ *
+ * 配色原則：畫面以中性色為主，只有一個品牌色（黑板綠），其餘顏色只在有意義時出現。
+ * - 中性色：畫布、題卡、文字、分隔線都帶一點點綠的灰，彼此同一個色相，不搶戲。
+ * - 品牌綠：主要動作、目前所在位置、正確答案。
+ * - 紅：只用在錯誤、警示、刪除這類「需要注意」的地方。分數、配分是一般資訊，用文字色。
+ * - 黃：待處理（已排程、已標記、待閱卷）。
  */
 :root {
-  --desk: #e8f0eb; /* 畫布：帶品牌色的背景 */
+  --desk: #f3f4f1; /* 畫布 */
   --paper: #ffffff; /* 題卡 */
-  --sunken: #f1f5f2; /* 輸入區、hover */
-  --ink: #17211d; /* 鉛筆：文字、考生塗黑的圈 */
-  --ink-2: #4a5751;
-  --ink-3: #66736c;
-  --line: #dde6e0;
-  --line-strong: #b9c7bf;
-  --brand: #1b6a51; /* 黑板綠：品牌、主要動作、正確答案 */
-  --brand-strong: #14523e;
-  --brand-soft: #dcede4;
+  --sunken: #f1f2ee; /* 輸入區、hover */
+  --ink: #1a1f1c; /* 文字、考生塗黑的圈 */
+  --ink-2: #4c5450;
+  --ink-3: #69716c;
+  --line: #e4e6e1;
+  --line-strong: #c4c9c3;
+  --brand: #1f6b54; /* 黑板綠：品牌、主要動作、正確答案 */
+  --brand-strong: #17513f;
+  --brand-soft: #e3efe9;
   --brand-fg: #ffffff;
-  --grade: #c2362b; /* 紅筆：配分、未完成、刪除 */
-  --grade-soft: #fbedeb;
-  --marker: #fbe7a1; /* 黃粉筆：待確認 */
-  --marker-ink: #5f4a00;
-  --sh-card: 0 1px 2px rgb(20 60 44 / 0.08);
-  --sh-lift: 0 2px 4px rgb(20 60 44 / 0.06), 0 14px 32px -12px rgb(20 60 44 / 0.28);
+  --grade: #b23f2f; /* 紅：錯誤、警示、刪除 */
+  --grade-soft: #f8ebe7;
+  --marker: #f4e7b8; /* 黃：待處理 */
+  --marker-ink: #57460c;
+  --sh-card: 0 1px 2px rgb(26 31 28 / 0.06), 0 0 0 1px rgb(26 31 28 / 0.03);
+  --sh-lift: 0 2px 4px rgb(26 31 28 / 0.05), 0 14px 32px -12px rgb(26 31 28 / 0.22);
   color-scheme: light;
 }
 
 .dark {
-  --desk: #0d1412;
-  --paper: #17201d;
-  --sunken: #1e2925;
-  --ink: #e6ece9;
-  --ink-2: #a8b5ae;
-  --ink-3: #86948d;
-  --line: #27332e;
-  --line-strong: #3d4c45;
-  --brand: #63cba5;
-  --brand-strong: #86dcbb;
-  --brand-soft: #173a2e;
-  --brand-fg: #0b1512;
-  --grade: #f08377;
-  --grade-soft: #3a201d;
-  --marker: #4a3f14;
-  --marker-ink: #ecd97f;
+  --desk: #111413;
+  --paper: #1a1e1c;
+  --sunken: #232826;
+  --ink: #e7ebe8;
+  --ink-2: #aab2ad;
+  --ink-3: #87908a;
+  --line: #2a302d;
+  --line-strong: #414943;
+  --brand: #6cc5a4;
+  --brand-strong: #8bd6b9;
+  --brand-soft: #1d362d;
+  --brand-fg: #0c1512;
+  --grade: #ee8a7c;
+  --grade-soft: #38221e;
+  --marker: #453c17;
+  --marker-ink: #e9d98c;
   --sh-card: 0 0 0 1px var(--line);
   --sh-lift: 0 0 0 1px var(--line-strong), 0 16px 36px -12px rgb(0 0 0 / 0.6);
   color-scheme: dark;

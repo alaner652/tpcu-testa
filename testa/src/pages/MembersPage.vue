@@ -13,7 +13,7 @@ const owned = computed(() => (user.value?.units ?? []).filter((u) => u.roles.inc
     <div class="mb-5 px-4 md:px-0">
       <h1 class="text-[26px] font-bold sm:text-[30px]">成員</h1>
       <p class="mt-1 text-[15px] text-ink-2">
-        把教職員加入你的單位並指派角色。同一個人可以同時有多個角色。對方還沒有帳號的話，請先請系統管理員建立。
+        一個人可以有多個角色。對方還沒有帳號時，請系統管理員先建立。
       </p>
     </div>
     <div v-if="!owned.length" class="card px-5 py-10 text-[15px] text-ink-2 sm:px-10">你不是任何單位的負責人。</div>

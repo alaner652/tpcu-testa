@@ -132,9 +132,7 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
     <section class="card">
       <div class="px-5 py-4 sm:px-6">
         <h2 class="text-[17px] font-semibold">評分者</h2>
-        <p class="mt-1 text-[15px] text-ink-2">
-          指派一位或多位。每個申論答案要所有被指派的人都評完才算數，得分是他們的平均。評分者看不到考生是誰，也看不到彼此的分數。
-        </p>
+        <p class="mt-1 text-[15px] text-ink-2">每個申論答案由所有被指派的人各自評分，取平均。評分者看不到考生身分，也看不到彼此的分數。</p>
       </div>
       <p v-if="!graders.length" class="border-t border-line px-5 py-5 text-[15px] text-ink-2 sm:px-6">
         這個單位還沒有「評分」角色的教職員。請系統管理員或單位負責人先到單位成員裡加入。
@@ -146,10 +144,13 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
             <p class="truncate text-sm text-ink-2">{{ g.email }}</p>
           </div>
           <span v-if="g.assigned" class="text-sm text-ink-2 tabular-nums">已評 {{ g.done }} / {{ g.total }}</span>
+          <span v-else-if="results.publishedAt" class="text-sm text-ink-3">未指派</span>
+          <!-- 成績公布後不能再改，按鈕直接不顯示 -->
           <Button
-            :variant="g.assigned ? 'outline' : 'primary'"
+            v-if="!results.publishedAt"
+            variant="outline"
             class="w-24 rounded-full"
-            :disabled="!!results.publishedAt || (g.assigned && g.done > 0)"
+            :disabled="g.assigned && g.done > 0"
             :title="g.assigned && g.done > 0 ? '已經送出分數的評分者不能移除' : undefined"
             @click="toggle(g)"
           >
@@ -163,9 +164,9 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
       <div class="px-5 py-4 sm:px-6">
         <h2 class="text-[17px] font-semibold">申論答案</h2>
         <p class="mt-1 text-[15px] text-ink-2 tabular-nums">
-          {{ results.itemsLocked }} / {{ results.itemsTotal }} 份已評完。<template v-if="flagged.length"
-            ><strong class="font-semibold text-grade">{{ flagged.length }} 份評分者之間差距較大</strong>，請確認是否需要重評。</template
-          >
+          {{ results.itemsLocked }} / {{ results.itemsTotal }} 份已評完<template v-if="flagged.length"
+            >，其中 {{ flagged.length }} 份評分者之間差距較大，請確認是否需要重評</template
+          >。
         </p>
       </div>
       <p v-if="!results.itemsTotal" class="border-t border-line px-5 py-5 text-[15px] text-ink-2 sm:px-6">
@@ -209,7 +210,7 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
         download
         class="inline-flex h-9 items-center gap-1.5 rounded-full border border-line-strong px-3 text-sm font-medium transition-colors hover:border-brand hover:text-brand"
       >
-        <Download class="size-4" />匯出 Excel 可開的 CSV
+        <Download class="size-4" />匯出 CSV
       </a>
       <Button
         v-if="!results.publishedAt"

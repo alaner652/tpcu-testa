@@ -34,7 +34,7 @@ function onInput(event: Event) {
         max="100"
         step="1"
         :aria-label="label"
-        class="h-full w-8 [appearance:textfield] bg-transparent text-center text-[15px] font-semibold text-grade tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none"
+        class="h-full w-8 [appearance:textfield] bg-transparent text-center text-[15px] font-semibold text-ink tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none"
         @change="onInput"
       />
       <button

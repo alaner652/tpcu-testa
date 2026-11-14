@@ -15,7 +15,9 @@ import MathText from './MathText.vue'
  * 塗滿＝完成、紅圈＝未完成、黃色＝AI 匯入待確認。
  */
 const emit = defineEmits<{ navigate: [] }>()
-const { questions, activeId, totalPoints, loading, select } = useBanks()
+const { questions, activeId, loading, select } = useBanks()
+/** 圖例只在真的有「未完成」「待確認」的題目時才需要 */
+const needsLegend = computed(() => questions.value.some((q) => statusOf(q) !== 'done'))
 
 const query = ref('')
 const keyword = computed(() => query.value.trim().toLowerCase())
@@ -44,12 +46,8 @@ function go(id: string) {
 
 <template>
   <div class="flex min-h-0 flex-col">
-    <div class="flex items-baseline justify-between px-1">
-      <h2 class="text-[15px] font-semibold">題號卡</h2>
-      <p v-if="!loading" class="text-[13px] text-ink-2">
-        {{ questions.length }} 題，<span class="text-grade tabular-nums">{{ totalPoints }}</span> 分
-      </p>
-    </div>
+    <!-- 題數與總分在試卷標題下面就有，這裡不重複 -->
+    <h2 class="px-1 text-[15px] font-semibold">題號卡</h2>
 
     <label
       class="mt-3 flex h-9 items-center gap-2 rounded-full bg-paper px-3 shadow-card transition-shadow focus-within:shadow-[0_0_0_2px_var(--brand)] max-md:h-10"
@@ -125,11 +123,11 @@ function go(id: string) {
       </VueDraggable>
     </nav>
 
-    <ul v-if="!loading && questions.length && !keyword" class="mt-4 space-y-1.5 px-1 text-[13px] text-ink-2">
+    <ul v-if="!loading && questions.length && !keyword && needsLegend" class="mt-4 space-y-1.5 px-1 text-[13px] text-ink-2">
       <li class="flex items-center gap-2"><span class="size-3 rounded-full bg-brand-soft shadow-[inset_0_0_0_1px_var(--brand)]" />已完成</li>
       <li class="flex items-center gap-2"><span class="size-3 rounded-full shadow-[inset_0_0_0_1.5px_var(--grade)]" />未完成</li>
       <li v-if="DEMO_FEATURES" class="flex items-center gap-2"><span class="size-3 rounded-full bg-marker shadow-[inset_0_0_0_1px_var(--marker-ink)]" />AI 匯入待確認</li>
-      <li class="pt-1 text-ink-3">拖曳圓圈可以調整題目順序。</li>
     </ul>
+    <p v-if="!loading && questions.length > 1 && !keyword" class="mt-3 px-1 text-[13px] text-ink-3">拖曳圓圈可以調整順序。</p>
   </div>
 </template>

@@ -79,7 +79,7 @@ function onDuration(event: Event) {
             class="inline-flex h-8 items-center rounded-full bg-grade-soft px-3 text-sm text-grade hover:brightness-95 dark:hover:brightness-125"
             @click="select(firstIncomplete.id)"
           >
-            還有 {{ incompleteCount }} 題未完成，前往查看
+            {{ incompleteCount }} 題未完成
           </button>
           <button
             v-if="firstReview"

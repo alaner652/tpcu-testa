@@ -161,15 +161,20 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
               </span>
               <span class="text-lg font-semibold">{{ exam.name }}</span>
             </p>
-            <p class="mt-1.5 text-sm text-ink-2">題庫：{{ exam.bankName ?? '題庫已刪除，請重新選擇' }}</p>
-            <p class="text-sm text-ink-2">{{ when(exam.startAt) }}，作答 {{ exam.duration }} 分鐘，{{ MODE_LABEL[exam.mode] }}</p>
+            <p class="mt-1.5 text-sm text-ink-2 tabular-nums">
+              {{ when(exam.startAt) }}，{{ exam.duration }} 分鐘，{{ MODE_LABEL[exam.mode] }}，<span :class="!exam.bankName && 'text-grade'">{{
+                exam.bankName ?? '題庫已刪除，請重新選擇'
+              }}</span
+              ><template v-if="exam.status === 'ended'">，{{ exam.submitted }} / {{ exam.takers }} 人交卷</template
+              ><template v-else-if="exam.status !== 'live'">，{{ exam.takers }} 位考生</template>
+            </p>
           </div>
           <div class="flex shrink-0 flex-wrap items-center gap-2">
             <RouterLink
               :to="`/exams/${exam.id}`"
               class="inline-flex h-9 items-center rounded-full border border-line-strong px-3 text-sm font-medium transition-colors hover:border-brand hover:text-brand"
             >
-              考生與監考
+              開啟
             </RouterLink>
             <template v-if="exam.canManage">
               <template v-if="exam.status === 'draft'">
@@ -187,17 +192,12 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
           </div>
         </div>
 
-        <div v-if="exam.status === 'live'" class="mt-4">
-          <p class="flex justify-between text-sm text-ink-2 tabular-nums">
-            <span>已交卷 {{ exam.submitted }} / {{ exam.takers }} 人</span>
-            <span>{{ percent(exam) }}%</span>
-          </p>
-          <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-sunken">
+        <div v-if="exam.status === 'live'" class="mt-4 flex items-center gap-3">
+          <div class="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-sunken">
             <div class="h-full rounded-full bg-brand" :style="{ width: `${percent(exam)}%` }" />
           </div>
+          <p class="shrink-0 text-sm text-ink-2 tabular-nums">已交卷 {{ exam.submitted }} / {{ exam.takers }}</p>
         </div>
-        <p v-else-if="exam.status === 'ended'" class="mt-3 text-sm text-ink-2 tabular-nums">{{ exam.submitted }} / {{ exam.takers }} 人交卷</p>
-        <p v-else class="mt-3 text-sm text-ink-2">名單上有 {{ exam.takers }} 位考生</p>
       </li>
     </ul>
 

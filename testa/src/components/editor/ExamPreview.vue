@@ -224,10 +224,9 @@ function jump(index: number) {
 
 <template>
   <div>
-    <!-- 考試狀態列 -->
-    <div class="sticky top-0 z-10 border-b border-line bg-paper">
+    <!-- 考試狀態列。正式考試交卷後下面的卡片已經說明一切，不用再一條 -->
+    <div v-if="!(remote && submitted)" class="sticky top-0 z-10 border-b border-line bg-paper">
       <div class="mx-auto flex h-14 max-w-[1040px] items-center gap-3 px-4 sm:gap-5 md:px-6">
-        <span class="rounded-full bg-brand-soft px-2.5 py-1 text-[13px] font-medium text-brand-strong max-sm:hidden">{{ real ? '正式考試' : '模擬作答' }}</span>
         <template v-if="!submitted">
           <p
             class="flex items-center gap-1.5 text-lg font-semibold tabular-nums"
@@ -256,17 +255,8 @@ function jump(index: number) {
           </button>
         </template>
         <template v-else>
-          <p class="min-w-0 flex-1 truncate text-[15px] font-medium">{{ remote ? '已交卷' : '已交卷，以下是自動批改結果' }}</p>
+          <p class="min-w-0 flex-1 truncate text-[15px] font-medium">已交卷，以下是自動批改結果</p>
           <button
-            v-if="real"
-            type="button"
-            class="h-9 shrink-0 rounded-full bg-brand px-4 text-sm font-semibold text-brand-fg hover:bg-brand-strong"
-            @click="emit('exit')"
-          >
-            回到我的考試
-          </button>
-          <button
-            v-else
             type="button"
             class="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-line-strong px-4 text-sm font-medium hover:border-brand hover:text-brand"
             @click="restart"
@@ -290,8 +280,7 @@ function jump(index: number) {
       <!-- 作答中：一次一題 -->
       <div v-else-if="!submitted && question" class="min-w-0">
         <section class="bg-paper px-5 pt-6 pb-5 shadow-card sm:px-10 sm:pt-9 md:rounded-card">
-          <p class="mb-5 flex items-center justify-between text-sm text-ink-2">
-            <span>第 {{ current + 1 }} 題，共 {{ questions.length }} 題</span>
+          <p class="mb-3 flex items-center justify-end text-sm text-ink-2">
             <button
               type="button"
               class="inline-flex h-9 items-center gap-1.5 rounded-full px-3 transition-colors"
@@ -335,16 +324,15 @@ function jump(index: number) {
           }}
         </p>
         <p v-else class="mt-3 px-5 text-[13px] text-ink-3 md:px-1">
-          作答內容會自動儲存。<template v-if="!real">這是模擬作答，不會留下紀錄。</template>
+          <template v-if="real">作答內容會自動儲存。</template><template v-else>這是模擬作答，不會留下紀錄。</template>
         </p>
       </div>
 
       <!-- 正式考試交卷後：只確認已交卷，成績等評分完成後公布 -->
       <div v-else-if="remote" class="min-w-0 lg:col-span-2">
         <section class="bg-paper px-5 py-12 shadow-card sm:px-10 md:rounded-card">
-          <p class="text-sm text-ink-2">{{ title ?? bank.name }}</p>
-          <h2 class="mt-2 text-3xl font-bold">已交卷</h2>
-          <p class="mt-3 text-[15px] text-ink-2">你的作答已經送出並保存。成績會在評分完成後由承辦單位公布，現在可以離開了。</p>
+          <h2 class="text-3xl font-bold">已交卷</h2>
+          <p class="mt-3 text-[15px] text-ink-2">你的作答已經送出。成績會在評分完成後公布，現在可以離開了。</p>
           <Button variant="primary" size="md" class="mt-6 rounded-full" @click="emit('exit')">回到我的考試</Button>
         </section>
       </div>
@@ -354,7 +342,7 @@ function jump(index: number) {
         <section class="bg-paper px-5 py-7 shadow-card sm:px-10 md:rounded-card">
           <p class="text-sm text-ink-2">{{ title ?? bank.name }}</p>
           <p class="mt-2 flex items-baseline gap-2">
-            <span class="text-6xl leading-none font-bold text-grade tabular-nums">{{ earned }}</span>
+            <span class="text-6xl leading-none font-bold text-ink tabular-nums">{{ earned }}</span>
             <span class="text-xl text-ink-2 tabular-nums">/ {{ objectiveTotal }} 分</span>
           </p>
           <p class="mt-3 text-[15px] text-ink-2">
@@ -389,7 +377,7 @@ function jump(index: number) {
           <StudentQuestion :question="q" :index="index" :attempt="attemptOf(q.id)" :show-answers="true" locked>
             <template #score>
               <template v-if="q.type === 'essay'">{{ q.points }} 分</template>
-              <template v-else><strong class="font-semibold text-grade">{{ grades[index].earned }}</strong> / {{ q.points }} 分</template>
+              <template v-else><strong class="font-semibold text-ink">{{ grades[index].earned }}</strong> / {{ q.points }} 分</template>
             </template>
           </StudentQuestion>
         </section>

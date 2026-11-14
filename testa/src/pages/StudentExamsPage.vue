@@ -45,7 +45,6 @@ const enter = () => router.push({ name: 'student-exam', params: { id: 'now' } })
   <div class="mx-auto max-w-[760px]">
     <div class="mb-5 px-4 md:px-0">
       <h1 class="text-[26px] font-bold sm:text-[30px]">{{ state?.name }}，你好</h1>
-      <p class="mt-1 text-[15px] text-ink-2">這裡是你的考試。</p>
     </div>
 
     <div v-if="error" class="card flex items-center gap-3 px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
@@ -83,7 +82,7 @@ const enter = () => router.push({ name: 'student-exam', params: { id: 'now' } })
         <h2 id="result-title" class="text-sm font-medium text-ink-2">成績</h2>
         <template v-if="result.total != null">
           <p class="mt-1 tabular-nums">
-            <strong class="text-[40px] leading-none font-bold text-grade">{{ result.total }}</strong>
+            <strong class="text-[40px] leading-none font-bold text-ink">{{ result.total }}</strong>
             <span class="ml-1.5 text-[15px] text-ink-2">分，滿分 {{ result.fullMarks }} 分</span>
           </p>
           <p class="mt-2 text-sm text-ink-2 tabular-nums">

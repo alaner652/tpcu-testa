@@ -84,9 +84,11 @@ async function submit() {
         >
           <option v-for="e in exams" :key="e.examId" :value="e.examId">{{ e.name }}（{{ e.done }} / {{ e.total }}）</option>
         </select>
-        <p v-else class="mt-1 text-[15px] text-ink-2">{{ exam?.name }}</p>
-        <p class="mt-1 text-[15px] text-ink-2 tabular-nums">已完成 {{ done }} / {{ total }} 份</p>
-        <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-paper">
+        <p class="mt-1 text-[15px] text-ink-2 tabular-nums">
+          <template v-if="exams.length === 1">{{ exam?.name }}<template v-if="total">，</template></template>
+          <template v-if="total">已完成 {{ done }} / {{ total }} 份</template>
+        </p>
+        <div v-if="total" class="mt-2 h-1.5 overflow-hidden rounded-full bg-paper">
           <div class="h-full rounded-full bg-brand transition-[width] duration-300" :style="{ width: `${total ? (done / total) * 100 : 0}%` }" />
         </div>
       </template>

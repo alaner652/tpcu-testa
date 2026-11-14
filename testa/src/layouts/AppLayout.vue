@@ -15,7 +15,8 @@ const links = computed(() =>
 /** 依單位角色決定看得到哪些選單：每種角色只看到自己用得到的兩三個。真正的權限由後端檢查。 */
 const can = (...roles: UnitRole[]) => !!user.value?.units?.some((u) => u.roles.some((r) => roles.includes(r)))
 const staffLinks = computed(() => [
-  { to: '/', label: '首頁', icon: House, exact: true, badge: 0 },
+  // 只管帳號與單位的系統管理員，首頁就是「管理」，不用列兩個
+  ...(isAdmin.value && !user.value?.units?.length ? [] : [{ to: '/', label: '首頁', icon: House, exact: true, badge: 0 }]),
   ...(can('AUTHOR', 'OWNER') ? [{ to: '/banks', label: '題庫', icon: LibraryBig, exact: false, badge: 0 }] : []),
   ...(can('OWNER', 'PROCTOR') ? [{ to: '/exams', label: '考試', icon: FileText, exact: false, badge: 0 }] : []),
   ...(can('GRADER') ? [{ to: '/grading', label: '閱卷', icon: ClipboardCheck, exact: false, badge: pending.value }] : []),

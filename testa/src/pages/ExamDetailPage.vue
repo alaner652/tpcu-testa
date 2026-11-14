@@ -9,7 +9,8 @@ import { useConfirm } from '@/composables/useConfirm'
 import { CANDIDATE_STATUS, EXAM_STATUS, MODE_LABEL, useExams, when, type Candidate, type RosterPreview } from '@/composables/useExams'
 
 /**
- * 一場考試要做的事都在這一頁，照順序三步：考生名單 → 登入單 → 監考。
+ * 一場考試要做的事都在這一頁：考生（名單與監考）、登入單、評分、成績。
+ * 名單與監考是同一份清單，所以合在一起：考前管理名單，考試中看每個人的狀態。
  */
 const route = useRoute()
 const store = useExams()
@@ -21,14 +22,18 @@ const list = ref<Candidate[]>([])
 const listError = ref('')
 const count = (status: Candidate['status']) => list.value.filter((c) => c.status === status).length
 const locked = computed(() => list.value.filter((c) => c.locked || c.leaveCount > 0))
+const STATUS_COUNTS = [
+  { status: 'IN', label: '作答中' },
+  { status: 'DONE', label: '已交卷' },
+  { status: 'IDLE', label: '尚未登入' },
+] as const
 const fail = (e: unknown) => toast.error((e as Error).message)
 
-type Step = 'roster' | 'tickets' | 'monitor' | 'grading' | 'results'
+type Step = 'roster' | 'tickets' | 'grading' | 'results'
 // 評分與成績只有負責人看得到（監考碰不到分數）
 const STEPS = computed<{ value: Step; label: string }[]>(() => [
-  { value: 'roster', label: '考生名單' },
+  { value: 'roster', label: '考生' },
   { value: 'tickets', label: '登入單' },
-  { value: 'monitor', label: '監考' },
   ...(exam.value?.canManage && exam.value.status !== 'draft'
     ? ([
         { value: 'grading', label: '評分' },
@@ -48,24 +53,15 @@ async function loadList() {
   }
 }
 
-// 考試清單載入後（或直接開這一頁時）再抓名單；進行中的考試預設停在監考
-let opened = false
-watch(
-  () => exam.value?.id,
-  (id) => {
-    if (id == null) return
-    if (!opened && exam.value?.status === 'live') step.value = 'monitor'
-    opened = true
-    loadList()
-  },
-  { immediate: true },
-)
+// 考試清單載入後（或直接開這一頁時）再抓名單
+watch(() => exam.value?.id, (id) => id != null && loadList(), { immediate: true })
 
-// 監考：每 10 秒更新一次狀態
+// 考試進行中：每 10 秒更新一次考生狀態
+const live = computed(() => exam.value?.status === 'live')
 let timer: ReturnType<typeof setInterval> | undefined
 onMounted(() => {
   timer = setInterval(() => {
-    if (step.value !== 'monitor' || document.hidden || !exam.value) return
+    if (step.value !== 'roster' || !live.value || document.hidden || !exam.value || preview.value) return
     loadList()
     store.refresh(exam.value.id).catch(() => {})
   }, 10000)
@@ -177,24 +173,17 @@ const site = location.origin + location.pathname
       </p>
     </div>
 
-    <!-- 三個步驟 -->
     <div role="tablist" aria-label="考試步驟" class="mt-5 mb-4 flex flex-wrap gap-1 px-4 md:px-0">
       <button
-        v-for="(s, i) in STEPS"
+        v-for="s in STEPS"
         :key="s.value"
         type="button"
         role="tab"
         :aria-selected="step === s.value"
-        class="flex h-11 items-center gap-2 rounded-full pr-4 pl-1.5 text-[15px] transition-colors"
+        class="h-10 rounded-full px-4 text-[15px] transition-colors"
         :class="step === s.value ? 'bg-brand font-medium text-brand-fg' : 'text-ink-2 hover:bg-ink/[0.06] hover:text-ink'"
         @click="step = s.value"
       >
-        <span
-          class="flex size-8 items-center justify-center rounded-full text-sm font-semibold"
-          :class="step === s.value ? 'bg-brand-fg/20' : 'bg-paper text-ink'"
-        >
-          {{ i + 1 }}
-        </span>
         {{ s.label }}
       </button>
     </div>
@@ -204,12 +193,23 @@ const site = location.origin + location.pathname
       <Button variant="outline" class="rounded-full" @click="loadList">重試</Button>
     </p>
 
-    <!-- 1 考生名單 -->
+    <!-- 考生：名單與監考 -->
     <section v-if="step === 'roster'" class="card">
-      <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
-        <p class="text-[15px] text-ink-2">
-          只有名單上的考生能登入這場考試。目前 <strong class="font-semibold text-ink">{{ list.length }}</strong> 位。
+      <div class="flex min-h-16 flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-3 sm:px-6">
+        <!-- 考試開始前只有人數；開始後看每種狀態各幾位 -->
+        <p v-if="exam.status === 'draft' || exam.status === 'scheduled'" class="text-[15px] text-ink-2">
+          <strong class="font-semibold text-ink tabular-nums">{{ list.length }}</strong> 位考生
         </p>
+        <dl v-else class="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-[15px] text-ink-2">
+          <div v-for="g in STATUS_COUNTS" :key="g.status" class="flex items-baseline gap-1.5">
+            <dd class="order-first text-xl font-bold text-ink tabular-nums">{{ count(g.status) }}</dd>
+            <dt>{{ g.label }}</dt>
+          </div>
+          <div v-if="locked.length" class="flex items-baseline gap-1.5 text-grade">
+            <dd class="order-first text-xl font-bold tabular-nums">{{ locked.length }}</dd>
+            <dt>需要注意</dt>
+          </div>
+        </dl>
         <template v-if="exam.canManage && exam.status !== 'ended' && !preview">
           <input ref="fileInput" type="file" accept=".xlsx,.csv" class="hidden" @change="onFile" />
           <Button variant="primary" class="rounded-full" :disabled="busy" @click="fileInput?.click()">
@@ -255,26 +255,32 @@ const site = location.origin + location.pathname
             <p class="text-base font-medium">{{ c.name }}</p>
             <p class="text-sm text-ink-2 tabular-nums">{{ c.ticket }}<template v-if="c.dept">，{{ c.dept }}</template></p>
           </div>
-          <span class="rounded-full px-2.5 py-0.5 text-[13px] font-medium" :class="CANDIDATE_STATUS[c.status].class">
+          <span v-if="c.locked" class="rounded-full bg-marker px-2.5 py-0.5 text-[13px] font-medium text-marker-ink">登入碼輸錯太多次，已鎖定</span>
+          <span v-if="c.leaveCount" class="rounded-full bg-marker px-2.5 py-0.5 text-[13px] font-medium text-marker-ink">離開畫面 {{ c.leaveCount }} 次</span>
+          <!-- 考試還沒開始時每個人都是「尚未登入」，不用每一列都寫 -->
+          <span
+            v-if="exam.status === 'live' || exam.status === 'ended'"
+            class="rounded-full px-2.5 py-0.5 text-[13px] font-medium"
+            :class="CANDIDATE_STATUS[c.status].class"
+          >
             {{ CANDIDATE_STATUS[c.status].label }}
           </span>
-          <Button variant="outline" class="rounded-full" :disabled="c.status === 'DONE'" @click="reset(c)">重設登入碼</Button>
-          <Button v-if="exam.canManage && c.status === 'IDLE'" variant="danger" class="rounded-full" @click="removeCandidate(c)">移除</Button>
+          <Button v-if="c.status !== 'DONE' && exam.status !== 'ended'" variant="outline" class="rounded-full" @click="reset(c)">重設登入碼</Button>
+          <Button v-if="exam.canManage && c.status === 'IDLE' && exam.status !== 'ended'" variant="danger" class="rounded-full" @click="removeCandidate(c)">移除</Button>
         </li>
       </ul>
+      <p v-if="live && list.length" class="border-t border-line px-5 py-3 text-sm text-ink-3 sm:px-6">每 10 秒自動更新。</p>
     </section>
 
     <!-- 2 登入單 -->
     <section v-else-if="step === 'tickets'">
       <div class="no-print card flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
-        <p class="min-w-0 flex-1 basis-64 text-[15px] text-ink-2">
-          每位考生一張，考場現場發放。考生用上面的准考證號和登入碼登入，不需要 Email。登入碼等同密碼，請妥善保管印出的紙本。
-        </p>
+        <p class="min-w-0 flex-1 basis-64 text-[15px] text-ink-2">每位考生一張。登入碼等同密碼，印出後請妥善保管。</p>
         <Button variant="primary" class="rounded-full" :disabled="list.length === 0" @click="print">
           <Printer />列印 {{ list.length }} 張
         </Button>
       </div>
-      <p v-if="list.length === 0" class="mt-3 px-5 text-[15px] text-ink-2 md:px-1">先到「考生名單」匯入考生。</p>
+      <p v-if="list.length === 0" class="mt-3 px-5 text-[15px] text-ink-2 md:px-1">先到「考生」匯入名單。</p>
       <ul class="mt-3 grid gap-3 px-4 sm:grid-cols-2 md:px-0 lg:grid-cols-3 print:mt-0 print:grid-cols-2 print:px-0">
         <li v-for="c in list" :key="c.id" class="ticket rounded-card border-[1.5px] border-dashed border-line-strong bg-paper p-5">
           <p class="text-[13px] text-ink-2">{{ exam.name }}</p>
@@ -292,39 +298,7 @@ const site = location.origin + location.pathname
       </ul>
     </section>
 
-    <!-- 4 評分、5 成績 -->
-    <ExamScoring v-else-if="step === 'grading' || step === 'results'" :key="step" :exam="exam" :view="step" />
-
-    <!-- 3 監考 -->
-    <section v-else class="space-y-3">
-      <div class="card flex flex-wrap items-baseline gap-x-10 gap-y-2 px-5 py-4 sm:px-6">
-        <p><strong class="text-[28px] font-bold tabular-nums">{{ count('IN') }}</strong> <span class="text-ink-2">作答中</span></p>
-        <p><strong class="text-[28px] font-bold text-brand tabular-nums">{{ count('DONE') }}</strong> <span class="text-ink-2">已交卷</span></p>
-        <p><strong class="text-[28px] font-bold tabular-nums">{{ count('IDLE') }}</strong> <span class="text-ink-2">尚未登入</span></p>
-        <p v-if="locked.length">
-          <strong class="text-[28px] font-bold text-grade tabular-nums">{{ locked.length }}</strong> <span class="text-ink-2">需要注意</span>
-        </p>
-      </div>
-
-      <div class="card">
-        <p v-if="list.length === 0" class="px-5 py-10 text-[15px] text-ink-2 sm:px-6">還沒有考生。先到「考生名單」匯入。</p>
-        <ul class="divide-y divide-line">
-          <li v-for="c in list" :key="c.id" class="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-5 py-3 sm:px-6">
-            <span class="w-8 text-sm text-ink-3 tabular-nums" title="座位">{{ c.seat }}</span>
-            <div class="min-w-0 flex-1 basis-40">
-              <p class="text-base font-medium">{{ c.name }}</p>
-              <p class="text-sm text-ink-2 tabular-nums">{{ c.ticket }}</p>
-            </div>
-            <span v-if="c.locked" class="rounded-full bg-marker px-2.5 py-0.5 text-[13px] font-medium text-marker-ink">登入碼輸錯太多次，已鎖定</span>
-            <span v-if="c.leaveCount" class="rounded-full bg-marker px-2.5 py-0.5 text-[13px] font-medium text-marker-ink">離開考試畫面 {{ c.leaveCount }} 次</span>
-            <span class="rounded-full px-2.5 py-0.5 text-[13px] font-medium" :class="CANDIDATE_STATUS[c.status].class">
-              {{ CANDIDATE_STATUS[c.status].label }}
-            </span>
-            <Button v-if="c.status !== 'DONE'" variant="outline" class="rounded-full" @click="reset(c)">重設登入碼</Button>
-          </li>
-        </ul>
-      </div>
-      <p class="px-5 text-sm text-ink-2 md:px-1">這一頁每 10 秒自動更新。考生開始作答、交卷後，狀態會跟著改變。</p>
-    </section>
+    <!-- 評分、成績 -->
+    <ExamScoring v-else :key="step" :exam="exam" :view="step" />
   </div>
 </template>

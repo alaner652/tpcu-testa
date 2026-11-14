@@ -2,7 +2,6 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { CircleAlert, LoaderCircle } from 'lucide-vue-next'
-import { toast } from 'vue-sonner'
 import Logo from '@/components/app/Logo.vue'
 import { DEMO_ACCOUNTS, signedOutNotice, useAuth } from '@/composables/useAuth'
 import { DEMO_CANDIDATE } from '@/composables/useWorkspace'
@@ -39,7 +38,6 @@ async function submit() {
   try {
     const user = candidate ? await loginCandidate(ticket.value, code.value) : await login(email.value, password.value)
     await router.push({ name: user.role === 'student' ? 'student' : 'home' })
-    toast.success(`${user.name}，登入成功`)
   } catch (e) {
     error.value = (e as Error).message
   } finally {
@@ -92,15 +90,15 @@ function switchTo(next: 'candidate' | 'staff') {
         </div>
 
         <template v-if="who === 'candidate'">
-          <h1 class="text-2xl font-bold">考生登入</h1>
-          <p class="mt-1 text-[15px] text-ink-2">輸入登入單上的准考證號和登入碼，不需要註冊。</p>
-          <div class="mt-6 space-y-4">
+          <h1 class="sr-only">考生登入</h1>
+          <p class="text-[15px] text-ink-2">輸入登入單上的准考證號和登入碼。</p>
+          <div class="mt-5 space-y-4">
             <label class="block">
               <span class="mb-1.5 block text-sm font-medium">准考證號</span>
               <input v-model="ticket" autocomplete="off" autocapitalize="characters" placeholder="例如 A115-0001" class="field h-12 text-lg" />
             </label>
             <label class="block">
-              <span class="mb-1.5 block text-sm font-medium">登入碼（6 碼數字）</span>
+              <span class="mb-1.5 block text-sm font-medium">登入碼</span>
               <input
                 v-model="code"
                 inputmode="numeric"
@@ -113,9 +111,8 @@ function switchTo(next: 'candidate' | 'staff') {
         </template>
 
         <template v-else>
-          <h1 class="text-2xl font-bold">教職員登入</h1>
-          <p class="mt-1 text-[15px] text-ink-2">出題、安排考試、監考、閱卷。</p>
-          <div class="mt-6 space-y-4">
+          <h1 class="sr-only">教職員登入</h1>
+          <div class="space-y-4">
             <label class="block">
               <span class="mb-1.5 block text-sm font-medium">帳號</span>
               <input v-model="email" type="email" autocomplete="username" placeholder="name@school.edu.tw" class="field" />
