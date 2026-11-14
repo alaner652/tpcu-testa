@@ -8,9 +8,11 @@
 
 ![題庫編輯器](docs/images/editor.png)
 
-| 登入 | 考試管理 |
+| 監考 | 考生作答 |
 | --- | --- |
-| ![登入頁](docs/images/login.png) | ![考試列表](docs/images/exams.png) |
+| ![監考畫面](docs/images/exam-proctor.png) | ![考生作答畫面](docs/images/candidate-exam.png) |
+
+更多畫面請看[截圖](docs/screenshots.md)。
 
 ## 文件
 
@@ -20,6 +22,7 @@
 | --- | --- |
 | [設計文件](docs/testa-system-design.html) | 需求、角色、流程、待確認事項（用瀏覽器開） |
 | [進度與測試](docs/status.md) | 做完什麼、測過什麼、還沒做什麼 |
+| [截圖](docs/screenshots.md) | 每個畫面的桌機與手機版 |
 | [部署](docs/deployment.md) | 上線、HTTPS、網路與斷網考試、升級、備份與還原 |
 | [開發](docs/development.md) | 專案結構、後端慣例、測試 |
 | [前端](testa/README.md) | 頁面、元件結構、design tokens、介面原則 |

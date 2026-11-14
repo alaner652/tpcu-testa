@@ -8,9 +8,11 @@ The repository is `tpcu-testa`; the application is called Testa and has no schoo
 
 ![Question bank editor](docs/images/editor.png)
 
-| Login | Exams |
+| Proctoring | Taking the exam |
 | --- | --- |
-| ![Login page](docs/images/login.png) | ![Exam list](docs/images/exams.png) |
+| ![Proctoring](docs/images/exam-proctor.png) | ![Taking the exam](docs/images/candidate-exam.png) |
+
+More in [Screenshots](docs/screenshots.md).
 
 ## Documentation
 
@@ -18,6 +20,7 @@ The repository is `tpcu-testa`; the application is called Testa and has no schoo
 | --- | --- |
 | [Design document](docs/testa-system-design.html) | Requirements, roles, flows and open questions (Chinese; open in a browser) |
 | [Status](docs/status.md) | What is done, what was tested, what is left |
+| [Screenshots](docs/screenshots.md) | Every page, desktop and phone |
 | [Deployment](docs/deployment.md) | Going live, HTTPS, network and offline exams, upgrades, backup and restore |
 | [Development](docs/development.md) | Layout, backend conventions, tests |
 | [Frontend](testa/README.md) | Pages, component layout, design tokens, UI principles |
