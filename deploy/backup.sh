@@ -13,7 +13,7 @@ set -o pipefail
 
 # On first start the backend is still creating tables; wait for them so we do not keep an empty backup
 until psql -h db -U testa -d testa -Atc "select 1 from flyway_schema_history limit 1" >/dev/null 2>&1; do
-  echo "等後端把資料表建好…"
+  echo "Waiting for the backend to create the tables..."
   sleep 5
 done
 
@@ -21,10 +21,10 @@ while true; do
   file="/backups/testa-$(date +%Y%m%d-%H%M%S).sql.gz"
   if pg_dump -h db -U testa -d testa --clean --if-exists | gzip > "$file.tmp"; then
     mv "$file.tmp" "$file"
-    echo "備份完成：$file"
+    echo "Backup done: $file"
   else
     rm -f "$file.tmp"
-    echo "備份失敗" >&2
+    echo "Backup failed" >&2
   fi
   find /backups -name 'testa-*.sql.gz' -mtime +"${BACKUP_KEEP_DAYS:-30}" -delete
   sleep 86400

@@ -206,7 +206,7 @@ public class AttemptService {
                     if (!a.isSubmitted()) finalizeAttempt(a, a.getDeadlineAt(), true);
                 }));
             } catch (RuntimeException e) {
-                log.error("自動收卷失敗，attempt {}", id, e);
+                log.error("Auto-submit failed for attempt {}", id, e);
             }
         }
     }

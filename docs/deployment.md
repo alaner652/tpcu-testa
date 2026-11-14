@@ -12,6 +12,10 @@ flowchart LR
 
 Only Nginx is exposed (port 80 by default). All four containers are in `docker-compose.prod.yml`.
 
+- The Compose project is named `tpcu-testa`; the database lives in the `tpcu-testa_db-data` volume and survives restarts, rebuilds and upgrades. `docker compose down -v` deletes it.
+- `docker compose -f docker-compose.prod.yml ps` shows each container's health. The backend is healthy when `/api/health` answers and the database is reachable (otherwise 503); Nginx waits for it.
+- Container logs rotate at 10 MB, five files per container: `docker compose -f docker-compose.prod.yml logs -f server`.
+
 ## Going live
 
 ```bash
@@ -28,6 +32,7 @@ Then open the site: with no system administrator yet it shows the first-run setu
 | `TESTA_SETUP_TOKEN` | Optional fixed first-run setup token; when blank a random one is logged at start-up. Useless once setup is done |
 | `TESTA_HTTP_PORT` | Public port, default 80 |
 | `TESTA_COOKIE_SECURE` | Keep `true` behind HTTPS |
+| `TESTA_TZ` | Time zone for logs and backup file names, default `Asia/Taipei` |
 | `TESTA_BACKUP_DIR`, `BACKUP_KEEP_DAYS` | Where backups go (default `./backups`) and for how many days (default 30) |
 
 > **Plain HTTP on a LAN**: set `TESTA_COOKIE_SECURE` to `false`, or users are signed out right after signing in.
