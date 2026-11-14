@@ -271,9 +271,13 @@ const audit = ref<AuditEntry[]>([])
 const auditTotal = ref(0)
 const auditPage = ref(0)
 
+const auditAction = ref('')
+watch(auditAction, () => loadAudit())
+
 async function loadAudit(page = 0) {
   try {
-    const res = await api<{ items: AuditEntry[]; total: number }>(`/admin/audit-logs?page=${page}&size=50`)
+    const action = auditAction.value ? `&action=${auditAction.value}` : ''
+    const res = await api<{ items: AuditEntry[]; total: number }>(`/admin/audit-logs?page=${page}&size=50${action}`)
     audit.value = page === 0 ? res.items : [...audit.value, ...res.items]
     auditTotal.value = res.total
     auditPage.value = page
@@ -458,8 +462,15 @@ watch(tab, load)
 
     <!-- Audit log -->
     <section v-else-if="tab === 'audit'" class="card">
-      <p class="px-5 py-4 text-[15px] text-ink-2 sm:px-6">共 {{ auditTotal }} 筆。紀錄只會增加，任何人都不能修改或刪除。</p>
+      <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
+        <p class="text-[15px] text-ink-2">共 {{ auditTotal }} 筆。紀錄只會增加，任何人都不能修改或刪除。</p>
+        <select v-model="auditAction" class="field h-10 w-full sm:w-56" aria-label="依動作篩選">
+          <option value="">全部動作</option>
+          <option v-for="(label, action) in ACTION_LABEL" :key="action" :value="action">{{ label }}</option>
+        </select>
+      </div>
       <ul class="divide-y divide-line border-t border-line">
+        <li v-if="auditAction && !audit.length" class="px-5 py-6 text-[15px] text-ink-2 sm:px-6">沒有這個動作的紀錄。</li>
         <li v-for="a in audit" :key="a.id" class="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 px-5 py-3 text-[15px] sm:px-6">
           <span class="w-36 shrink-0 text-sm text-ink-2 tabular-nums">{{ when(a.at) }}</span>
           <span class="w-28 shrink-0 font-medium" :class="a.action.endsWith('LOGIN_FAILED') && 'text-grade'">{{ ACTION_LABEL[a.action] ?? a.action }}</span>
