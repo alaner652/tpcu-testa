@@ -52,12 +52,13 @@ const STEPS = computed<{ value: Step; label: string; icon: Component }[]>(() => 
   ...(step.value === 'access' ? ([{ value: 'access', label: '緊急檢視', icon: ShieldCheck }] as const) : []),
 ])
 const step = ref<Step>('roster')
-// Once the exam has ended, open the tab for the next step
+// Moving to another exam starts over; once the exam has ended, open the tab for the next step
 watch(
   () => exam.value?.id,
   () => {
     const e = exam.value
-    if (e?.canManage && e.status === 'ended') step.value = e.resultsPublishedAt ? 'results' : 'grading'
+    filter.value = null
+    step.value = e?.canManage && e.status === 'ended' ? (e.resultsPublishedAt ? 'results' : 'grading') : 'roster'
   },
   { immediate: true },
 )
@@ -95,6 +96,8 @@ onBeforeUnmount(() => clearInterval(timer))
 // Import: pick a file, the server checks it, import after confirmation
 const fileInput = ref<HTMLInputElement | null>(null)
 const preview = ref<RosterPreview | null>(null)
+// A pending import belongs to the exam it was picked for
+watch(examId, () => (preview.value = null))
 const busy = ref(false)
 
 async function onFile(event: Event) {
@@ -397,6 +400,6 @@ const site = location.origin + location.pathname
 
     <!-- Grading, results -->
     <EmergencyAccess v-else-if="step === 'access'" :exam="exam" />
-    <ExamScoring v-else :key="step" :exam="exam" :view="step" />
+    <ExamScoring v-else :key="`${exam.id}-${step}`" :exam="exam" :view="step" />
   </div>
 </template>
