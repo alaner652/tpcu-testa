@@ -1,59 +1,62 @@
-# 開發
+# Development
 
-啟動方式與示範帳號在 [README](../README.md#-快速開始)。
+How to start and the demo accounts: see the [README](../README.md#quick-start).
 
-## 專案結構
+## Layout
 
 ```
-考試系統/
-├── testa/                    前端（Vue 3）→ 細節見 testa/README.md
-├── server/                   後端（Spring Boot 4.1、Java 21）
-│   └── src/main/
-│       ├── java/tw/testa/
-│       │   ├── auth/         登入、Session 裡的身分、AccessGuard（權限檢查）
-│       │   ├── staff/        教職員帳號
-│       │   ├── unit/         單位、成員與角色
-│       │   ├── bank/         題庫
-│       │   ├── exam/         考試、名單、登入碼
-│       │   ├── attempt/      考生作答、計時、收卷、自動批改
-│       │   ├── grading/      閱卷、成績、匯出
-│       │   ├── emergency/    系統管理員的緊急檢視（負責人授權）
-│       │   ├── audit/        操作紀錄
-│       │   ├── config/       安全設定、設定值、第一位管理員、備份清單
-│       │   └── common/       錯誤處理（problem+json）、分頁
-│       └── resources/db/migration/   Flyway（V1 起，只增不改）
-├── deploy/                   Nginx、備份腳本、env 範本、冒煙測試
-├── docs/                     文件
-├── docker-compose.yml        開發用：只有 PostgreSQL
-└── docker-compose.prod.yml   正式部署：Nginx＋後端＋資料庫＋備份
+testa/                        frontend (Vue 3), see testa/README.md
+server/                       backend (Spring Boot 4.1, Java 21)
+  src/main/
+    java/tw/testa/
+      auth/                   login, session identity, AccessGuard (permission checks)
+      staff/                  staff accounts
+      unit/                   units, members and roles
+      bank/                   question banks
+      exam/                   exams, rosters, login codes
+      attempt/                taking the exam, timing, auto-submit, auto-grading
+      grading/                essay grading, results, export
+      emergency/              administrator emergency access (granted by the owner)
+      audit/                  audit log
+      config/                 security, properties, first administrator, backup listing
+      common/                 errors (problem+json), paging
+    resources/db/migration/   Flyway (from V1, add only)
+deploy/                       Nginx, backup script, env template, smoke test
+docs/                         documentation
+tools/                        developer tools
+docker-compose.yml            development: PostgreSQL only
+docker-compose.prod.yml       production: Nginx + backend + database + backup
 ```
 
-## 測試
+## Tests
 
-| 指令 | 內容 |
+| Command | What |
 | --- | --- |
-| `cd server && ./mvnw test` | 後端整合測試。用 Testcontainers 開真的 PostgreSQL，需要 Docker |
-| `cd testa && npm test` | 前端單元測試（vitest） |
-| `cd testa && npm run build` | 型別檢查＋正式建置 |
-| `python3 deploy/smoke-test.py http://localhost:8080 帳號 密碼` | 用真的 HTTP 走完一場模擬考。會留下測試資料 |
+| `cd server && ./mvnw test` | Backend integration tests with real PostgreSQL via Testcontainers (needs Docker) |
+| `cd testa && npm test` | Frontend unit tests (vitest) |
+| `cd testa && npm run build` | Type check + production build |
+| `python3 deploy/smoke-test.py http://localhost:8080 EMAIL PASSWORD` | A full mock exam over real HTTP. Leaves test data behind |
 
-`.github/workflows/ci.yml` 會在 GitHub 上跑前三項。
+`.github/workflows/ci.yml` runs the first three on GitHub.
 
-## 後端慣例
+## Backend conventions
 
-| | 規則 |
-| --- | --- |
-| 🔐 | 權限檢查只走 `AccessGuard`（`@PreAuthorize("@access...")` 或 `access.require*`）。系統管理員不會自動通過單位角色檢查 |
-| 🗃️ | 資料表變更一律新增 Flyway migration，不改舊檔 |
-| 💬 | 錯誤回 problem+json：`detail` 是可以直接顯示給使用者的中文，`code` 給程式判斷 |
-| 🙈 | 送到考生端的資料只走 `AttemptDtos`，不能包含答案、解析、評分規準（`AttemptTest` 有檢查） |
-| ⏱️ | 計時、收卷、批改只在後端做（`AttemptService`）；前端的倒數只是顯示，每 30 秒與時間到之前會向後端對時（監考補時靠這個生效） |
-| 📜 | 不可逆或敏感的動作寫入 `AuditService`；`audit_log` 在資料庫層禁止 update／delete |
-| 🚪 | 系統管理員看考試只能走 `EmergencyAccessService`；`*ForEmergency` 方法不檢查角色，不要從別的地方呼叫 |
-| 🪪 | Session 裡的身分（`StaffPrincipal`、`CandidatePrincipal`）要能序列化 |
+- Permission checks go only through `AccessGuard` (`@PreAuthorize("@access...")` or `access.require*`). System administrators do not pass unit role checks automatically.
+- Schema changes always add a new Flyway migration; never edit a shipped one.
+- Errors are problem+json: `detail` is Chinese text shown to the user as is, `code` is for the program.
+- Data sent to candidates goes only through `AttemptDtos` and must not include answers, explanations or rubrics (`AttemptTest` checks this).
+- Timing, auto-submit and grading happen only on the backend (`AttemptService`). The frontend countdown is display only and syncs with the backend every 30 seconds and before time-up (extra time takes effect this way).
+- Irreversible or sensitive actions are recorded with `AuditService`; `audit_log` forbids update and delete at the database level.
+- Administrators reach exams only through `EmergencyAccessService`; the `*ForEmergency` methods skip role checks and must not be called from anywhere else.
+- Session identities (`StaffPrincipal`, `CandidatePrincipal`) must be serializable.
 
-> ⚠️ 整合測試關掉了資料庫 Session（MockMvc 用的是假的 Session）。**改動登入流程後要跑 `deploy/smoke-test.py`**，那是唯一會走到真 Session 的測試。
+> Integration tests disable database sessions (MockMvc uses a mock session). **After changing the login flow, run `deploy/smoke-test.py`**; it is the only test that exercises real sessions.
 
-## 只在開發模式出現的示範功能
+## Demo-only features
 
-AI 匯入題目（假資料）、申論題的「AI 輔助評分」開關、後台「系統設定」分頁都沒接後端。由 `testa/src/lib/flags.ts` 的 `DEMO_FEATURES` 控制：`npm run dev` 看得到，`npm run build` 不顯示。
+AI question import (mock data), the "AI-assisted grading" switch on essay questions and the admin "System settings" tab have no backend. They are controlled by `DEMO_FEATURES` in `testa/src/lib/flags.ts`: visible in `npm run dev`, hidden by `npm run build`.
+
+## Conventions
+
+- English for code, identifiers, comments, docs and commit messages. UI text, user-facing error messages and audit details are Traditional Chinese.
+- No emojis in code, docs or commits.

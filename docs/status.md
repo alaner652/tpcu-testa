@@ -1,83 +1,83 @@
-# 進度與測試
+# Status
 
-最後盤點：2026-11-15。圖例：✅ 完成　🟡 完成但規則待確認　⏳ 還沒做　❓ 等學校決定　🚫 第一版不做
+Last reviewed: 2026-11-15.
 
-## 開發順序（對應設計文件第 9 節）
+## Milestones (design document, section 9)
 
-| | 階段 | 內容 |
+| Status | Milestone | Scope |
 | --- | --- | --- |
-| ✅ | 1. 後端骨架與登入 | 教職員登入、Session、CSRF、單位與角色、權限檢查、操作紀錄、後台管理頁 |
-| ✅ | 2. 題庫 | 題庫編輯器接上 API，自動儲存，版本衝突偵測 |
-| ✅ | 3. 考試與名單 | 建立、發布（凍結題目快照）、結束考試；名單匯入（.xlsx、.csv，含 Big5）、登入碼、登入單列印、監考頁 |
-| ✅ | 4. 考生作答 | 准考證號＋登入碼登入、單一連線、試卷不含答案、伺服器計時、自動儲存、斷線續考、交卷、逾時自動收卷、自動批改 |
-| ✅ | 5. 評分 | 每場考試指派 1 到多位評分者；匿名、互相看不到分數；全部送出後取平均（小數一位）；差距超過配分 20% 會警示承辦人（`testa.grading.flag-ratio`）；承辦人可填理由重開評分 |
-| 🟡 | 6. 成績與監考 | 成績表、公布成績、匯出 Excel 與 CSV、監考頁（狀態、鎖定、離開畫面次數、個別考生補時）、封存與到期刪除。公布後考生可查自己的總分與「選擇填空／申論」兩個小計，看不到答案、評語、各題得分 |
-| ⏳ | 7. 部署與試考 | 正式環境設定已在開發機實際建置並驗證，還沒上學校的主機 |
+| Done | 1. Backend skeleton and login | Staff login, sessions, CSRF, units and roles, permission checks, audit log, admin pages |
+| Done | 2. Question banks | Bank editor on the API, autosave, version conflict detection |
+| Done | 3. Exams and rosters | Create, publish (freezes a snapshot of the questions), end. Roster import (.xlsx, .csv including Big5), login codes, printable login slips, proctoring page |
+| Done | 4. Taking the exam | Candidate number + login code, single session per candidate, paper without answers, server-side timer, autosave, resume after disconnect, submit, auto-submit on timeout, auto-grading |
+| Done | 5. Grading | One or more graders per exam; anonymous, graders cannot see each other's scores; the average (one decimal) once all have submitted; a warning to the officer when graders differ by more than 20% of the points (`testa.grading.flag-ratio`); the officer can reopen grading with a reason |
+| Done, rules to confirm | 6. Results and proctoring | Score sheet, publish, Excel and CSV export, proctoring (status, lock, leave-screen count, extra time per candidate), archive and deletion after retention. After publishing, candidates see their total and two subtotals (choice/fill-in, essay), not answers, comments or per-question scores |
+| In progress | 7. Deployment and trial exam | Production setup built and verified on a development machine; not yet on the school's server |
 
-## 測試
+## Testing
 
-### ✅ 已在開發機測過
+### Verified on a development machine
 
-| 範圍 | 內容 |
+| Area | What |
 | --- | --- |
-| 部署 | 映像檔建置、Nginx（靜態檔、SPA 路由、安全標頭、限流）、每日備份、清空資料庫後從備份還原 |
-| 模擬考 | `deploy/smoke-test.py` 透過 Nginx 走完出題到考生查成績，再加上緊急檢視（授權、檢視、撤銷）與封存。2026-11-15 用重建的正式映像檔重跑通過 |
-| 負載 | 300 位考生從同一個 IP 同時登入、作答、交卷：8400 個請求，零失敗，p99 12 ms |
-| 登入狀態存資料庫 | 正式映像檔跑完模擬考；後端重啟後原本的登入仍有效；300 位考生直接打後端 12000 個請求零失敗（p50 15 ms、p95 109 ms） |
-| 異常情境 | 考到一半後端重啟、資料庫重啟、同一考生兩處登入、登入碼連錯鎖定與重設、承辦人中途結束考試、時間到自動收卷（含完全沒再連線的考生）、監考在時間快到時補時（考生倒數延長、不會被自動交卷） |
-| HTTPS | 前面加一台自簽憑證的反向代理，`TESTA_COOKIE_SECURE=true` 下整場模擬考通過；設定 `set_real_ip_from` 後限流與操作紀錄記到真正的來源 IP，偽造的 `X-Forwarded-For` 不會被採信 |
-| 瀏覽器（Chromium） | 考生端：登入、四種題型作答、重新整理續考、斷線自動重送、被踢、交卷、時間到、查成績（含 390 與 320 寬度）。教職員端：換密碼、出題、建立考試、Big5 名單匯入、登入單、監考、閱卷、公布成績、匯出。系統管理員後台。封存與取消封存、緊急檢視的授權與檢視、評分差距警示（評分頁、成績頁、公布前確認） |
-| 自動化測試 | 後端 40 個整合測試（Testcontainers 開真的 PostgreSQL）；前端 19 個單元測試 |
+| Deployment | Image build, Nginx (static files, SPA routing, security headers, rate limit), daily backup, restore into an emptied database |
+| Mock exam | `deploy/smoke-test.py` runs through Nginx from writing questions to candidates checking scores, plus emergency access (grant, view, revoke) and archiving. Re-run on 2026-11-15 against freshly built production images |
+| Load | 300 candidates from one IP signing in, answering and submitting at once: 8,400 requests, no failures, p99 12 ms |
+| Sessions in the database | Mock exam on production images; sessions survive a backend restart; 300 candidates hitting the backend directly, 12,000 requests, no failures (p50 15 ms, p95 109 ms) |
+| Failure cases | Backend restart mid-exam, database restart, the same candidate signing in twice, lockout after wrong login codes and reset, officer ending the exam early, auto-submit at time-up (including candidates who never reconnect), proctor adding time just before time-up (countdown extends, no auto-submit) |
+| HTTPS | Behind a reverse proxy with a self-signed certificate and `TESTA_COOKIE_SECURE=true`, the full mock exam passes. With `set_real_ip_from`, rate limits and the audit log use the real client IP and forged `X-Forwarded-For` is ignored |
+| Browser (Chromium) | Candidates: sign-in, all four question types, reload and resume, resend after disconnect, being kicked, submit, time-up, checking scores (including 390 and 320 px widths). Staff: password change, authoring, creating exams, Big5 roster import, login slips, proctoring, grading, publishing, export. Admin pages. Archive and unarchive, emergency access grant and view, grader disagreement warnings (grading page, results page, confirm before publishing) |
+| Automated tests | 40 backend integration tests (Testcontainers with real PostgreSQL); 19 frontend unit tests |
 
-### ⏳ 要到現場才能確認
+### Needs the real site
 
-- 學校主機與電腦教室的實際網路；學校真正的 HTTPS 反向代理。
-- Chromium 以外的瀏覽器（Safari、Firefox、Edge）與 Windows。
-- 登入單實際用印表機印出來的樣子（PDF 輸出已確認中文正常）。
+- The school server and the computer lab network; the school's own HTTPS reverse proxy.
+- Browsers other than Chromium (Safari, Firefox, Edge) and Windows.
+- Login slips printed on a real printer (PDF output with Chinese text is confirmed).
 
-## 還沒實作
+## Not done yet
 
-設計文件「第一版要做」的七項都已經做完。以下是沒做或做法比設計文件簡化的部分。
+All seven first-release items in the design document are done. Below is what is missing or simpler than the design document.
 
-### ✅ 學校已決定（2026-11-14）
+### Decided by the school (2026-11-14)
 
-| 問題 | 學校的決定 | 做法 |
+| Question | Decision | Implementation |
 | --- | --- | --- |
-| 考生個資與答卷保存多久 | 保留 n+1 年，封存後人工刪除 | 考試結束後負責人可以**封存**（唯讀、考生不能再登入）。封存而且過了保存期限，才能填理由**刪除**，名單、答卷、評分一起刪，操作紀錄留下考試名稱與人數。期限＝考試結束那一年的隔年年底（`testa.retention.years`） |
-| 評分差距過大怎麼處理 | 取平均，差距 > 20 時警示承辦人 | 差距超過配分的 20% 時，評分頁與成績頁出現警示，公布成績前再提醒一次。承辦人可以重開評分 |
-| 出題者能不能評自己出的題 | 可以 | 不做迴避規則 |
-| 系統管理員的緊急檢視 | 需要，但要負責人授權並保留紀錄 | 負責人針對一場考試授權一位系統管理員，填理由、選時效（最長 3 天），可隨時撤銷。管理員只能看名單、作答狀態、成績；看不到登入碼、題目、答卷內容，也不能修改。授權、撤銷、每次檢視都寫入操作紀錄 |
+| How long to keep candidate data and papers | n+1 years, archived, then deleted by hand | After an exam ends the owner can **archive** it (read-only, candidates can no longer sign in). Once archived and past retention, it can be **deleted** with a reason: roster, papers and scores go together; the audit log keeps the exam name and head count. Retention ends on 31 Dec of the year after the exam ended (`testa.retention.years`) |
+| What to do when graders disagree | Use the average; warn the officer when the gap is over 20 | When the gap exceeds 20% of the question's points, the grading and results pages warn, and publishing asks again. The officer can reopen grading |
+| May authors grade their own questions | Yes | No recusal rule |
+| Emergency access for system administrators | Yes, with the owner's grant and a record | The owner grants one administrator access to one exam with a reason and a duration (up to 3 days) and can revoke it any time. The administrator sees the roster, progress and scores only; no login codes, questions or answers, and no edits. Grants, revocations and every view are audited |
 
-兩處是照字面以外的解讀，上線前要跟學校對一次：
+Two interpretations need confirming with the school before launch:
 
-- **「n+1 年」**：目前算成「考試結束那一年的隔年 12/31」。如果學校指的是學年度，改 `testa.retention.years` 或調整算法。
-- **「差距 > 20」**：目前算成「配分的 20%」，100 分的題目就是 20 分。如果學校指的是不論配分一律 20 分，配分小於 20 分的題目永遠不會警示，要另外處理。
+- **"n+1 years"**: currently 31 Dec of the year after the exam ended. If the school means school years, change `testa.retention.years` or the calculation.
+- **"Gap over 20"**: currently 20% of the question's points, i.e. 20 points for a 100-point question. If the school means 20 points regardless, questions worth less than 20 would never warn and need separate handling.
 
-### ❓ 還在等學校決定
+### Waiting for the school
 
-| 項目 | 現況 |
+| Item | Current behaviour |
 | --- | --- |
-| 登入碼存原文 | 為了能重印登入單而存原文，只有該單位的負責人與監考讀得到 |
-| 考生能不能查成績 | 暫定「公布成績＝開放考生查詢自己的分數」 |
+| Login codes stored in plain text | Kept so slips can be reprinted; readable only by the unit's owners and proctors |
+| Can candidates check their scores | Assumed: publishing results lets candidates see their own score |
 
-### ⏳ 其他缺口
+### Other gaps
 
-- 教職員忘記密碼只能請系統管理員重設，沒有自助流程（自助需要寄信，第一版不做 Email）。
-- 後台「備份」分頁只能看清單與最近一次的時間，不能下載、手動觸發或還原。
-- 前端只有純邏輯的單元測試（批改、題目檢查、公式轉 HTML、API 錯誤處理），沒有元件與瀏覽器的自動化測試；瀏覽器流程是用腳本手動跑過的。
-- CI 設定檔（`.github/workflows/ci.yml`）已寫好，但專案還沒推到 GitHub，沒有實際跑過。
+- Staff who forget their password must ask an administrator to reset it; there is no self-service flow (it needs email, which the first release does not send).
+- The admin "Backups" tab only lists backups and the latest time; it cannot download, trigger or restore.
+- The frontend has unit tests for pure logic only (grading, question validation, formulas, API errors), no component or browser automation; browser flows were run by script by hand.
+- The CI workflow (`.github/workflows/ci.yml`) is written but has never run, since the project is not on GitHub yet.
 
-### 🚫 第一版不做
+### Not in the first release
 
-- AI 匯入題目、申論題的 AI 輔助評分、後台系統設定：只有畫面、沒接後端（本地模型實測與建議見 [AI 研究](ai.md)）。由 `testa/src/lib/flags.ts` 的 `DEMO_FEATURES` 控制，`npm run dev` 看得到，正式建置不顯示。
-- 班級學生長期帳號、Email／簡訊寄登入單、視訊監考與鎖定瀏覽器、隨機抽題與多份試卷、校務系統串接與單一登入。
+- AI question import, AI-assisted essay grading and admin system settings: UI only, no backend (see [AI research](ai.md)). Controlled by `DEMO_FEATURES` in `testa/src/lib/flags.ts`: visible in `npm run dev`, hidden in production builds.
+- Long-lived student accounts, emailing or texting login slips, video proctoring and lockdown browsers, random question selection and multiple paper versions, integration with the school's systems and single sign-on.
 
-## 與設計文件 v0.2 不同的地方
+## Differences from design document v0.2
 
-- 評分者是 1 到多位，不是固定三位（2026-11-14 確認）。
-- 系統管理員經單位負責人授權後可以限時檢視一場考試（2026-11-14 確認）。
-- 登入碼存原文而非雜湊，登入單才能重印（待確認）。
-- 後端用 Spring Boot 4.1 而非 3（3.x 已停止開源維護）；編譯目標仍是 Java 21。
-- 公布成績＝開放考生查詢自己的分數（設計文件待確認事項第 7 項，暫定這樣做）。
-- 建立考試的表單拿掉「施測方式」（電腦教室／純線上）：它在系統裡沒有任何作用，新考試一律記為電腦教室。資料欄位保留，要做純線上場次時再加回來。
-- 中文字型用系統內建黑體，英數字型隨前端打包，不連外部 CDN。
+- Graders are one or more, not a fixed three (confirmed 2026-11-14).
+- System administrators can view an exam for a limited time with the owner's grant (confirmed 2026-11-14).
+- Login codes are stored in plain text, not hashed, so slips can be reprinted (to be confirmed).
+- The backend uses Spring Boot 4.1 instead of 3 (3.x is out of open-source support); the compile target is still Java 21.
+- Publishing results lets candidates check their own score (open question 7 in the design document; assumed for now).
+- The exam form no longer asks for the delivery mode (computer lab / online): it had no effect, so new exams are recorded as computer lab. The column stays and can come back for online exams.
+- Chinese text uses the system sans-serif font; Latin fonts are bundled with the frontend, with no external CDN.

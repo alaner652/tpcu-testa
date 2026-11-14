@@ -1,93 +1,93 @@
-# Testa 前端
+# Testa frontend
 
-Vue 3（Composition API、`<script setup>`）、TypeScript、Vite、Tailwind CSS v4、reka-ui、Lucide、KaTeX、vue-draggable-plus、vue-sonner。
+Vue 3 (Composition API, `<script setup>`), TypeScript, Vite, Tailwind CSS v4, reka-ui, Lucide, KaTeX, vue-draggable-plus, vue-sonner.
 
 ```bash
 npm install
-npm run dev        # :5173，/api 轉給 localhost:8080 的後端
-npm test           # 單元測試（vitest）
-npm run build      # 型別檢查＋正式建置
+npm run dev        # :5173, proxies /api to the backend on localhost:8080
+npm test           # unit tests (vitest)
+npm run build      # type check + production build
 ```
 
-後端怎麼啟動、示範帳號是什麼，看[根目錄的 README](../README.md#-快速開始)。
+How to start the backend and the demo accounts: see the [root README](../README.md#quick-start).
 
-## 頁面
+## Pages
 
-路由是 hash 模式，網址長得像 `http://localhost:5173/#/exams`。
+Hash routing, so URLs look like `http://localhost:5173/#/exams`. UI text is Traditional Chinese.
 
-| | 路徑 | 誰看得到 | 內容 |
-| --- | --- | --- | --- |
-| 🔑 | `/login` | 所有人 | 考生：准考證號＋登入碼；教職員：Email＋密碼 |
-| 🔒 | `/password` | 教職員 | 換密碼（臨時密碼登入後會被帶到這裡） |
-| 🏠 | `/` | 教職員 | 首頁：「接下來要做的事」待辦清單，每件一個按鈕 |
-| 📚 | `/banks` | 出題、負責人 | 題庫列表 |
-| ✏️ | `/banks/:id` | 出題 | 題庫編輯器（專注模式）：編輯／模擬作答 |
-| 🗓️ | `/exams` | 負責人、監考 | 考試列表：建立、發布、結束 |
-| 📋 | `/exams/:id` | 負責人、監考 | 單場考試：考生名單、登入單、監考、評分者與成績、緊急檢視授權 |
-| 📝 | `/grading` | 評分 | 閱卷：一次一份、匿名 |
-| 👥 | `/members` | 負責人 | 單位成員與角色（從右上角帳號選單進入） |
-| ⚙️ | `/admin` | 系統管理員 | 帳號、單位、操作紀錄、備份、緊急檢視 |
-| 🎓 | `/student` | 考生 | 我的考試、成績 |
-| 💻 | `/student/exam/:id` | 考生 | 作答（專注模式）：核對身分 → 計時作答 → 交卷 |
+| Path | Who | Contents |
+| --- | --- | --- |
+| `/login` | everyone | Candidates: candidate number + login code. Staff: email + password |
+| `/password` | staff | Change password (forced after signing in with a temporary one) |
+| `/` | staff | Home: a to-do list, one button per item |
+| `/banks` | authors, owners | Question banks |
+| `/banks/:id` | authors | Bank editor (focus mode): edit / try it as a candidate |
+| `/exams` | owners, proctors | Exams: create, publish, end |
+| `/exams/:id` | owners, proctors | One exam: roster, login slips, proctoring, graders and results, emergency access |
+| `/grading` | graders | Grading: one paper at a time, anonymous |
+| `/members` | owners | Unit members and roles (from the account menu) |
+| `/admin` | system administrators | Accounts, units, audit log, backups, emergency access |
+| `/student` | candidates | My exams, results |
+| `/student/exam/:id` | candidates | Taking the exam (focus mode): confirm identity, timed answering, submit |
 
-導覽列在桌面是頂部分頁，手機是底部分頁。前端的守衛只負責導向；真正的權限檢查在後端。
+The nav is a top tab bar on desktop and a bottom tab bar on phones. Route guards only redirect; the backend does the real permission checks.
 
-## 結構
+## Layout
 
 ```
 src/
-  router.ts               路由與登入、權限守衛
-  App.vue                 全域：RouterView、確認視窗、Toast
-  layouts/AppLayout.vue   導覽列＋內容區＋手機底部分頁
-  pages/                  每個路由一個檔案
+  router.ts               routes, sign-in and role guards
+  App.vue                 RouterView, confirm dialog, toasts
+  layouts/AppLayout.vue   nav + content + phone tab bar
+  pages/                  one file per route
   composables/
-    useAuth.ts            目前登入的人、單位與角色
-    useBanks.ts           題庫：載入、自動儲存、版本衝突
-    useExams.ts           考試、名單
-    useGrading.ts         閱卷
-    useCandidate.ts       考生端：試卷、作答、計時顯示
-    useConfirm.ts         確認視窗（Promise 介面）
-    useQuestionActions.ts 帶確認與 toast 的題目動作
-    useTheme.ts           深淺色
-    useWorkspace.ts       示範資料（只給 DEMO_FEATURES 用）
+    useAuth.ts            current user, units and roles
+    useBanks.ts           banks: loading, autosave, version conflicts
+    useExams.ts           exams and rosters
+    useGrading.ts         grading
+    useCandidate.ts       candidate side: paper, answers, clock sync
+    useConfirm.ts         confirm dialog (Promise API)
+    useQuestionActions.ts question actions with confirm and toast
+    useTheme.ts           light / dark
+    useWorkspace.ts       demo data (DEMO_FEATURES only)
   components/
-    ui/                   Button、Switch、Tip、Menu、SidePanel、ConfirmDialog…
-    app/                  Logo、UserMenu、UnitMembers、ExamScoring
-    editor/               題庫編輯器與作答共用的題卡
+    ui/                   Button, Switch, Tip, Menu, MoreMenu, SidePanel, ConfirmDialog...
+    app/                  Logo, UserMenu, UnitMembers, ExamScoring, emergency access
+    editor/               bank editor and the question cards shared with the exam
   lib/
-    api.ts                fetch 包裝：CSRF、problem+json 錯誤
-    grading.ts            自動批改（模擬作答用；正式批改在後端）
-    question.ts           題目檢查
-    math.ts               公式轉 HTML（KaTeX）
+    api.ts                fetch wrapper: CSRF, problem+json errors
+    grading.ts            auto-grading for "try it" mode (real grading is on the backend)
+    question.ts           question validation
+    math.ts               formulas to HTML (KaTeX)
     flags.ts              DEMO_FEATURES
-    __tests__/            單元測試
-  data/                   示範題庫、模擬的 AI 辨識結果
+    __tests__/            unit tests
+  data/                   demo banks, mock AI import result
 ```
 
-## 慣例
+## Conventions
 
-- **題卡共用**：編輯時看到的題目就是考生作答時的樣子。考生作答與教師的「模擬作答」共用 `ExamPreview`（`real` 屬性切換）。
-- **確認與回饋**：無法輕易回復的動作（刪除、交卷、結束考試、停用帳號…）都透過 `useConfirm()` 跳確認視窗；完成後用 toast 回報。
-- **示範功能**：AI 匯入、AI 輔助評分、後台系統設定沒接後端，用 `DEMO_FEATURES` 包起來，正式建置不顯示。
-- **元件**：`components/ui` 依 shadcn-vue 的寫法（reka-ui + cva + `cn()`）手寫並套用本專案的 token，沒有透過 CLI 產生。
+- **Shared question cards**: a question looks the same in the editor as in the exam. Candidates and the teacher's "try it" mode share `ExamPreview` (switched by the `real` prop).
+- **Confirm and feedback**: actions that are hard to undo (delete, submit, end exam, disable account...) go through `useConfirm()`; results are reported with a toast.
+- **Demo features**: AI import, AI-assisted grading and admin system settings have no backend. They are wrapped in `DEMO_FEATURES` and hidden in production builds.
+- **Components**: `components/ui` follows the shadcn-vue style (reka-ui + cva + `cn()`), written by hand with this project's tokens, not generated by the CLI.
 
 ## Design tokens
 
-定義在 `src/style.css`，深淺色各一組。
+Defined in `src/style.css`, one set each for light and dark.
 
-| | Token | 用途 |
-| --- | --- | --- |
-| ⬜ | `desk` / `paper` / `sunken` | 畫布、卡片、輸入區與 hover |
-| ⬛ | `ink` / `ink-2` / `ink-3` | 文字三階 |
-| 🟩 | `brand` / `brand-strong` / `brand-soft` | 黑板綠：品牌、主要動作、正確答案 |
-| 🟥 | `grade` / `grade-soft` | 紅：只用在錯誤、警示、刪除 |
-| 🟨 | `marker` / `marker-ink` | 黃：待處理（搭配用 `bg-marker text-marker-ink`，沒有 `marker-soft`） |
+| Token | Use |
+| --- | --- |
+| `desk` / `paper` / `sunken` | Canvas, cards, inputs and hover |
+| `ink` / `ink-2` / `ink-3` | Three levels of text |
+| `brand` / `brand-strong` / `brand-soft` | Chalkboard green: brand, primary actions, correct answers |
+| `grade` / `grade-soft` | Red: errors, warnings, delete only |
+| `marker` / `marker-ink` | Yellow: pending (`bg-marker text-marker-ink`; there is no `marker-soft`) |
 
-全站使用同一組黑體；題目內容套用 `.exam-text`，編輯與作答共用。
+One sans-serif stack for the whole site; question content uses `.exam-text`, shared by the editor and the exam.
 
-## 🧭 介面原則
+## UI principles
 
-- 每一列只放一個「下一步」按鈕，少用的動作收進「⋯」（`components/ui/MoreMenu.vue`）。
-- 按鈕、分頁、導覽都配圖示（lucide）。
-- 卡片整張可點；狀態旁用一句話寫「下一步要做什麼」。
-- 說明文字只留必要的。
+- One "next step" button per row; rarely used actions go into the "..." menu (`components/ui/MoreMenu.vue`).
+- Buttons, tabs and nav items carry a Lucide icon.
+- Whole cards are clickable; a one-line hint next to the status says what to do next.
+- Keep explanatory text to what is needed.
