@@ -21,7 +21,7 @@ dev profile 的示範帳號（登入頁有一鍵登入）：
 | 教師（出題＋評分） | teacher@testa.tw、teacher2@、teacher3@ | testa-teacher |
 | 考生（示範考試） | 准考證號 A115-0001 | 登入碼 482915 |
 
-測試：`cd server && ./mvnw test`（用 Testcontainers 開真的 PostgreSQL，需要 Docker）。
+測試：`cd server && ./mvnw test`（用 Testcontainers 開真的 PostgreSQL，需要 Docker）。前端：`cd testa && npm test`。
 
 正式環境不要開 dev profile；第一位系統管理員用環境變數 `TESTA_ADMIN_EMAIL`、`TESTA_ADMIN_PASSWORD` 建立，HTTPS 下設 `TESTA_COOKIE_SECURE=true`。
 
@@ -68,7 +68,8 @@ dev profile 的示範帳號（登入頁有一鍵登入）：
 其他缺口：
 
 - 教職員忘記密碼只能請系統管理員重設，沒有自助流程。
-- 前端沒有自動化測試（只有型別檢查與建置）；瀏覽器流程是用腳本手動跑過，沒有放進 CI。
+- 前端只有純邏輯的單元測試（批改、題目檢查、公式轉 HTML、API 錯誤處理），沒有元件與瀏覽器的自動化測試；瀏覽器流程是用腳本手動跑過的。
+- CI 設定檔（`.github/workflows/ci.yml`）已寫好，但這個專案還沒推到 GitHub，沒有實際跑過。
 
 ## 部署
 

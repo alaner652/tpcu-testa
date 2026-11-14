@@ -1,0 +1,37 @@
+# 每次 push 與 PR 都跑：後端整合測試（Testcontainers 開真的 PostgreSQL）、前端型別檢查＋單元測試＋建置。
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      - run: ./mvnw -B test
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: testa
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: testa/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
