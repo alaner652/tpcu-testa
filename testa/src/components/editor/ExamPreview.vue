@@ -315,8 +315,9 @@ function jump(index: number) {
 
       <!-- Answering: one question at a time -->
       <div v-else-if="!submitted && question" class="min-w-0">
-        <section class="bg-paper px-5 pt-6 pb-5 shadow-card sm:px-10 sm:pt-9 md:rounded-card">
-          <p class="mb-3 flex items-center justify-end text-sm text-ink-2">
+        <section class="bg-paper px-5 pt-5 pb-5 shadow-card sm:px-10 sm:pt-7 md:rounded-card">
+          <p class="mb-3 flex items-center justify-between gap-3 text-sm text-ink-2">
+            <span class="tabular-nums">第 {{ current + 1 }} 題，共 {{ questions.length }} 題</span>
             <button
               type="button"
               class="inline-flex h-9 items-center gap-1.5 rounded-full px-3 transition-colors"
