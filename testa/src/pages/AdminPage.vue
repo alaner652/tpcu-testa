@@ -467,7 +467,7 @@ watch(tab, load)
               最近一次備份：<span class="font-medium tabular-nums">{{ when(backups.items[0].at) }}</span>
               <span v-if="backupStale(backups.items[0])" class="ml-2 rounded-full bg-marker px-2.5 py-1 text-sm font-medium text-marker-ink">超過一天沒有新的備份</span>
             </p>
-            <p class="mt-1 text-sm text-ink-2">每天自動備份一次。這裡只能確認備份有在跑；還原要在主機上操作，步驟在 README。</p>
+            <p class="mt-1 text-sm text-ink-2">每天自動備份一次。這裡只能確認備份有在跑；還原要在主機上操作，步驟在部署文件（docs/deployment.md）。</p>
           </div>
           <ul class="divide-y divide-line border-t border-line">
             <li v-for="b in backups.items" :key="b.name" class="flex flex-wrap items-baseline gap-x-4 px-5 py-3 text-[15px] sm:px-6">

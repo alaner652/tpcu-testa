@@ -15,3 +15,6 @@ target/
 
 # 部署
 backups/
+
+# Python
+__pycache__/

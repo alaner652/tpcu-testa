@@ -1,7 +1,7 @@
 # 正式部署（線上主機與教室主機用同一份）：
 #   cp deploy/env.example .env   # 填好密碼
 #   docker compose -f docker-compose.prod.yml up -d --build
-# 對外只開 web（Nginx）。HTTPS 由學校的反向代理或負載平衡器負責；沒有的話見 README。
+# 對外只開 web（Nginx）。HTTPS 由學校的反向代理或負載平衡器負責；沒有的話見 docs/deployment.md。
 name: testa-prod
 services:
   db:
