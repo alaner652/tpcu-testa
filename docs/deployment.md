@@ -33,6 +33,20 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 登入狀態存在資料庫（`spring_session`），後端重啟後不用重新登入。
 
+### 在學校的 Proxmox VE 上（Dell R760）
+
+建一台 Linux VM 跑 Docker，照上面的步驟上線。不建議用 LXC 跑 Docker，問題比較多。
+
+| 項目 | 建議 | 依據 |
+| --- | --- | --- |
+| 系統 | Debian 或 Ubuntu LTS，裝 Docker Engine | |
+| CPU／記憶體 | 4 vCPU、8 GB | 開發機上 300 位考生同時作答，p99 12 ms，負載很輕；留餘裕給考試當天 |
+| 硬碟 | 64 GB 起 | 資料庫很小，主要是備份檔 |
+| 網路 | 固定 IP，電腦教室連得到 | 前面若有學校的反向代理，看下一節設定真實 IP |
+| 備份 | 程式自己的每日 `pg_dump`＋PVE 的 VM 備份（vzdump 或 PBS） | 兩層：一層還原資料，一層還原整台機器 |
+
+要跟資訊單位確認：分配多少 CPU 與記憶體、有沒有 GPU（之後要跑 AI 才需要）、電腦教室到主機的網段與防火牆、HTTPS 憑證由誰處理、有沒有 Proxmox Backup Server。
+
 ## 2️⃣ 前面有反向代理時
 
 Nginx 的限流與操作紀錄裡的 IP 都以來源 IP 計算。如果前面還有一台代理，所有人看起來都來自那台代理，會共用同一份限流額度。照 `deploy/nginx.conf` 開頭的說明設定 `set_real_ip_from`。
