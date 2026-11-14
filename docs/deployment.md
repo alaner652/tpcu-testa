@@ -41,6 +41,7 @@ Create a Linux VM running Docker and follow the steps above. Running Docker in a
 | --- | --- | --- |
 | OS | Debian or Ubuntu LTS with Docker Engine | |
 | CPU / memory | 4 vCPU, 8 GB | 300 concurrent candidates on a development machine gave p99 12 ms; this leaves headroom |
+| CPU type | `host` (or `x86-64-v3`) | The image build runs Vite 8 and Tailwind 4 native binaries, which crash with "Illegal instruction" on the default QEMU CPU model (seen on another school project) |
 | Disk | 64 GB or more | The database is small; most space is backups |
 | Network | Fixed IP reachable from the computer labs | If the school's reverse proxy is in front, see the next section |
 | Backup | The app's daily `pg_dump` plus PVE VM backups (vzdump or PBS) | One restores data, the other the whole machine |
