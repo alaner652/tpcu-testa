@@ -132,7 +132,7 @@ watch(store.bankId, (id) => {
     <EditorTopBar :mode="mode" @update:mode="requestMode" @open-overview="overviewOpen = true" @import="importOpen = true" />
 
     <main ref="scroller" class="thin-scroll min-h-0 flex-1 overflow-y-auto">
-      <ExamPreview v-if="mode === 'preview' && store.bank.value" ref="exam" :bank="store.bank.value" @edit="editQuestion" />
+      <ExamPreview v-if="mode === 'preview' && store.bank.value" :key="store.bank.value.id" ref="exam" :bank="store.bank.value" @edit="editQuestion" />
       <div
         v-else
         class="mx-auto grid max-w-[1080px] items-start gap-x-8 py-3 md:px-6 md:py-7 xl:grid-cols-[12.5rem_minmax(0,1fr)]"
