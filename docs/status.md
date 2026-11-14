@@ -73,7 +73,8 @@ Two interpretations need confirming with the school before launch:
 ### Not in the first release
 
 - AI question import, AI-assisted essay grading and admin system settings: UI only, no backend (see [AI research](ai.md)). Controlled by `DEMO_FEATURES` in `testa/src/lib/flags.ts`: visible in `npm run dev`, hidden in production builds.
-- Long-lived student accounts, emailing or texting login slips, video proctoring and lockdown browsers, random question selection and multiple paper versions, integration with the school's systems and single sign-on.
+- Emailing or texting login slips, video proctoring and lockdown browsers, random question selection and multiple paper versions.
+- Internal exams (midterms, finals, quizzes) with school accounts and class rosters: proposed in [School accounts](school-accounts.md), waiting on the questions listed there.
 
 ## Differences from design document v0.2
 

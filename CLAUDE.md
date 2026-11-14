@@ -1,4 +1,4 @@
-# CLAUDE.md - Testa (online exam system)
+# CLAUDE.md - tpcu-testa (Testa, online exam system)
 
 Context for Claude Code working on this repo. The user writes in Traditional Chinese; reply in Traditional Chinese.
 
@@ -12,6 +12,7 @@ choice and fill-in questions are auto-graded, essays are graded anonymously by o
 - Backend `server/`: Spring Boot 4.1, Java 21, PostgreSQL 17, Flyway, Spring Session JDBC. Layout and rules in `docs/development.md`.
 - Deployment: Docker Compose (Nginx + backend + PostgreSQL + backup) on a Linux VM on the school's Proxmox VE. See `docs/deployment.md`.
 - Status, verified behaviour and open questions: `docs/status.md`. Read it before planning work.
+- Internal exams with school accounts are a proposal in `docs/school-accounts.md` (separate `school` module, not a new backend); not implemented.
 
 ## Rules that are easy to break
 

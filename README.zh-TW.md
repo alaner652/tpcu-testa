@@ -4,6 +4,8 @@
 
 學校自行架設的線上考試系統：出題、安排考試、考生在電腦教室作答、匿名閱卷、公布成績。
 
+儲存庫名稱是 `tpcu-testa`；程式本身叫 Testa，裡面沒有寫死任何學校專屬的設定。
+
 ![題庫編輯器](docs/images/editor.png)
 
 | 登入 | 考試管理 |
@@ -21,6 +23,7 @@
 | [部署](docs/deployment.md) | 上線、HTTPS、網路與斷網考試、升級、備份與還原 |
 | [開發](docs/development.md) | 專案結構、後端慣例、測試 |
 | [前端](testa/README.md) | 頁面、元件結構、design tokens、介面原則 |
+| [校務帳號](docs/school-accounts.md) | 提案：校內考試用校務帳號登入、依班級帶入名單 |
 | [AI 研究](docs/ai.md) | 本地模型實測：出題導入、改題、MCP |
 
 ## 一場考試的流程

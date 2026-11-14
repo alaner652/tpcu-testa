@@ -4,6 +4,8 @@
 
 A self-hosted online exam system for schools: write questions, schedule an exam, let candidates take it in a computer lab, grade essays anonymously and publish the results.
 
+The repository is `tpcu-testa`; the application is called Testa and has no school-specific code in it.
+
 ![Question bank editor](docs/images/editor.png)
 
 | Login | Exams |
@@ -19,6 +21,7 @@ A self-hosted online exam system for schools: write questions, schedule an exam,
 | [Deployment](docs/deployment.md) | Going live, HTTPS, network and offline exams, upgrades, backup and restore |
 | [Development](docs/development.md) | Layout, backend conventions, tests |
 | [Frontend](testa/README.md) | Pages, component layout, design tokens, UI principles |
+| [School accounts](docs/school-accounts.md) | Proposal: internal exams with school sign-in and class rosters |
 | [AI research](docs/ai.md) | Local model trials: question import, grading assistance, MCP |
 
 ## How an exam works
