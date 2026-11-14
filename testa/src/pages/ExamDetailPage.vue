@@ -4,9 +4,10 @@ import { useRoute } from 'vue-router'
 import { ChevronLeft, LoaderCircle, Printer, Upload } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import Button from '@/components/ui/Button.vue'
+import EmergencyAccess from '@/components/app/EmergencyAccess.vue'
 import ExamScoring from '@/components/app/ExamScoring.vue'
 import { useConfirm } from '@/composables/useConfirm'
-import { CANDIDATE_STATUS, EXAM_STATUS, MODE_LABEL, useExams, when, type Candidate, type RosterPreview } from '@/composables/useExams'
+import { CANDIDATE_STATUS, EXAM_STATUS, MODE_LABEL, retainLabel, useExams, when, type Candidate, type RosterPreview } from '@/composables/useExams'
 
 /**
  * 一場考試要做的事都在這一頁：考生（名單與監考）、登入單、評分、成績。
@@ -29,7 +30,7 @@ const STATUS_COUNTS = [
 ] as const
 const fail = (e: unknown) => toast.error((e as Error).message)
 
-type Step = 'roster' | 'tickets' | 'grading' | 'results'
+type Step = 'roster' | 'tickets' | 'grading' | 'results' | 'access'
 // 評分與成績只有負責人看得到（監考碰不到分數）
 const STEPS = computed<{ value: Step; label: string }[]>(() => [
   { value: 'roster', label: '考生' },
@@ -38,6 +39,7 @@ const STEPS = computed<{ value: Step; label: string }[]>(() => [
     ? ([
         { value: 'grading', label: '評分' },
         { value: 'results', label: '成績' },
+        { value: 'access', label: '緊急檢視' },
       ] as const)
     : []),
 ])
@@ -173,6 +175,10 @@ const site = location.origin + location.pathname
       </p>
     </div>
 
+    <p v-if="exam.archivedAt" class="no-print mx-4 mt-4 rounded-control bg-marker px-4 py-3 text-[15px] text-marker-ink md:mx-0">
+      這場考試已於 {{ when(exam.archivedAt) }} 封存，只能檢視。考生不能再登入查成績。資料保留到 {{ retainLabel(exam.retainUntil) }}。
+    </p>
+
     <div role="tablist" aria-label="考試步驟" class="mt-5 mb-4 flex flex-wrap gap-1 px-4 md:px-0">
       <button
         v-for="s in STEPS"
@@ -299,6 +305,7 @@ const site = location.origin + location.pathname
     </section>
 
     <!-- 評分、成績 -->
+    <EmergencyAccess v-else-if="step === 'access'" :exam="exam" />
     <ExamScoring v-else :key="step" :exam="exam" :view="step" />
   </div>
 </template>

@@ -8,9 +8,9 @@ import SidePanel from '@/components/ui/SidePanel.vue'
 import { useAuth } from '@/composables/useAuth'
 import { useBanks } from '@/composables/useBanks'
 import { useConfirm } from '@/composables/useConfirm'
-import { EXAM_STATUS, MODE_LABEL, toLocalInput, useExams, when, type Exam, type ExamMode } from '@/composables/useExams'
+import { canPurge, EXAM_STATUS, MODE_LABEL, retainLabel, toLocalInput, useExams, when, type Exam, type ExamMode } from '@/composables/useExams'
 
-const { exams, loading, loadError, load, create, update, publish, withdraw, end, remove } = useExams()
+const { exams, loading, loadError, load, create, update, publish, withdraw, end, remove, archive, unarchive } = useExams()
 const { banks } = useBanks()
 const { user } = useAuth()
 const { confirm } = useConfirm()
@@ -122,6 +122,55 @@ async function doRemove(exam: Exam) {
   }
 }
 
+const current = computed(() => exams.value.filter((e) => !e.archivedAt))
+const archived = computed(() => exams.value.filter((e) => e.archivedAt))
+
+async function doArchive(exam: Exam) {
+  const ok = await confirm({
+    title: `封存「${exam.name}」？`,
+    description: `封存後這場考試變成唯讀，考生不能再登入查成績。資料會保留到 ${retainLabel(exam.retainUntil)}，之後才能刪除。封存可以取消。`,
+    confirmLabel: '封存',
+  })
+  if (!ok) return
+  try {
+    await archive(exam.id)
+    toast.success('已封存考試')
+  } catch (e) {
+    fail(e)
+  }
+}
+
+async function doUnarchive(exam: Exam) {
+  try {
+    await unarchive(exam.id)
+    toast.success('已取消封存')
+  } catch (e) {
+    fail(e)
+  }
+}
+
+// 刪除封存的考試：要填理由
+const purging = ref<Exam | null>(null)
+const purgeReason = ref('')
+async function doPurge() {
+  const exam = purging.value
+  if (!exam || !purgeReason.value.trim()) return
+  const ok = await confirm({
+    title: `永久刪除「${exam.name}」？`,
+    description: `這場考試的 ${exam.takers} 位考生、所有答卷與評分會一起刪除，無法復原。操作紀錄只會留下考試名稱與人數。`,
+    confirmLabel: '永久刪除',
+    tone: 'danger',
+  })
+  if (!ok) return
+  try {
+    await remove(exam.id, purgeReason.value.trim())
+    purging.value = null
+    toast.success('已刪除考試')
+  } catch (e) {
+    fail(e)
+  }
+}
+
 const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam.takers) * 100) : 0)
 </script>
 
@@ -151,8 +200,10 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
       </template>
     </div>
 
+    <template v-else>
+    <p v-if="!current.length" class="card px-5 py-6 text-[15px] text-ink-2 sm:px-6">目前沒有進行中或待處理的考試，其餘都已封存。</p>
     <ul v-else class="space-y-3">
-      <li v-for="exam in exams" :key="exam.id" class="card px-5 py-5 sm:px-6">
+      <li v-for="exam in current" :key="exam.id" class="card px-5 py-5 sm:px-6">
         <div class="flex flex-wrap items-start gap-x-4 gap-y-3">
           <div class="min-w-0 flex-1 basis-64">
             <p class="flex flex-wrap items-center gap-2">
@@ -188,6 +239,7 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
               <Button v-else-if="exam.status === 'live'" variant="outline" class="rounded-full hover:border-grade hover:text-grade" @click="doEnd(exam)">
                 結束考試
               </Button>
+              <Button v-else-if="exam.status === 'ended'" variant="outline" class="rounded-full" @click="doArchive(exam)">封存</Button>
             </template>
           </div>
         </div>
@@ -200,6 +252,41 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
         </div>
       </li>
     </ul>
+
+    <details v-if="archived.length" class="mt-6">
+      <summary class="cursor-pointer px-4 text-[15px] font-medium text-ink-2 hover:text-ink md:px-0">已封存的考試（{{ archived.length }}）</summary>
+      <ul class="card mt-3 divide-y divide-line">
+        <li v-for="exam in archived" :key="exam.id" class="px-5 py-4 sm:px-6">
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div class="min-w-0 flex-1 basis-64">
+              <p class="text-base font-medium">{{ exam.name }}</p>
+              <p class="mt-0.5 text-sm text-ink-2 tabular-nums">
+                {{ when(exam.startAt) }}，{{ exam.submitted }} / {{ exam.takers }} 人交卷。<template v-if="canPurge(exam)">保存期限已過（{{ retainLabel(exam.retainUntil) }}），可以刪除。</template
+                ><template v-else>資料保留到 {{ retainLabel(exam.retainUntil) }}。</template>
+              </p>
+            </div>
+            <div class="flex shrink-0 flex-wrap items-center gap-2">
+              <RouterLink
+                :to="`/exams/${exam.id}`"
+                class="inline-flex h-9 items-center rounded-full border border-line-strong px-3 text-sm font-medium transition-colors hover:border-brand hover:text-brand"
+              >
+                開啟
+              </RouterLink>
+              <template v-if="exam.canManage">
+                <Button variant="outline" class="rounded-full" @click="doUnarchive(exam)">取消封存</Button>
+                <Button v-if="canPurge(exam)" variant="danger" class="rounded-full" @click="((purging = exam), (purgeReason = ''))">刪除</Button>
+              </template>
+            </div>
+          </div>
+          <form v-if="purging === exam" class="mt-3 flex flex-wrap gap-2" @submit.prevent="doPurge">
+            <input v-model="purgeReason" class="field min-w-0 flex-1 basis-64" maxlength="500" placeholder="刪除的理由（必填，會留在操作紀錄）" aria-label="刪除的理由" />
+            <Button variant="primary" size="md" class="h-11 rounded-full" type="submit" :disabled="!purgeReason.trim()">確定刪除</Button>
+            <Button size="md" class="h-11 rounded-full" @click="purging = null">取消</Button>
+          </form>
+        </li>
+      </ul>
+    </details>
+    </template>
 
     <SidePanel v-model:open="formOpen" :docked="false" side="right" :title="editing ? '修改考試' : '建立考試'">
       <form class="flex h-full min-h-0 flex-col" novalidate @submit.prevent="submitForm">

@@ -17,6 +17,7 @@
 │       │   ├── exam/         考試、名單、登入碼
 │       │   ├── attempt/      考生作答、計時、收卷、自動批改
 │       │   ├── grading/      閱卷、成績、匯出
+│       │   ├── emergency/    系統管理員的緊急檢視（負責人授權）
 │       │   ├── audit/        操作紀錄
 │       │   ├── config/       安全設定、設定值、第一位管理員、備份清單
 │       │   └── common/       錯誤處理（problem+json）、分頁
@@ -48,6 +49,7 @@
 | 🙈 | 送到考生端的資料只走 `AttemptDtos`，不能包含答案、解析、評分規準（`AttemptTest` 有檢查） |
 | ⏱️ | 計時、收卷、批改只在後端做（`AttemptService`）；前端的倒數只是顯示 |
 | 📜 | 不可逆或敏感的動作寫入 `AuditService`；`audit_log` 在資料庫層禁止 update／delete |
+| 🚪 | 系統管理員看考試只能走 `EmergencyAccessService`；`*ForEmergency` 方法不檢查角色，不要從別的地方呼叫 |
 | 🪪 | Session 裡的身分（`StaffPrincipal`、`CandidatePrincipal`）要能序列化 |
 
 > ⚠️ 整合測試關掉了資料庫 Session（MockMvc 用的是假的 Session）。**改動登入流程後要跑 `deploy/smoke-test.py`**，那是唯一會走到真 Session 的測試。

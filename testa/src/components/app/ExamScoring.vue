@@ -101,7 +101,9 @@ async function reopen() {
 async function publish() {
   const ok = await confirm({
     title: '公布成績？',
-    description: '公布後考生用准考證號和登入碼登入，就能看到自己的分數。評分會關閉，不能再重開評分或更換評分者。這個動作無法復原。',
+    description:
+      (flagged.value.length ? `注意：還有 ${flagged.value.length} 份申論答案的評分差距過大，公布後就不能重評。` : '') +
+      '公布後考生用准考證號和登入碼登入，就能看到自己的分數。評分會關閉，不能再重開評分或更換評分者。這個動作無法復原。',
     confirmLabel: '公布成績',
     tone: 'danger',
   })
@@ -116,6 +118,8 @@ async function publish() {
 }
 
 const n = (v: number | null) => (v == null ? '—' : String(v))
+/** 評分關閉：成績已公布或考試已封存，不能再指派、重開、公布 */
+const closed = computed(() => !!results.value?.publishedAt || !!props.exam.archivedAt)
 const flagged = computed(() => results.value?.items.filter((i) => i.flagged) ?? [])
 // 考試還沒結束時，沒登入的人只是「還沒來」，結束後才算缺考
 const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' : '尚未作答', IN: '作答中', DONE: '已交卷' }) as const)
@@ -129,6 +133,10 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
 
   <!-- 評分 -->
   <div v-else-if="view === 'grading' && results" class="space-y-3">
+    <p v-if="flagged.length" class="rounded-card bg-grade-soft px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
+      <strong class="font-semibold">有 {{ flagged.length }} 份申論答案的評分差距過大。</strong>
+      評分者之間最高分與最低分相差超過該題配分的 20%（100 分的題目就是差 20 分以上）。請在下方確認，需要的話重開評分。
+    </p>
     <section class="card">
       <div class="px-5 py-4 sm:px-6">
         <h2 class="text-[17px] font-semibold">評分者</h2>
@@ -144,10 +152,10 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
             <p class="truncate text-sm text-ink-2">{{ g.email }}</p>
           </div>
           <span v-if="g.assigned" class="text-sm text-ink-2 tabular-nums">已評 {{ g.done }} / {{ g.total }}</span>
-          <span v-else-if="results.publishedAt" class="text-sm text-ink-3">未指派</span>
+          <span v-else-if="closed" class="text-sm text-ink-3">未指派</span>
           <!-- 成績公布後不能再改，按鈕直接不顯示 -->
           <Button
-            v-if="!results.publishedAt"
+            v-if="!closed"
             variant="outline"
             class="w-24 rounded-full"
             :disabled="g.assigned && g.done > 0"
@@ -181,7 +189,7 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
             </span>
             <span v-else class="min-w-0 flex-1 basis-48 text-ink-2 tabular-nums">已評 {{ i.graded }} / {{ i.graders }} 位</span>
             <span v-if="i.flagged" class="rounded-full bg-grade-soft px-2.5 py-0.5 text-[13px] font-medium text-grade">差距較大</span>
-            <Button v-if="i.graded > 0 && !results.publishedAt" variant="outline" class="rounded-full" @click="((reopening = i), (reason = ''))">
+            <Button v-if="i.graded > 0 && !closed" variant="outline" class="rounded-full" @click="((reopening = i), (reason = ''))">
               重開評分
             </Button>
           </div>
@@ -200,6 +208,7 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
     <div class="no-print flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
       <p class="min-w-0 flex-1 basis-64 text-[15px] text-ink-2">
         <template v-if="results.publishedAt">成績已於 {{ when(results.publishedAt) }} 公布。</template>
+        <template v-else-if="exam.archivedAt">考試已封存，成績沒有公布。</template>
         <template v-else-if="exam.status !== 'ended'">考試結束、申論全部評完後，才能公布成績。</template>
         <template v-else-if="!results.complete">還有 {{ results.itemsTotal - results.itemsLocked }} 份申論答案沒評完，全部評完才能公布。</template>
         <template v-else>全部評分完成，可以公布成績。</template>
@@ -215,7 +224,7 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
         <Download class="size-4" />{{ format === 'xlsx' ? '匯出 Excel' : 'CSV' }}
       </a>
       <Button
-        v-if="!results.publishedAt"
+        v-if="!closed"
         variant="primary"
         class="rounded-full"
         :disabled="!results.complete || exam.status !== 'ended'"
@@ -224,6 +233,9 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
         公布成績
       </Button>
     </div>
+    <p v-if="flagged.length && !closed" class="no-print border-t border-line bg-grade-soft px-5 py-3 text-[15px] text-grade sm:px-6" role="alert">
+      有 {{ flagged.length }} 份申論答案的評分差距過大，公布前請先到「評分」確認。
+    </p>
     <div class="overflow-x-auto border-t border-line">
       <table class="w-full min-w-[560px] text-left text-[15px]">
         <thead class="text-sm text-ink-2">

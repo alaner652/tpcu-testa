@@ -26,6 +26,10 @@ export interface Exam {
   /** 我是不是負責人（可以修改、發布、匯入名單）；監考只能看與重設登入碼 */
   canManage: boolean
   resultsPublishedAt: string | null
+  /** 封存後唯讀，考生不能再登入 */
+  archivedAt: string | null
+  /** 資料要保留到什麼時候；封存而且過了這個時間才能刪除（考試結束後才有） */
+  retainUntil: string | null
 }
 export type CandidateStatus = 'IDLE' | 'IN' | 'DONE'
 export interface Candidate {
@@ -81,6 +85,14 @@ export function when(iso: string | null) {
   return `${year}${d.getMonth() + 1} 月 ${d.getDate()} 日 ${time}`
 }
 
+/** 保存期限顯示成「2027 年 12 月 31 日」（retainUntil 是隔天 0 點） */
+export function retainLabel(iso: string | null) {
+  if (!iso) return ''
+  const d = new Date(new Date(iso).getTime() - 1000)
+  return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日`
+}
+export const canPurge = (exam: Exam) => !!exam.archivedAt && !!exam.retainUntil && Date.now() >= new Date(exam.retainUntil).getTime()
+
 /** ISO 時間 → <input type="datetime-local"> 的值（本地時間） */
 export function toLocalInput(iso: string | null) {
   if (!iso) return ''
@@ -130,8 +142,11 @@ export function useExams() {
     publish: async (id: number) => put(await api<Exam>(`/exams/${id}/publish`, { method: 'POST' })),
     withdraw: async (id: number) => put(await api<Exam>(`/exams/${id}/withdraw`, { method: 'POST' })),
     end: async (id: number) => put(await api<Exam>(`/exams/${id}/end`, { method: 'POST' })),
-    remove: async (id: number) => {
-      await api(`/exams/${id}`, { method: 'DELETE' })
+    archive: async (id: number) => put(await api<Exam>(`/exams/${id}/archive`, { method: 'POST' })),
+    unarchive: async (id: number) => put(await api<Exam>(`/exams/${id}/unarchive`, { method: 'POST' })),
+    /** 草稿可以直接刪；封存的考試要過了保存期限，而且要填理由 */
+    remove: async (id: number, reason?: string) => {
+      await api(`/exams/${id}`, { method: 'DELETE', body: reason ? { reason } : undefined })
       exams.value = exams.value.filter((e) => e.id !== id)
     },
     candidates: (examId: number) => api<Candidate[]>(`/exams/${examId}/candidates`),

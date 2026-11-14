@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref, watch } from 'vue'
 import { Copy, Plus } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import EmergencyView from '@/components/app/EmergencyView.vue'
 import UnitMembers from '@/components/app/UnitMembers.vue'
 import Button from '@/components/ui/Button.vue'
 import Switch from '@/components/ui/Switch.vue'
@@ -55,6 +56,7 @@ const TABS = [
   { value: 'units', label: '單位' },
   { value: 'audit', label: '操作紀錄' },
   { value: 'backups', label: '備份' },
+  { value: 'emergency', label: '緊急檢視' },
   { value: 'settings', label: '系統設定' },
 ] as const
 // 系統設定還沒接後端，正式版不顯示
@@ -223,6 +225,12 @@ const ACTION_LABEL: Record<string, string> = {
   EXAM_PUBLISHED: '發布考試',
   EXAM_WITHDRAWN: '取消發布',
   EXAM_ENDED: '結束考試',
+  EXAM_ARCHIVED: '封存考試',
+  EXAM_UNARCHIVED: '取消封存',
+  EXAM_PURGED: '刪除考試資料',
+  EMERGENCY_ACCESS_GRANTED: '授權緊急檢視',
+  EMERGENCY_ACCESS_REVOKED: '撤銷緊急檢視',
+  EMERGENCY_ACCESS_VIEWED: '緊急檢視考試',
   EXAM_DELETED: '刪除考試',
   CANDIDATES_IMPORTED: '匯入考生名單',
   CANDIDATE_CODE_RESET: '重設登入碼',
@@ -479,6 +487,8 @@ watch(tab, load)
         </template>
       </template>
     </section>
+
+    <EmergencyView v-else-if="tab === 'emergency'" />
 
     <!-- 系統設定（尚未接後端） -->
     <section v-else-if="DEMO_FEATURES" class="card divide-y divide-line">
