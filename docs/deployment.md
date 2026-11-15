@@ -1,5 +1,7 @@
 # Deployment
 
+This guide covers a production install on one Linux server: configuration, HTTPS, running exams without Internet access, upgrades, and backup and restore.
+
 ```mermaid
 flowchart LR
     P["School reverse proxy<br/>(optional)"] --> W["web<br/>Nginx :80 / :443"]
@@ -41,20 +43,18 @@ Then open the site: with no system administrator yet it shows the first-run setu
 
 Sessions are stored in the database (`spring_session`), so a backend restart does not sign anyone out.
 
-### On the school's Proxmox VE (Dell R760)
+### Server sizing
 
-Create a Linux VM running Docker and follow the steps above. Running Docker in an LXC container is not recommended.
+A single Linux VM running Docker Engine is enough. On Proxmox VE, use a VM rather than an LXC container.
 
 | Item | Recommendation | Reason |
 | --- | --- | --- |
 | OS | Debian or Ubuntu LTS with Docker Engine | |
-| CPU / memory | 4 vCPU, 8 GB | 300 concurrent candidates on a development machine gave p99 12 ms; this leaves headroom |
-| CPU type | `host` (or `x86-64-v3`) | The image build runs Vite 8 and Tailwind 4 native binaries, which crash with "Illegal instruction" on the default QEMU CPU model (seen on another school project) |
+| CPU and memory | 4 vCPU, 8 GB | 300 concurrent candidates measured p99 12 ms on a laptop; this leaves headroom |
+| CPU type (Proxmox/QEMU) | `host` or `x86-64-v3` | The image build runs Vite and Tailwind native binaries, which crash with "Illegal instruction" on the default QEMU CPU model |
 | Disk | 64 GB or more | The database is small; most space is backups |
-| Network | Fixed internal IP reachable from the computer labs | See [Network and offline exams](#network-and-offline-exams) |
-| Backup | The app's daily `pg_dump` plus PVE VM backups (vzdump or PBS) | One restores data, the other the whole machine |
-
-To confirm with the IT office: CPU and memory allocation, whether there is a GPU (only for AI later), the items under [Network and offline exams](#network-and-offline-exams), and whether there is a Proxmox Backup Server.
+| Network | A fixed internal IP reachable from the labs | See [Network and offline exams](#network-and-offline-exams) |
+| Backup | The daily `pg_dump` plus VM-level backups (for example vzdump or Proxmox Backup Server) | One restores data, the other the whole machine |
 
 ## HTTPS
 
@@ -83,7 +83,7 @@ To arrange with the network administrators:
 | DNS | The exam host name must resolve inside the school without the Internet: an internal (split-horizon) DNS record pointing to the VM's internal IP, served by the school's own DNS servers |
 | Routing and firewall | Lab subnets/VLANs to the VM on TCP 443 (and 80 for the redirect). The VM needs no inbound access from the Internet for exams |
 | Certificate | Issued for the exam host name (a public CA or the school's wildcard certificate; an internal CA only if every lab PC trusts it). Browsers accept a valid certificate offline, but renewal may need the Internet: check the expiry date before each exam period with `openssl x509 -enddate -noout -in tls/fullchain.pem` |
-| Time | The server clock decides exam timing, so the VM needs NTP from a source reachable without the Internet (the PVE host or a school NTP server). Lab PC clocks do not matter |
+| Time | The server clock decides exam timing, so the VM needs NTP from a source reachable without the Internet (the hypervisor host or a school NTP server). Lab PC clocks do not matter |
 | Outbound | Only for building images and upgrades (Docker Hub, Maven Central, npm). Never build or upgrade on an exam day |
 
 Cutting the Internet does not make the exam secure on its own: candidates on the internal network can still reach each other and other internal services, so lab isolation is the school's responsibility; the application enforces sign-in, timing and access on the server.

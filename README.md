@@ -2,9 +2,7 @@
 
 **English** | [繁體中文](README.zh-TW.md)
 
-A self-hosted online exam system for schools: write questions, schedule an exam, let candidates take it in a computer lab, grade essays anonymously and publish the results.
-
-The repository is `tpcu-testa`; the application is called Testa and has no school-specific code in it.
+Testa is a self-hosted online exam system for schools. Teachers write question banks, an exam officer schedules the exam and prints login slips, candidates take it in a computer lab, essays are graded anonymously, and results are published, all on one server inside the school network.
 
 ![Question bank editor](docs/images/editor.png)
 
@@ -14,44 +12,56 @@ The repository is `tpcu-testa`; the application is called Testa and has no schoo
 
 More in [Screenshots](docs/screenshots.md).
 
-## Documentation
+## Features
 
-| Document | Contents |
-| --- | --- |
-| [Design document](docs/testa-system-design.html) | Requirements, roles, flows and open questions (Chinese; open in a browser) |
-| [Status](docs/status.md) | What is done, what was tested, what is left |
-| [Screenshots](docs/screenshots.md) | Every page, desktop and phone |
-| [Deployment](docs/deployment.md) | Going live, HTTPS, network and offline exams, upgrades, backup and restore |
-| [Development](docs/development.md) | Layout, backend conventions, tests |
-| [Frontend](testa/README.md) | Pages, component layout, design tokens, UI principles |
-| [School accounts](docs/school-accounts.md) | Proposal: internal exams with school sign-in and class rosters |
-| [AI research](docs/ai.md) | Local model trials: question import, grading assistance, MCP |
+**Authoring**
+- Single choice, multiple choice, fill-in-the-blank and essay questions, with math typed as `$...$` and rendered by KaTeX.
+- Autosave with version conflict detection, and a "try it" mode that shows the bank exactly as a candidate sees it.
 
-## How an exam works
+**Running an exam**
+- Roster import from Excel or CSV (including Big5), one login code per candidate, printable login slips.
+- Candidates need no account: candidate number plus login code, one active session per candidate.
+- The server owns the clock: autosave, resume after a disconnect, auto-submit at time-up, per-candidate extra time.
+- Live proctoring: status filters, lockout after wrong codes, a count of how often a candidate left the exam window.
 
-```mermaid
-flowchart LR
-    A["Write questions<br/>teachers build a bank"] --> B["Schedule<br/>officer imports the roster and publishes"]
-    B --> C["Print login slips<br/>candidate number + login code"]
-    C --> D["Candidates answer<br/>server-side timer, autosave"]
-    D --> E["Auto-grading<br/>choice and fill-in"]
-    D --> F["Anonymous grading<br/>essays, one or more graders"]
-    E --> G["Publish results<br/>export to Excel / CSV"]
-    F --> G
+**Grading and results**
+- Choice and fill-in questions are graded automatically.
+- Essays are graded anonymously by one or more graders; the score is their average, and large disagreements are flagged before publishing.
+- Results are published to candidates (total and subtotals only) and exported to Excel or CSV.
+
+**Operations**
+- No default credentials: the first administrator is created with a one-time token from the server log.
+- Append-only audit log for sensitive actions; administrators cannot see papers unless an exam owner grants time-limited access.
+- Runs without Internet access: fonts, math and scripts are bundled, and sessions live in the database, so a restart signs no one out.
+- Docker Compose deployment with Nginx, daily database backups and an end-to-end smoke test.
+
+## Design principles
+
+- **The server is the source of truth.** Timing, submission and grading happen only on the backend; the browser clock is for display.
+- **Nothing leaks to candidates.** Papers sent to candidates never contain answers, explanations or rubrics, and a test enforces it.
+- **Least privilege by default.** Every permission check goes through one guard; a person sees an exam only through a role in its unit.
+- **Simple to operate.** One VM, one Compose file, no external services. Resilience comes from restarts, extra time and rehearsed restores rather than clustering.
+
+## Quick start
+
+Requires Docker, JDK 21+ and Node 22.
+
+```bash
+docker compose up -d                                                  # PostgreSQL on localhost:5432
+cd server && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev    # backend on :8080 with demo data
+cd testa && npm install && npm run dev                                # frontend on :5173
 ```
 
-## Roles
+Open <http://localhost:5173>. The sign-in page offers one-click demo accounts:
 
-One person can hold several roles in the same unit.
+| Role | Account | Password |
+| --- | --- | --- |
+| System administrator | admin@testa.tw | testa-admin |
+| Exam officer (owner + proctor) | officer@testa.tw | testa-officer |
+| Teacher (author + grader) | teacher@testa.tw, teacher2@, teacher3@ | testa-teacher |
+| Candidate | candidate number A115-0001 | login code 482915 |
 
-| Role | Can |
-| --- | --- |
-| Owner | Schedule exams, import rosters, assign graders, see results, archive and delete exams, manage unit members |
-| Author | Create and edit question banks |
-| Proctor | Watch candidate status, lock and unlock, reset login codes, give a candidate extra time |
-| Grader | Grade assigned essay questions (no candidate names, no other graders' scores) |
-| System administrator | Manage accounts and units, read the audit log and backups. Cannot see papers or scores unless a unit owner grants time-limited emergency access |
-| Candidate | No account. Signs in with the candidate number and login code on the slip to take the exam and check the score |
+Demo accounts exist only in the `dev` profile. To run Testa for real, follow the [Deployment guide](docs/deployment.md).
 
 ## Architecture
 
@@ -67,37 +77,44 @@ flowchart LR
 | --- | --- |
 | [testa/](testa/) | Frontend: Vue 3, TypeScript, Vite, Tailwind CSS v4 |
 | [server/](server/) | Backend: Spring Boot, Flyway, Spring Session (JDBC) |
-| [deploy/](deploy/) | Nginx config (HTTP and HTTPS), backup script, env template, smoke test |
-| [docs/](docs/) | Design document and guides |
-| [tools/](tools/) | Developer tools: local AI model evaluation |
+| [deploy/](deploy/) | Nginx config, backup script, environment template, smoke test |
+| [docs/](docs/) | Guides and design documents |
+| [tools/](tools/) | Developer tools (local AI model evaluation) |
 
-## Quick start
+## Roles
 
-Needs Docker, JDK 21+ and Node 22. In three terminals:
+Roles are granted per unit (for example, an admissions office), and one person can hold several.
 
-```bash
-docker compose up -d                                                  # PostgreSQL on localhost:5432
-cd server && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev    # backend on :8080, creates tables and demo accounts
-cd testa && npm install && npm run dev                                # frontend on :5173
-```
+| Role | Can |
+| --- | --- |
+| Owner | Schedule exams, import rosters, assign graders, publish results, archive and delete exams, manage unit members |
+| Author | Create and edit question banks |
+| Proctor | Watch candidates, reset login codes, give extra time |
+| Grader | Grade assigned essays without seeing names or other graders' scores |
+| System administrator | Manage accounts and units, read the audit log and backup status |
+| Candidate | No account; signs in with the login slip to take the exam and check the score |
 
-Open <http://localhost:5173>. The login page has one-click demo sign-ins:
+## Documentation
 
-| Identity | Account | Password |
-| --- | --- | --- |
-| System administrator | admin@testa.tw | testa-admin |
-| Exam officer (owner + proctor) | officer@testa.tw | testa-officer |
-| Teacher (author + grader) | teacher@testa.tw, teacher2@, teacher3@ | testa-teacher |
-| Candidate | candidate number A115-0001 | login code 482915 |
+| Document | Contents |
+| --- | --- |
+| [Deployment](docs/deployment.md) | Installation, HTTPS, offline exams, upgrades, backup and restore |
+| [Development](docs/development.md) | Code layout, backend rules, tests, contributing |
+| [Frontend](testa/README.md) | Pages, components, design tokens, UI rules |
+| [Project status](docs/status.md) | What is done, how it was verified, roadmap |
+| [Screenshots](docs/screenshots.md) | Every page on desktop and phone |
+| [School accounts](docs/school-accounts.md) | Proposal: internal exams with school sign-in |
+| [AI features](docs/ai.md) | Evaluation of local models and the design for AI-assisted features |
+| [Design document](docs/testa-system-design.html) | Original requirements (Traditional Chinese; open in a browser) |
 
-Demo accounts exist only in the dev profile. For production, see [Deployment](docs/deployment.md).
+## Project status
 
-## Status
+Feature-complete for its first use, a school admission exam, and verified end to end on production images, including a 300-candidate load test and a backup restore. On-site trials (lab network, printers, browsers other than Chromium) are still ahead. See [Project status](docs/status.md) for details and the roadmap.
 
-- All seven first-release items in the design document are done.
-- The production images were built on a development machine and passed a full mock exam, a 300-candidate load test and a backup restore.
-- The school's four decisions of 2026-11-14 are implemented: retention and archiving, grader disagreement warnings, authors may grade, emergency access for administrators.
-- Not yet on the school's server; the on-site network, other browsers and printed slips are untested.
-- Target: live before the end of 2026, first used for the admission exam.
+## Contributing
 
-Details in [Status](docs/status.md).
+Issues and pull requests are welcome. Read [Development](docs/development.md) first: it covers the rules that keep exams fair and data private, and the checks to run before a pull request.
+
+## License
+
+No license has been chosen yet, so all rights are reserved for now.
