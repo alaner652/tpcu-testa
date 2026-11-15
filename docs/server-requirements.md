@@ -18,4 +18,4 @@ What to request from the IT office for one admission exam site with a few hundre
 | Certificate | A TLS certificate for the host name | A public CA or the school's wildcard certificate |
 | Time | NTP from a source inside the school | The server clock decides exam timing |
 | Backup | VM-level backup (vzdump or Proxmox Backup Server) | In addition to the built-in daily database dump |
-| AI question import (optional, not in the first release) | A second VM, about 4 vCPU and 8 GB, no GPU required | Runs a small local model; switched off during exams |
+| AI question import (optional, not in the first release) | A second VM, about 4 vCPU and 8 GB, no GPU required | Runs a small local model and uses CPU only while a teacher imports a paper. If it shares a physical host with the exam server, cap this VM's CPU |

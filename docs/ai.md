@@ -103,7 +103,7 @@ flowchart LR
 
 - The backend speaks only the OpenAI-compatible API, so one setting (URL and model name) switches between local and cloud models. Off by default.
 - Candidate answers are sent only to a local model, never to the cloud.
-- The model runs in its own VM with capped CPU and memory and is switched off during exams, so it never competes with the exam server.
+- The model runs in its own VM with capped CPU and memory, so an import can never compete with the exam server. It is idle unless a teacher imports a paper; switching it off during exams is an extra precaution, not a requirement.
   - Without a GPU, a 4B model on a recent server CPU is practical: imports take tens of seconds and overnight grading batches fit.
   - With a GPU, 8B or larger models give noticeably better results.
 
