@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
+import tw.testa.grading.GradingDtos.CandidateResultsRequest;
 import tw.testa.grading.GradingDtos.GraderInfo;
 import tw.testa.grading.GradingDtos.GradingExam;
 import tw.testa.grading.GradingDtos.Item;
@@ -71,6 +72,11 @@ public class GradingController {
     @PostMapping("/exams/{examId}/results/publish")
     public Results publish(@PathVariable Long examId) {
         return grading.publish(examId);
+    }
+
+    @PutMapping("/exams/{examId}/results/candidate-access")
+    public Results candidateAccess(@PathVariable Long examId, @Valid @RequestBody CandidateResultsRequest body) {
+        return grading.setCandidateResults(examId, body.enabled());
     }
 
     @PostMapping("/exams/{examId}/grading/reopen")

@@ -254,6 +254,7 @@ const ACTION_LABEL: Record<string, string> = {
   GRADER_UNASSIGNED: '取消指派評分者',
   GRADING_REOPENED: '重開評分',
   RESULTS_PUBLISHED: '公布成績',
+  CANDIDATE_RESULTS_CHANGED: '考生查詢成績設定',
   RESULTS_EXPORTED: '匯出成績',
 }
 const DETAIL_LABEL: Record<string, string> = {

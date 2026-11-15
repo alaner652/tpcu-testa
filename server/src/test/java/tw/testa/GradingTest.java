@@ -1,6 +1,7 @@
 package tw.testa;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -187,8 +188,18 @@ class GradingTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.result").isEmpty());
 
         mvc.perform(post("/api/exams/" + exam + "/results/publish").with(csrf()).session(owner)).andExpect(status().isOk())
-                .andExpect(jsonPath("$.publishedAt").isNotEmpty()).andExpect(jsonPath("$.rows[0].total").value(28.5));
-        // After publishing: candidates see only their own score; absentees have none
+                .andExpect(jsonPath("$.publishedAt").isNotEmpty()).andExpect(jsonPath("$.rows[0].total").value(28.5))
+                .andExpect(jsonPath("$.candidateResults").value(false));
+        // Candidate access is off by default: publishing alone shows nothing to candidates
+        candidateLogin(p + "1", read(codes, "$[0].code")).andExpect(jsonPath("$.result").isEmpty())
+                .andExpect(jsonPath("$.exam.candidateResults").value(false));
+        mvc.perform(json(put("/api/exams/" + exam + "/results/candidate-access"), "{\"enabled\":true}").session(g1))
+                .andExpect(status().isNotFound());
+        mvc.perform(json(put("/api/exams/" + exam + "/results/candidate-access"), "{\"enabled\":true}").session(owner))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.candidateResults").value(true));
+        mvc.perform(get("/api/admin/audit-logs").param("action", "CANDIDATE_RESULTS_CHANGED").session(admin))
+                .andExpect(jsonPath("$.items[0].detail").value(startsWith("開放考生查詢成績")));
+        // Once allowed: candidates see only their own score; absentees have none
         candidateLogin(p + "1", read(codes, "$[0].code")).andExpect(jsonPath("$.result.total").value(28.5))
                 .andExpect(jsonPath("$.result.autoScore").value(5.0)).andExpect(jsonPath("$.result.essayScore").value(23.5))
                 .andExpect(jsonPath("$.result.fullMarks").value(35.0)).andExpect(jsonPath("$.result.publishedAt").isNotEmpty());

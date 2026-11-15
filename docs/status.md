@@ -12,7 +12,7 @@ Testa's first target is a school admission exam: a few hundred candidates in com
 | Taking the exam | Done | Candidate sign-in, single session, server-side timer, autosave, resume, submit, auto-submit, auto-grading |
 | Proctoring | Done | Live status with filters, lockout and reset, leave-window count, per-candidate extra time |
 | Grading | Done | One or more anonymous graders, averaged scores, disagreement warning, reopening with a reason |
-| Results | Done | Score sheet, publishing to candidates, Excel and CSV export |
+| Results | Done | Score sheet, publishing, Excel and CSV export, optional candidate access |
 | Data lifecycle | Done | Archiving, retention period, deletion with a reason |
 | Emergency access | Done | An exam owner grants one administrator time-limited, read-only access; every view is audited |
 | Deployment | Done | Docker Compose with Nginx, HTTPS option, daily backups, health checks, smoke test |
@@ -22,7 +22,7 @@ Testa's first target is a school admission exam: a few hundred candidates in com
 
 | Area | How it was verified |
 | --- | --- |
-| End to end | `deploy/smoke-test.py` runs a full exam through Nginx on production images: first-run setup, authoring, roster, answering, grading, publishing, candidates checking scores, emergency access, archiving |
+| End to end | `deploy/smoke-test.py` runs a full exam through Nginx on production images: first-run setup, authoring, roster, answering, grading, publishing, turning on candidate access and checking a score, emergency access, archiving |
 | Load | 300 candidates signing in, answering and submitting at once: no failures, p99 12 ms through Nginx; p95 109 ms hitting the backend directly |
 | Failure cases | Backend and database restarts mid-exam, duplicate sign-in, lockout and reset, ending early, auto-submit for candidates who never reconnect, extra time just before time-up |
 | Offline | Database, backend and backup on a network with no Internet access: start-up, setup and the full exam pass, and the browser makes no external requests |
@@ -50,7 +50,7 @@ Defaults agreed with the first deploying school. Each is a setting or a small ch
 | Grader disagreement | Warn when graders differ by more than 20% of a question's points | `testa.grading.flag-ratio` |
 | Authors as graders | Allowed, no recusal rule | |
 | Login codes | Stored in plain text so slips can be reprinted; visible only to the unit's owners and proctors | |
-| Candidate results | Publishing results lets candidates see their total and subtotals, not answers or comments | |
+| Candidate results | Off: publishing locks scores for export and the school announces them. When an owner turns it on for an exam, candidates see their total and subtotals, never answers or comments | Per exam, on the Results tab |
 
 ## Known limitations
 
@@ -82,5 +82,5 @@ Defaults agreed with the first deploying school. Each is a setting or a small ch
 - Administrators can get time-limited, owner-granted access to an exam.
 - Login codes are stored in plain text, not hashed, so slips can be reprinted.
 - Spring Boot 4.1 instead of 3, which is out of open-source support; the target is still Java 21.
-- Candidates can check their own published scores.
+- Whether candidates can check their own published scores is a per-exam option, off by default.
 - The exam form has no delivery-mode field (lab or online); it had no effect. The column remains for future online exams.

@@ -15,8 +15,9 @@ public final class AttemptDtos {
     public record LoginRequest(@NotBlank(message = "請輸入准考證號。") String ticket,
             @NotBlank(message = "請輸入登入碼。") String code) {}
 
+    /** candidateResults: whether the candidate will be able to see the score here once it is published. */
     public record ExamInfo(String name, Instant startAt, int duration, Exam.Mode mode, String status,
-            int questionCount, BigDecimal totalPoints) {}
+            int questionCount, BigDecimal totalPoints, boolean candidateResults) {}
 
     public record AttemptInfo(Instant startedAt, Instant deadlineAt, Instant submittedAt, long remainingSeconds) {}
 

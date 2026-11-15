@@ -316,12 +316,12 @@ public class AttemptService {
         BigDecimal total = snap == null ? BigDecimal.ZERO
                 : snap.questions().stream().map(QuestionDto::points).reduce(BigDecimal.ZERO, BigDecimal::add);
         return new State(c.getName(), c.getTicket(), c.getDept(), c.getSeat(),
-                new ExamInfo(e.getName(), e.getStartAt(), e.getDuration(), e.getMode(), e.phase(now), count, total),
+                new ExamInfo(e.getName(), e.getStartAt(), e.getDuration(), e.getMode(), e.phase(now), count, total, e.isCandidateResults()),
                 a == null ? null : new AttemptInfo(a.getStartedAt(), a.getDeadlineAt(), a.getSubmittedAt(), remaining(a, now)),
                 result(c));
     }
 
-    /** After results are published, candidates see their own scores (scores only). c always comes from the session. */
+    /** After results are published, and if the exam allows it, candidates see their own scores (scores only). c always comes from the session. */
     private Result result(Candidate c) {
         CandidateResult r = grading.candidateResult(c.getExam(), c.getId());
         return r == null ? null

@@ -4,6 +4,7 @@ import { Check, Download, Megaphone, RotateCcw, RotateCw, UserMinus, UserPlus, X
 import { toast } from 'vue-sonner'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
+import Switch from '@/components/ui/Switch.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { useExams, when, type Exam } from '@/composables/useExams'
 import { api } from '@/lib/api'
@@ -49,6 +50,8 @@ interface Results {
   itemsLocked: number
   complete: boolean
   publishedAt: string | null
+  /** Candidates may sign in to see their own score once published */
+  candidateResults: boolean
   rows: Row[]
   items: ItemSummary[]
 }
@@ -104,7 +107,10 @@ async function publish() {
     title: '公布成績？',
     description:
       (flagged.value.length ? `注意：還有 ${flagged.value.length} 份申論答案的評分差距過大，公布後就不能重評。` : '') +
-      '公布後考生用准考證號和登入碼登入，就能看到自己的分數。評分會關閉，不能再重開評分或更換評分者。這個動作無法復原。',
+      (results.value?.candidateResults
+        ? '公布後考生用准考證號和登入碼登入，就能看到自己的分數。'
+        : '考生查詢沒有開放，公布後考生看不到分數，請用匯出的檔案放榜。') +
+      '評分會關閉，不能再重開評分或更換評分者。這個動作無法復原。',
     confirmLabel: '公布成績',
     tone: 'danger',
   })
@@ -113,6 +119,15 @@ async function publish() {
     results.value = await api<Results>(`${base.value}/results/publish`, { method: 'POST' })
     await store.refresh(props.exam.id)
     toast.success('已公布成績')
+  } catch (e) {
+    fail(e)
+  }
+}
+
+async function setCandidateResults(enabled: boolean) {
+  try {
+    results.value = await api<Results>(`${base.value}/results/candidate-access`, { method: 'PUT', body: { enabled } })
+    toast.success(enabled ? '已開放考生查詢成績' : '已關閉考生查詢成績')
   } catch (e) {
     fail(e)
   }
@@ -232,6 +247,13 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
       >
         <Megaphone />公布成績
       </Button>
+    </div>
+    <div v-if="!exam.archivedAt" class="no-print flex items-start gap-3 border-t border-line px-5 py-3.5 sm:px-6">
+      <Switch id="candidate-results" class="mt-0.5" :model-value="results.candidateResults" @update:model-value="setCandidateResults" />
+      <label for="candidate-results" class="min-w-0 flex-1 cursor-pointer text-[15px]">
+        讓考生登入查詢自己的成績
+        <span class="mt-0.5 block text-sm text-ink-2">公布後考生只看得到總分和小計。由學校官網放榜時不用開，隨時可以改。</span>
+      </label>
     </div>
     <p v-if="flagged.length && !closed" class="no-print border-t border-line bg-grade-soft px-5 py-3 text-[15px] text-grade sm:px-6" role="alert">
       有 {{ flagged.length }} 份申論答案的評分差距過大，公布前請先到「評分」確認。

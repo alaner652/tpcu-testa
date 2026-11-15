@@ -35,9 +35,13 @@ public final class GradingDtos {
     public record ResultRow(String ticket, String name, String dept, int seat, String status, BigDecimal autoScore,
             BigDecimal essayScore, BigDecimal total, int pending) {}
 
-    /** complete: everyone has submitted (or was absent) and every essay is graded, so results can be published. */
+    /** complete: everyone has submitted (or was absent) and every essay is graded, so results can be published.
+     *  candidateResults: candidates may sign in to see their own score once published. */
     public record Results(BigDecimal fullMarks, int graders, int itemsTotal, int itemsLocked, boolean complete,
-            Instant publishedAt, List<ResultRow> rows, List<ItemSummary> items) {}
+            Instant publishedAt, boolean candidateResults, List<ResultRow> rows, List<ItemSummary> items) {}
+
+    /** Whether candidates can sign in to see their own published scores. */
+    public record CandidateResultsRequest(@NotNull Boolean enabled) {}
 
     /** A candidate's own result (after publishing). All three scores are null for absentees. */
     public record CandidateResult(Instant publishedAt, BigDecimal fullMarks, BigDecimal autoScore, BigDecimal essayScore,

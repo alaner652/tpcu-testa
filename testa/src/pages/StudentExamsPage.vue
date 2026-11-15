@@ -71,7 +71,8 @@ const enter = () => router.push({ name: 'student-exam', params: { id: 'now' } })
         <Button v-if="view === 'open'" variant="primary" size="md" @click="enter"><LogIn />進入考試</Button>
         <Button v-else-if="view === 'resume'" variant="primary" size="md" @click="enter"><LogIn />繼續作答</Button>
         <p v-else-if="view === 'done' && !result" class="max-w-52 text-sm text-ink-2">
-          你的作答已經送出。成績會在評分完成後由承辦單位公布，公布後可以回到這裡查詢。
+          你的作答已經送出。成績會在評分完成後由承辦單位公布<template v-if="state.exam.candidateResults">，公布後可以回到這裡查詢</template
+          ><template v-else>，請留意承辦單位的公告</template>。
         </p>
         <template v-else-if="view === 'done'" />
         <div v-else-if="view === 'upcoming'" class="text-right">

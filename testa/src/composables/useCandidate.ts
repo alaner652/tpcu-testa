@@ -17,9 +17,11 @@ export interface CandidateState {
     status: 'scheduled' | 'live' | 'ended'
     questionCount: number
     totalPoints: number
+    /** Whether the score will be shown here once published */
+    candidateResults: boolean
   }
   attempt: { startedAt: string; deadlineAt: string; submittedAt: string | null; remainingSeconds: number } | null
-  /** Present once the officer publishes results. total is null for absentees. */
+  /** Present once results are published, if the exam lets candidates see them. total is null for absentees. */
   result: {
     publishedAt: string
     fullMarks: number

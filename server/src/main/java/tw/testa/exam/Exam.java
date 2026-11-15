@@ -75,6 +75,9 @@ public class Exam {
     @Column(name = "archived_at")
     private Instant archivedAt;
 
+    @Column(name = "candidate_results", nullable = false)
+    private boolean candidateResults;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -103,6 +106,8 @@ public class Exam {
     public boolean isArchived() { return archivedAt != null; }
     public Instant getResultsPublishedAt() { return resultsPublishedAt; }
     public void setResultsPublishedAt(Instant at) { this.resultsPublishedAt = at; }
+    public boolean isCandidateResults() { return candidateResults; }
+    public void setCandidateResults(boolean on) { this.candidateResults = on; }
     public Long getId() { return id; }
     public Unit getUnit() { return unit; }
     public Bank getBank() { return bank; }

@@ -212,6 +212,19 @@ public class GradingService {
         return compute(e);
     }
 
+    /** Lets candidates see their own published score, or stops it. Can change before or after publishing. */
+    @Transactional
+    public Results setCandidateResults(Long examId, boolean enabled) {
+        Exam e = ownedExam(examId);
+        requireNotArchived(e);
+        if (e.isCandidateResults() != enabled) {
+            e.setCandidateResults(enabled);
+            audit.record("CANDIDATE_RESULTS_CHANGED", "exam", examId, e.getUnit().getId(), null,
+                    (enabled ? "開放" : "關閉") + "考生查詢成績：" + e.getName());
+        }
+        return compute(e);
+    }
+
     private static final String[] EXPORT_HEADERS = {"座位", "准考證號", "姓名", "報考科系", "狀態", "自動批改", "申論", "總分"};
 
     private static String statusLabel(ResultRow row) {
@@ -281,12 +294,12 @@ public class GradingService {
     // ── Candidates ───────────────────────────────────────
 
     /**
-     * A candidate's own result: available after publishing, null before.
+     * A candidate's own result: available after publishing when the exam allows it, null otherwise.
      * No staff permission check here; the caller (AttemptService) must have confirmed candidateId is the signed-in candidate.
      */
     @Transactional(readOnly = true)
     public CandidateResult candidateResult(Exam e, Long candidateId) {
-        if (e.getResultsPublishedAt() == null) return null;
+        if (e.getResultsPublishedAt() == null || !e.isCandidateResults()) return null;
         String ticket = jdbc.query("select ticket from candidate where id = ? and exam_id = ?",
                 rs -> rs.next() ? rs.getString(1) : null, candidateId, e.getId());
         if (ticket == null) return null;
@@ -355,7 +368,7 @@ public class GradingService {
         BigDecimal full = e.getSnapshot() == null ? BigDecimal.ZERO
                 : e.getSnapshot().questions().stream().map(QuestionDto::points).reduce(BigDecimal.ZERO, BigDecimal::add);
         return new Results(full, graders.size(), essays.size(), locked, !anyoneWriting && locked == essays.size(),
-                e.getResultsPublishedAt(), rows, items);
+                e.getResultsPublishedAt(), e.isCandidateResults(), rows, items);
     }
 
     /** Submitted essay answers that actually contain text. */

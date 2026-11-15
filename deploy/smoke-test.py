@@ -177,8 +177,11 @@ def main():
 
     c = Client(base)
     me = c.call('POST', '/candidate/login', {'ticket': rows[0]['ticket'], 'code': codes[rows[0]['ticket']]})
+    assert me['result'] is None, me['result']   # candidates cannot see scores until the owner allows it
+    assert officer.call('PUT', f'/exams/{exam}/results/candidate-access', {'enabled': True})['candidateResults']
+    me = c.call('GET', '/candidate/me')
     assert me['result']['total'] == 27.0 and me['result']['fullMarks'] == 30.0, me['result']
-    step('Candidate signs in and sees their score')
+    step('Candidate access turned on; candidate sees their score')
 
     csv = officer.call('GET', f'/exams/{exam}/results.csv', raw=True).decode('utf-8-sig')
     assert '王小明' in csv and '27' in csv, csv
