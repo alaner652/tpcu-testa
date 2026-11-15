@@ -30,7 +30,7 @@ Last reviewed: 2026-11-15.
 | HTTPS | Behind a reverse proxy with a self-signed certificate and `TESTA_COOKIE_SECURE=true`, the full mock exam passes. With `set_real_ip_from`, rate limits and the audit log use the real client IP and forged `X-Forwarded-For` is ignored. With `deploy/https.yml` (TLS on this VM): port 80 redirects, HTTP/2, secure cookies, full mock exam passes |
 | Browser (Chromium) | Candidates: sign-in, all four question types, reload and resume, resend after disconnect, being kicked, submit, time-up, checking scores (including 390 and 320 px widths). Staff: password change, authoring, creating exams, Big5 roster import, login slips, proctoring, grading, publishing, export. Admin pages. Archive and unarchive, emergency access grant and view, grader disagreement warnings (grading page, results page, confirm before publishing) |
 | UI review | 2026-11-15, every page at 1440 px and 390 px on the production build with demo data ([Screenshots](screenshots.md)). Fixed: an exam page kept the previous exam's tab and score table when moving between exams; the try-it preview kept the previous bank's answers; graders could submit an untouched score of 0; the nav lost its highlight on detail pages; exam tabs and status badges wrapped on phones; slip URLs broke mid-word. Added: proctoring filters by status, staff search, audit log filter by action. Then one rule set for buttons and status labels (`Badge`, see `testa/README.md`): same sizes and colours for the same meaning, status beside the name, actions aligned at the right |
-| Automated tests | 42 backend integration tests (Testcontainers with real PostgreSQL); 19 frontend unit tests |
+| Automated tests | 42 backend integration tests (Testcontainers with real PostgreSQL); 19 frontend unit tests. Both run in GitHub Actions on every push (first green run 2026-11-15) |
 
 ### Needs the real site
 
@@ -69,7 +69,6 @@ Two interpretations need confirming with the school before launch:
 - Staff who forget their password must ask an administrator to reset it; there is no self-service flow (it needs email, which the first release does not send).
 - The admin "Backups" tab only lists backups and the latest time; it cannot download, trigger or restore.
 - The frontend has unit tests for pure logic only (grading, question validation, formulas, API errors), no component or browser automation; browser flows were run by script by hand.
-- The CI workflow (`.github/workflows/ci.yml`) is written but has never run, since the project is not on GitHub yet.
 
 ### Not in the first release
 
