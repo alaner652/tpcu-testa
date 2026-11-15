@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
 import { useRoute } from 'vue-router'
-import { ChartColumn, Check, ChevronLeft, KeyRound, ListChecks, LoaderCircle, Printer, RotateCw, ShieldCheck, Ticket, TimerReset, Trash2, Upload, Users, X } from 'lucide-vue-next'
+import { ChartColumn, Check, ChevronLeft, EyeOff, KeyRound, ListChecks, LoaderCircle, Lock, Printer, RotateCw, ShieldCheck, Ticket, TimerReset, Trash2, Upload, Users, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import MoreMenu, { type MoreAction } from '@/components/ui/MoreMenu.vue'
 import EmergencyAccess from '@/components/app/EmergencyAccess.vue'
@@ -223,9 +224,7 @@ const site = location.origin + location.pathname
       <div class="mt-1 flex items-start gap-3">
         <div class="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
           <h1 class="text-[24px] leading-tight font-bold sm:text-[30px]">{{ exam.name }}</h1>
-          <span class="rounded-full px-2.5 py-0.5 text-[13px] font-medium" :class="EXAM_STATUS[exam.status].class">
-            {{ EXAM_STATUS[exam.status].label }}
-          </span>
+          <Badge :tone="EXAM_STATUS[exam.status].tone">{{ EXAM_STATUS[exam.status].label }}</Badge>
         </div>
         <MoreMenu class="shrink-0" :actions="headerActions" label="更多" />
       </div>
@@ -260,7 +259,7 @@ const site = location.origin + location.pathname
 
     <p v-if="listError" class="card mb-3 flex items-center gap-3 px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
       <span class="min-w-0 flex-1">{{ listError }}</span>
-      <Button variant="outline" class="rounded-full" @click="loadList"><RotateCw />重試</Button>
+      <Button variant="outline" @click="loadList"><RotateCw />重試</Button>
     </p>
 
     <!-- Candidates: roster and proctoring -->
@@ -295,7 +294,7 @@ const site = location.origin + location.pathname
         </div>
         <template v-if="exam.canManage && exam.status !== 'ended' && !preview">
           <input ref="fileInput" type="file" accept=".xlsx,.csv" class="hidden" @change="onFile" />
-          <Button variant="primary" class="rounded-full" :disabled="busy" @click="fileInput?.click()">
+          <Button variant="primary" :disabled="busy" @click="fileInput?.click()">
             <LoaderCircle v-if="busy" class="animate-spin" /><Upload v-else />匯入名單
           </Button>
         </template>
@@ -317,8 +316,8 @@ const site = location.origin + location.pathname
           <template v-if="preview.problems.length">有問題的資料不會匯入，修正後再上傳一次即可。</template>系統會自動排座位並產生登入碼。
         </p>
         <div class="mt-4 flex flex-wrap justify-end gap-2">
-          <Button size="md" class="rounded-full" @click="preview = null"><X />取消</Button>
-          <Button variant="primary" size="md" class="rounded-full" :disabled="busy || !preview.rows.length" @click="doImport"><Check />匯入 {{ preview.rows.length }} 位考生</Button>
+          <Button size="md" @click="preview = null"><X />取消</Button>
+          <Button variant="primary" size="md" :disabled="busy || !preview.rows.length" @click="doImport"><Check />匯入 {{ preview.rows.length }} 位考生</Button>
         </div>
       </div>
 
@@ -332,34 +331,29 @@ const site = location.origin + location.pathname
       <ul v-else-if="list.length" class="divide-y divide-line border-t border-line">
         <li v-for="c in shown" :key="c.id" class="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-5 py-3 sm:px-6">
           <span class="w-8 text-sm text-ink-3 tabular-nums" title="座位">{{ c.seat }}</span>
-          <div class="min-w-0 flex-1 basis-40">
-            <p class="text-base font-medium">{{ c.name }}</p>
-            <p class="text-sm text-ink-2 tabular-nums">{{ c.ticket }}<template v-if="c.dept">，{{ c.dept }}</template></p>
+          <div class="min-w-0 flex-1 basis-48">
+            <p class="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span class="mr-0.5 text-base font-medium">{{ c.name }}</span>
+              <!-- Before the exam everyone is "not signed in", so rows do not repeat it -->
+              <Badge v-if="exam.status === 'live' || exam.status === 'ended'" :tone="CANDIDATE_STATUS[c.status].tone">{{ CANDIDATE_STATUS[c.status].label }}</Badge>
+              <Badge v-if="c.locked" tone="danger"><Lock />登入碼輸錯，已鎖定</Badge>
+              <Badge v-if="c.leaveCount" tone="warn"><EyeOff />離開畫面 {{ c.leaveCount }} 次</Badge>
+              <Badge v-if="c.extraMinutes" tone="neutral"><TimerReset />已補時 {{ c.extraMinutes }} 分鐘</Badge>
+            </p>
+            <p class="mt-0.5 text-sm text-ink-2 tabular-nums">
+              {{ c.ticket }}<template v-if="c.dept">，{{ c.dept }}</template><template v-if="c.status === 'IN' && c.deadlineAt">，作答到 {{ clockTime(c.deadlineAt) }}</template>
+            </p>
           </div>
-          <div class="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
-            <span v-if="c.locked" class="rounded-full bg-marker px-2.5 py-0.5 text-[13px] font-medium text-marker-ink">登入碼輸錯太多次，已鎖定</span>
-            <span v-if="c.leaveCount" class="rounded-full bg-marker px-2.5 py-0.5 text-[13px] font-medium text-marker-ink">離開畫面 {{ c.leaveCount }} 次</span>
-            <span v-if="c.extraMinutes" class="rounded-full bg-sunken px-2.5 py-0.5 text-[13px] font-medium text-ink-2">已補時 {{ c.extraMinutes }} 分鐘</span>
-            <span v-if="c.status === 'IN' && c.deadlineAt" class="text-sm text-ink-2 tabular-nums">作答到 {{ clockTime(c.deadlineAt) }}</span>
-            <!-- Before the exam everyone is "not signed in", so rows do not repeat it -->
-            <span
-              v-if="exam.status === 'live' || exam.status === 'ended'"
-              class="rounded-full px-2.5 py-0.5 text-[13px] font-medium"
-              :class="CANDIDATE_STATUS[c.status].class"
-            >
-              {{ CANDIDATE_STATUS[c.status].label }}
-            </span>
-          </div>
-          <Button v-if="c.locked && c.status !== 'DONE' && exam.status !== 'ended'" variant="primary" class="rounded-full" @click="reset(c)"><KeyRound />重設登入碼</Button>
+          <Button v-if="c.locked && c.status !== 'DONE' && exam.status !== 'ended'" variant="primary" class="ml-auto" @click="reset(c)"><KeyRound />重設登入碼</Button>
           <MoreMenu :actions="rowActions(c)" :label="`${c.name} 的更多動作`" />
           <form v-if="extending === c.id && c.status === 'IN'" class="flex basis-full flex-wrap items-center gap-2 pt-1" @submit.prevent="extend(c)">
             <label class="text-[15px] text-ink-2" :for="`extend-min-${c.id}`">補</label>
-            <select :id="`extend-min-${c.id}`" v-model.number="extendMinutes" class="field h-11 w-28">
+            <select :id="`extend-min-${c.id}`" v-model.number="extendMinutes" class="field w-28">
               <option v-for="m in EXTEND_OPTIONS" :key="m" :value="m">{{ m }} 分鐘</option>
             </select>
-            <input v-model="extendReason" class="field h-11 min-w-0 flex-1 basis-56" maxlength="200" placeholder="原因（必填，會留在操作紀錄），例如：電腦當機換座位" aria-label="補時的原因" />
-            <Button variant="primary" size="md" class="h-11 rounded-full" type="submit" :disabled="!extendReason.trim()"><Check />確定補時</Button>
-            <Button size="md" class="h-11 rounded-full" type="button" @click="extending = null"><X />取消</Button>
+            <input v-model="extendReason" class="field min-w-0 flex-1 basis-56" maxlength="200" placeholder="原因（必填，會留在操作紀錄），例如：電腦當機換座位" aria-label="補時的原因" />
+            <Button size="md" type="button" @click="extending = null"><X />取消</Button>
+            <Button variant="primary" size="md" type="submit" :disabled="!extendReason.trim()"><Check />確定補時</Button>
           </form>
         </li>
         <li v-if="!shown.length" class="px-5 py-6 text-[15px] text-ink-2 sm:px-6">
@@ -373,7 +367,7 @@ const site = location.origin + location.pathname
     <section v-else-if="step === 'tickets'">
       <div class="no-print card flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
         <p class="min-w-0 flex-1 basis-64 text-[15px] text-ink-2">每位考生一張。登入碼等同密碼，印出後請妥善保管。</p>
-        <Button variant="primary" class="rounded-full" :disabled="list.length === 0" @click="print">
+        <Button variant="primary" :disabled="list.length === 0" @click="print">
           <Printer />列印 {{ list.length }} 張
         </Button>
       </div>

@@ -68,7 +68,7 @@ const SHORTCUTS = [
 
       <div class="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
         <SaveIndicator class="mr-1 sm:mr-2" />
-        <Button v-if="dev && mode === 'edit'" variant="outline" class="rounded-full max-md:hidden" @click="$emit('import')">
+        <Button v-if="dev && mode === 'edit'" variant="outline" class="max-md:hidden" @click="$emit('import')">
           <Sparkles />AI 匯入
         </Button>
         <Tip v-if="mode === 'edit'" label="題號卡">

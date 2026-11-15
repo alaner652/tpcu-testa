@@ -4,6 +4,7 @@ import { toast } from 'vue-sonner'
 import { DropdownMenuRoot, DropdownMenuTrigger } from 'reka-ui'
 import { ArrowDown, ArrowUp, CircleAlert, Copy, GripHorizontal, Plus, Sparkles, Trash2 } from 'lucide-vue-next'
 import type { Question } from '@/types/question'
+import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import MenuContent from '@/components/ui/MenuContent.vue'
 import MenuItem from '@/components/ui/MenuItem.vue'
@@ -126,7 +127,7 @@ watch(
           <div class="min-w-0 flex-1">
             <QuestionSummary :question="question" />
             <p v-if="question.review || issues.length" class="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
-              <span v-if="question.review" class="rounded-full bg-marker px-2.5 py-0.5 text-marker-ink">AI 匯入，待確認</span>
+              <Badge v-if="question.review" tone="warn">AI 匯入，待確認</Badge>
               <span v-if="issues.length" class="flex items-center gap-1 text-grade">
                 <CircleAlert class="size-3.5" />
                 {{ issues.join('、') }}
@@ -147,20 +148,20 @@ watch(
         </p>
         <div class="ml-auto flex items-center gap-0.5">
           <Tip label="上移" shortcut="Alt ↑">
-            <Button size="icon" class="rounded-full" aria-label="上移" :disabled="index === 0" @click="store.move(question.id, -1)">
+            <Button size="icon" aria-label="上移" :disabled="index === 0" @click="store.move(question.id, -1)">
               <ArrowUp />
             </Button>
           </Tip>
           <Tip label="下移" shortcut="Alt ↓">
-            <Button size="icon" class="rounded-full" aria-label="下移" :disabled="index === total - 1" @click="store.move(question.id, 1)">
+            <Button size="icon" aria-label="下移" :disabled="index === total - 1" @click="store.move(question.id, 1)">
               <ArrowDown />
             </Button>
           </Tip>
           <Tip label="複製" shortcut="Ctrl D">
-            <Button size="icon" class="rounded-full" aria-label="複製題目" @click="duplicate(question.id)"><Copy /></Button>
+            <Button size="icon" aria-label="複製題目" @click="duplicate(question.id)"><Copy /></Button>
           </Tip>
           <Tip label="刪除">
-            <Button size="icon" class="rounded-full" variant="danger" aria-label="刪除題目" @click="remove(question.id)">
+            <Button size="icon" variant="danger" aria-label="刪除題目" @click="remove(question.id)">
               <Trash2 />
             </Button>
           </Tip>

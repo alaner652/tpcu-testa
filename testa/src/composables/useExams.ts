@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import type { BadgeTone } from '@/components/ui/Badge.vue'
 import { api } from '@/lib/api'
 import { useAuth } from './useAuth'
 
@@ -67,16 +68,16 @@ export interface ExamInput {
   mode: ExamMode
 }
 
-export const EXAM_STATUS: Record<ExamStatus, { label: string; class: string }> = {
-  draft: { label: '草稿', class: 'bg-sunken text-ink-2' },
-  scheduled: { label: '已排程', class: 'bg-marker text-marker-ink' },
-  live: { label: '進行中', class: 'bg-brand text-brand-fg' },
-  ended: { label: '已結束', class: 'bg-sunken text-ink-2' },
+export const EXAM_STATUS: Record<ExamStatus, { label: string; tone: BadgeTone }> = {
+  draft: { label: '草稿', tone: 'neutral' },
+  scheduled: { label: '已排程', tone: 'warn' },
+  live: { label: '進行中', tone: 'live' },
+  ended: { label: '已結束', tone: 'neutral' },
 }
-export const CANDIDATE_STATUS: Record<CandidateStatus, { label: string; class: string }> = {
-  IDLE: { label: '尚未登入', class: 'bg-sunken text-ink-2' },
-  IN: { label: '作答中', class: 'bg-brand text-brand-fg' },
-  DONE: { label: '已交卷', class: 'bg-brand-soft text-brand-strong' },
+export const CANDIDATE_STATUS: Record<CandidateStatus, { label: string; tone: BadgeTone }> = {
+  IDLE: { label: '尚未登入', tone: 'neutral' },
+  IN: { label: '作答中', tone: 'live' },
+  DONE: { label: '已交卷', tone: 'done' },
 }
 export const MODE_LABEL: Record<ExamMode, string> = { CLASSROOM: '電腦教室', ONLINE: '純線上' }
 

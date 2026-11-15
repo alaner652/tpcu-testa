@@ -2,6 +2,7 @@
 import { Ban, RotateCw, ShieldCheck } from 'lucide-vue-next'
 import { onMounted, reactive, ref } from 'vue'
 import { toast } from 'vue-sonner'
+import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { when, type Exam } from '@/composables/useExams'
@@ -94,7 +95,7 @@ const state = (g: Grant) => (g.active ? `有效到 ${when(g.expiresAt)}` : g.rev
 <template>
   <p v-if="error" class="card flex items-center gap-3 px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
     <span class="min-w-0 flex-1">{{ error }}</span>
-    <Button variant="outline" class="rounded-full" @click="load"><RotateCw />重試</Button>
+    <Button variant="outline" @click="load"><RotateCw />重試</Button>
   </p>
 
   <div v-else-if="data" class="space-y-3">
@@ -126,7 +127,7 @@ const state = (g: Grant) => (g.active ? `有效到 ${when(g.expiresAt)}` : g.rev
           <span class="mb-1.5 block text-sm font-medium">理由（必填，會留在操作紀錄）</span>
           <input v-model="form.reason" class="field" maxlength="500" placeholder="例如：考生申訴成績，需要協助查證" />
         </label>
-        <Button variant="primary" size="md" class="rounded-full" type="submit" :disabled="sending || !form.staffId || !form.reason.trim()"><ShieldCheck />授權</Button>
+        <Button variant="primary" size="md" type="submit" :disabled="sending || !form.staffId || !form.reason.trim()"><ShieldCheck />授權</Button>
       </form>
     </section>
 
@@ -135,11 +136,9 @@ const state = (g: Grant) => (g.active ? `有效到 ${when(g.expiresAt)}` : g.rev
       <ul class="divide-y divide-line border-t border-line">
         <li v-for="g in data.grants" :key="g.id" class="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 sm:px-6">
           <div class="min-w-0 flex-1 basis-64 text-[15px]">
-            <p>
+            <p class="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span class="font-medium">{{ g.staffName }}</span>
-              <span class="ml-2 rounded-full px-2.5 py-0.5 text-[13px] font-medium" :class="g.active ? 'bg-marker text-marker-ink' : 'bg-sunken text-ink-2'">
-                {{ state(g) }}
-              </span>
+              <Badge :tone="g.active ? 'warn' : 'neutral'">{{ state(g) }}</Badge>
             </p>
             <p class="mt-1 text-sm text-ink-2">
               {{ g.grantedByName }} 於 {{ when(g.grantedAt) }} 授權。理由：{{ g.reason }}
@@ -149,7 +148,7 @@ const state = (g: Grant) => (g.active ? `有效到 ${when(g.expiresAt)}` : g.rev
               <template v-else>還沒有檢視過</template>
             </p>
           </div>
-          <Button v-if="g.active" variant="danger" class="rounded-full" @click="revoke(g)"><Ban />撤銷</Button>
+          <Button v-if="g.active" variant="danger" @click="revoke(g)"><Ban />撤銷</Button>
         </li>
       </ul>
     </section>

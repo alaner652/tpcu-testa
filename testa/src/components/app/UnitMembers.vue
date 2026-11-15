@@ -113,7 +113,7 @@ async function remove(m: UnitMember) {
   <div>
     <p v-if="error" class="flex items-center gap-3 text-[15px] text-grade" role="alert">
       <span class="min-w-0 flex-1">{{ error }}</span>
-      <Button variant="outline" class="rounded-full" @click="load"><RotateCw />重試</Button>
+      <Button variant="outline" @click="load"><RotateCw />重試</Button>
     </p>
     <p v-else-if="!loaded" class="text-[15px] text-ink-2">載入中…</p>
     <template v-else>
@@ -165,7 +165,7 @@ async function remove(m: UnitMember) {
         <select v-model="draft.choice" class="field" aria-label="角色">
           <option v-for="c in ROLE_CHOICES" :key="c.value" :value="c.value">{{ c.label }}</option>
         </select>
-        <Button variant="primary" size="md" class="h-11 rounded-full" type="submit" :disabled="!draft.email.trim()"><Plus />加入</Button>
+        <Button variant="primary" size="md" type="submit" :disabled="!draft.email.trim()"><Plus />加入</Button>
       </form>
     </template>
   </div>

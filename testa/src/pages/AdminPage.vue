@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { Ban, Building2, Check, ChevronDown, CircleCheck, Copy, DatabaseBackup, KeyRound, Plus, RotateCw, ScrollText, Search, Settings, ShieldCheck, UserCog, Users, X } from 'lucide-vue-next'
+import { Ban, Building2, Check, ChevronDown, CircleCheck, Copy, DatabaseBackup, KeyRound, Lock, Plus, RotateCw, ScrollText, Search, Settings, ShieldCheck, UserCog, Users, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import EmergencyView from '@/components/app/EmergencyView.vue'
 import UnitMembers from '@/components/app/UnitMembers.vue'
+import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import MoreMenu from '@/components/ui/MoreMenu.vue'
 import Switch from '@/components/ui/Switch.vue'
@@ -357,7 +358,7 @@ watch(tab, load)
 
     <p v-if="loadError" class="card mb-4 flex items-center gap-3 px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
       <span class="min-w-0 flex-1">{{ loadError }}</span>
-      <Button variant="outline" class="rounded-full" @click="load"><RotateCw />重試</Button>
+      <Button variant="outline" @click="load"><RotateCw />重試</Button>
     </p>
 
     <!-- Users -->
@@ -368,15 +369,15 @@ watch(tab, load)
           <Search class="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-ink-3" aria-hidden="true" />
           <input v-model="staffQuery" type="search" class="field h-10 pl-10" placeholder="搜尋姓名、Email 或單位" aria-label="搜尋教職員" />
         </label>
-        <Button v-if="!creating" variant="primary" class="rounded-full" @click="creating = true"><Plus />新增帳號</Button>
+        <Button v-if="!creating" variant="primary" @click="creating = true"><Plus />新增帳號</Button>
       </div>
 
       <div v-if="issued" class="border-t border-line bg-marker/40 px-5 py-4 sm:px-6" role="status">
         <p class="text-[15px] font-medium">{{ issued.name }}（{{ issued.email }}）的臨時密碼</p>
         <div class="mt-2 flex flex-wrap items-center gap-2">
           <code class="rounded-control bg-paper px-3 py-1.5 text-lg font-semibold tracking-wider select-all">{{ issued.password }}</code>
-          <Button variant="outline" class="rounded-full" @click="copyPassword"><Copy />複製</Button>
-          <Button class="rounded-full" @click="issued = null"><Check />我已經記下來了</Button>
+          <Button variant="outline" @click="copyPassword"><Copy />複製</Button>
+          <Button @click="issued = null"><Check />我已經記下來了</Button>
         </div>
         <p class="mt-2 text-sm text-ink-2">這組密碼只會顯示這一次，請親自交給對方。對方登入後必須先換成自己的密碼。</p>
       </div>
@@ -385,8 +386,8 @@ watch(tab, load)
         <div class="grid gap-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto_auto]">
           <input v-model="draft.email" type="email" class="field bg-paper" placeholder="Email（登入帳號）" aria-label="Email" />
           <input v-model="draft.name" class="field bg-paper" placeholder="姓名" aria-label="姓名" />
-          <Button variant="primary" size="md" class="h-11 rounded-full" type="submit" :disabled="saving"><Check />建立帳號</Button>
-          <Button size="md" class="h-11 rounded-full" @click="((creating = false), (createError = ''))"><X />取消</Button>
+          <Button size="md" @click="((creating = false), (createError = ''))"><X />取消</Button>
+          <Button variant="primary" size="md" type="submit" :disabled="saving"><Check />建立帳號</Button>
         </div>
         <label class="mt-3 flex items-center gap-2 text-[15px]">
           <input v-model="draft.systemAdmin" type="checkbox" class="size-4 accent-brand" />
@@ -404,25 +405,24 @@ watch(tab, load)
           <div class="min-w-0 flex-1 basis-56">
             <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-medium">
               <span class="truncate">{{ s.name }}</span>
-              <span v-if="s.systemAdmin" class="shrink-0 rounded-full bg-brand px-2 py-0.5 text-xs font-normal text-brand-fg">系統管理員</span>
-              <span v-if="!s.active" class="shrink-0 rounded-full bg-sunken px-2 py-0.5 text-xs font-normal text-ink-2">已停用</span>
-              <span v-if="s.locked" class="shrink-0 rounded-full bg-grade-soft px-2 py-0.5 text-xs font-normal text-grade">密碼輸錯鎖定中</span>
-              <span v-if="s.mustChangePassword" class="shrink-0 rounded-full bg-marker px-2 py-0.5 text-xs font-normal text-marker-ink">尚未換掉臨時密碼</span>
+              <Badge v-if="s.systemAdmin" tone="done"><ShieldCheck />系統管理員</Badge>
+              <Badge v-if="s.email === user?.email">你自己</Badge>
+              <Badge v-if="!s.active">已停用</Badge>
+              <Badge v-if="s.locked" tone="danger"><Lock />密碼輸錯，已鎖定</Badge>
+              <Badge v-if="s.mustChangePassword" tone="warn">尚未換掉臨時密碼</Badge>
             </p>
             <p class="truncate text-sm text-ink-2">{{ s.email }}</p>
             <p class="text-sm text-ink-2">{{ rolesText(s) || (s.systemAdmin ? '' : '尚未加入任何單位') }}</p>
           </div>
           <MoreMenu
-            v-if="s.email !== user?.email"
             :label="`${s.name} 的更多動作`"
-            :actions="[
+            :actions="s.email === user?.email ? [] : [
               { label: '重設密碼', icon: KeyRound, run: () => resetPassword(s) },
               s.active
                 ? { label: '停用帳號', icon: Ban, run: () => toggleActive(s), danger: true }
                 : { label: '重新啟用', icon: CircleCheck, run: () => toggleActive(s) },
             ]"
           />
-          <span v-else class="text-sm text-ink-3">這是你自己</span>
         </li>
         <li v-if="staffQuery.trim() && !shownStaff.length" class="px-5 py-6 text-[15px] text-ink-2 sm:px-6">找不到符合「{{ staffQuery.trim() }}」的教職員。</li>
       </ul>
@@ -432,16 +432,16 @@ watch(tab, load)
     <section v-else-if="tab === 'units'" class="card">
       <form class="flex gap-2 px-5 py-4 sm:px-6" @submit.prevent="addUnit">
         <input v-model="newUnit" class="field" placeholder="新單位名稱，例如：招生組" aria-label="新單位名稱" />
-        <Button variant="primary" size="md" class="h-11 rounded-full" type="submit" :disabled="!newUnit.trim()"><Plus />新增</Button>
+        <Button variant="primary" size="md" type="submit" :disabled="!newUnit.trim()"><Plus />新增</Button>
       </form>
       <ul class="divide-y divide-line border-t border-line">
         <li v-for="u in units" :key="u.id">
           <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5 sm:px-6" :class="!u.active && 'opacity-60'">
             <p class="flex min-w-0 flex-1 basis-40 items-center gap-2 text-base font-medium">
               <span class="truncate">{{ u.name }}</span>
-              <span v-if="!u.active" class="shrink-0 rounded-full bg-sunken px-2 py-0.5 text-xs font-normal text-ink-2">已停用</span>
+              <Badge v-if="!u.active">已停用</Badge>
             </p>
-            <Button variant="outline" class="rounded-full" :aria-expanded="openUnit === u.id" @click="toggleMembers(u)"><Users />{{ openUnit === u.id ? '收合' : '成員與角色' }}</Button>
+            <Button variant="outline" :aria-expanded="openUnit === u.id" @click="toggleMembers(u)"><Users />{{ openUnit === u.id ? '收合' : '成員與角色' }}</Button>
             <MoreMenu
               :label="`${u.name} 的更多動作`"
               :actions="[
@@ -479,7 +479,7 @@ watch(tab, load)
         </li>
       </ul>
       <div v-if="audit.length < auditTotal" class="border-t border-line px-5 py-3 text-center sm:px-6">
-        <Button variant="outline" class="rounded-full" @click="loadAudit(auditPage + 1)"><ChevronDown />載入更早的紀錄</Button>
+        <Button variant="outline" @click="loadAudit(auditPage + 1)"><ChevronDown />載入更早的紀錄</Button>
       </div>
     </section>
 
@@ -490,14 +490,14 @@ watch(tab, load)
           這台主機沒有設定備份資料夾，這裡看不到備份狀態。用 docker-compose.prod.yml 部署時會自動設定。
         </p>
         <p v-else-if="!backups.items.length" class="px-5 py-5 text-[15px] sm:px-6">
-          <span class="rounded-full bg-marker px-2.5 py-1 text-sm font-medium text-marker-ink">還沒有任何備份</span>
+          <Badge tone="warn">還沒有任何備份</Badge>
           <span class="mt-2 block text-ink-2">備份每天做一次。部署超過一天還是空的，請檢查主機上的 backup 容器。</span>
         </p>
         <template v-else>
           <div class="px-5 py-4 text-[15px] sm:px-6">
             <p>
               最近一次備份：<span class="font-medium tabular-nums">{{ when(backups.items[0].at) }}</span>
-              <span v-if="backupStale(backups.items[0])" class="ml-2 rounded-full bg-marker px-2.5 py-1 text-sm font-medium text-marker-ink">超過一天沒有新的備份</span>
+              <Badge v-if="backupStale(backups.items[0])" tone="danger" class="ml-2">超過一天沒有新的備份</Badge>
             </p>
             <p class="mt-1 text-sm text-ink-2">每天自動備份一次。這裡只能確認備份有在跑；還原要在主機上操作，步驟在部署文件（docs/deployment.md）。</p>
           </div>

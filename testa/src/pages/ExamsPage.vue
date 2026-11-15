@@ -3,6 +3,7 @@ import { computed, reactive, ref, type Component } from 'vue'
 import { Archive, ArchiveRestore, CalendarClock, Check, ChevronRight, CircleAlert, CircleCheck, CircleStop, Clock, ListChecks, Pencil, Plus, RotateCw, Send, Trash2, Undo2, Upload, X } from 'lucide-vue-next'
 import MoreMenu, { type MoreAction } from '@/components/ui/MoreMenu.vue'
 import { toast } from 'vue-sonner'
+import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import Skeleton from '@/components/ui/Skeleton.vue'
 import SidePanel from '@/components/ui/SidePanel.vue'
@@ -217,12 +218,12 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
   <div>
     <div class="mb-5 flex items-center justify-between gap-3 px-4 md:px-0">
       <h1 class="text-[26px] font-bold sm:text-[30px]">考試</h1>
-      <Button v-if="ownedUnits.length" variant="primary" size="md" class="rounded-full" @click="openForm()"><Plus />建立考試</Button>
+      <Button v-if="ownedUnits.length" variant="primary" size="md" @click="openForm()"><Plus />建立考試</Button>
     </div>
 
     <div v-if="loadError" class="card flex items-center gap-3 px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
       <span class="min-w-0 flex-1">{{ loadError }}</span>
-      <Button variant="outline" class="rounded-full" @click="load"><RotateCw />重試</Button>
+      <Button variant="outline" @click="load"><RotateCw />重試</Button>
     </div>
 
     <div v-else-if="loading" class="space-y-3 px-4 md:px-0">
@@ -235,7 +236,7 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
       <p v-else-if="!usableBanks.length" class="mt-2 text-[15px] text-ink-2">建立考試需要一份題庫。請出題的老師先建立題庫。</p>
       <template v-else>
         <p class="mt-2 mb-6 text-[15px] text-ink-2">選一份題庫、設定時間，再匯入考生名單。</p>
-        <Button variant="primary" size="md" class="rounded-full" @click="openForm()"><Plus />建立考試</Button>
+        <Button variant="primary" size="md" @click="openForm()"><Plus />建立考試</Button>
       </template>
     </div>
 
@@ -245,23 +246,19 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
       <li v-for="exam in current" :key="exam.id" class="card relative px-5 py-4 transition-shadow hover:shadow-lift sm:px-6">
         <div class="flex items-center gap-x-3 gap-y-2">
           <div class="min-w-0 flex-1">
-            <p class="flex flex-wrap items-center gap-2">
-              <span class="rounded-full px-2.5 py-0.5 text-[13px] font-medium" :class="EXAM_STATUS[exam.status].class">
-                {{ EXAM_STATUS[exam.status].label }}
-              </span>
+            <p class="flex flex-wrap items-center gap-x-2.5 gap-y-1">
               <!-- The whole card is clickable: the link covers it and buttons sit above -->
-              <RouterLink :to="`/exams/${exam.id}`" class="text-lg font-semibold after:absolute after:inset-0 after:rounded-card">
-                {{ exam.name }}
-              </RouterLink>
+              <RouterLink :to="`/exams/${exam.id}`" class="text-lg font-semibold after:absolute after:inset-0 after:rounded-card">{{ exam.name }}</RouterLink>
+              <Badge :tone="EXAM_STATUS[exam.status].tone">{{ EXAM_STATUS[exam.status].label }}</Badge>
             </p>
             <p class="mt-1 flex items-center gap-1.5 text-sm tabular-nums" :class="nextStep(exam).todo ? 'font-medium text-brand-strong' : 'text-ink-2'">
               <component :is="nextStep(exam).icon" class="size-4 shrink-0" aria-hidden="true" />{{ nextStep(exam).text }}
             </p>
           </div>
-          <Button v-if="exam.canManage && exam.status === 'draft'" variant="primary" class="relative z-10 rounded-full" @click="doPublish(exam)"><Send />發布</Button>
-          <Button v-else-if="exam.canManage && exam.status === 'live'" variant="outline" class="relative z-10 rounded-full hover:border-grade hover:text-grade" @click="doEnd(exam)"><CircleStop />結束考試</Button>
-          <MoreMenu v-if="exam.canManage" :actions="moreActions(exam)" />
-          <ChevronRight v-if="!exam.canManage || exam.status === 'ended' || exam.status === 'scheduled'" class="size-5 shrink-0 text-ink-3" aria-hidden="true" />
+          <Button v-if="exam.canManage && exam.status === 'draft'" variant="primary" class="relative z-10" @click="doPublish(exam)"><Send />發布</Button>
+          <Button v-else-if="exam.canManage && exam.status === 'live'" variant="outline" class="relative z-10" @click="doEnd(exam)"><CircleStop />結束考試</Button>
+          <MoreMenu :actions="exam.canManage ? moreActions(exam) : []" />
+          <ChevronRight class="size-5 shrink-0 text-ink-3" aria-hidden="true" />
         </div>
 
         <div v-if="exam.status === 'live'" class="mt-3 flex items-center gap-3">
@@ -286,17 +283,21 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
               </p>
             </div>
             <MoreMenu
-              v-if="exam.canManage"
-              :actions="[
-                { label: '取消封存', icon: ArchiveRestore, run: () => doUnarchive(exam) },
-                ...(canPurge(exam) ? [{ label: '永久刪除', icon: Trash2, run: () => ((purging = exam), (purgeReason = '')), danger: true }] : []),
-              ]"
+              :actions="
+                exam.canManage
+                  ? [
+                      { label: '取消封存', icon: ArchiveRestore, run: () => doUnarchive(exam) },
+                      ...(canPurge(exam) ? [{ label: '永久刪除', icon: Trash2, run: () => ((purging = exam), (purgeReason = '')), danger: true }] : []),
+                    ]
+                  : []
+              "
             />
+            <ChevronRight class="size-5 shrink-0 text-ink-3" aria-hidden="true" />
           </div>
           <form v-if="purging === exam" class="relative z-10 mt-3 flex flex-wrap gap-2" @submit.prevent="doPurge">
             <input v-model="purgeReason" class="field min-w-0 flex-1 basis-64" maxlength="500" placeholder="刪除的理由（必填，會留在操作紀錄）" aria-label="刪除的理由" />
-            <Button variant="primary" size="md" class="h-11 rounded-full" type="submit" :disabled="!purgeReason.trim()"><Trash2 />確定刪除</Button>
-            <Button size="md" class="h-11 rounded-full" @click="purging = null"><X />取消</Button>
+            <Button size="md" @click="purging = null"><X />取消</Button>
+            <Button variant="destructive" size="md" type="submit" :disabled="!purgeReason.trim()"><Trash2 />確定刪除</Button>
           </form>
         </li>
       </ul>
@@ -307,7 +308,7 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
       <form class="flex h-full min-h-0 flex-col" novalidate @submit.prevent="submitForm">
         <header class="flex h-14 shrink-0 items-center border-b border-line pr-2 pl-5">
           <h2 class="text-[17px] font-semibold">{{ editing ? '修改考試' : '建立考試' }}</h2>
-          <Button size="icon" class="ml-auto rounded-full" aria-label="關閉" @click="formOpen = false"><X /></Button>
+          <Button size="icon" class="ml-auto" aria-label="關閉" @click="formOpen = false"><X /></Button>
         </header>
         <div class="thin-scroll min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
           <label class="block">
@@ -332,8 +333,8 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
           <p v-if="formError" class="text-sm text-grade" role="alert">{{ formError }}</p>
         </div>
         <footer class="flex shrink-0 justify-end gap-2 border-t border-line px-5 py-3">
-          <Button size="md" class="rounded-full" @click="formOpen = false"><X />取消</Button>
-          <Button variant="primary" size="md" class="rounded-full" type="submit" :disabled="saving"><Check />{{ editing ? '儲存' : '建立草稿' }}</Button>
+          <Button size="md" @click="formOpen = false"><X />取消</Button>
+          <Button variant="primary" size="md" type="submit" :disabled="saving"><Check />{{ editing ? '儲存' : '建立草稿' }}</Button>
         </footer>
       </form>
     </SidePanel>

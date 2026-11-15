@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
-import { Check, ChevronLeft, ChevronRight, Clock, Flag, Minus, Pencil, RotateCcw, X } from 'lucide-vue-next'
+import { Check, ChevronLeft, ChevronRight, Clock, Flag, Minus, Pencil, RotateCcw, Send, X } from 'lucide-vue-next'
+import Badge, { type BadgeTone } from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { emptyAttempt, grade, isAnswered, type Attempt, type GradeStatus, type RemoteExam } from '@/lib/grading'
@@ -230,12 +231,12 @@ const earned = computed(() => Math.round(grades.value.reduce((sum, g) => sum + g
 const pendingPoints = computed(() => totalPoints.value - objectiveTotal.value)
 const correctCount = computed(() => grades.value.filter((g) => g.status === 'correct').length)
 
-const STATUS: Record<GradeStatus, { label: string; class: string }> = {
-  correct: { label: '答對', class: 'bg-brand-soft text-brand-strong' },
-  partial: { label: '部分答對', class: 'bg-marker text-marker-ink' },
-  wrong: { label: '答錯', class: 'bg-grade-soft text-grade' },
-  unanswered: { label: '未作答', class: 'bg-sunken text-ink-2' },
-  pending: { label: '待閱卷', class: 'bg-marker text-marker-ink' },
+const STATUS: Record<GradeStatus, { label: string; tone: BadgeTone }> = {
+  correct: { label: '答對', tone: 'done' },
+  partial: { label: '部分答對', tone: 'warn' },
+  wrong: { label: '答錯', tone: 'danger' },
+  unanswered: { label: '未作答', tone: 'neutral' },
+  pending: { label: '待閱卷', tone: 'warn' },
 }
 
 function cellClass(index: number) {
@@ -281,14 +282,9 @@ function jump(index: number) {
               />
             </div>
           </div>
-          <button
-            type="button"
-            class="h-9 shrink-0 rounded-full bg-brand px-5 text-sm font-semibold text-brand-fg transition-colors hover:bg-brand-strong disabled:opacity-40"
-            :disabled="questions.length === 0 || submitting"
-            @click="requestSubmit"
-          >
-            {{ submitting ? '交卷中…' : '交卷' }}
-          </button>
+          <Button variant="primary" :disabled="questions.length === 0 || submitting" @click="requestSubmit">
+            <Send />{{ submitting ? '交卷中…' : '交卷' }}
+          </Button>
         </template>
         <template v-else>
           <p class="min-w-0 flex-1 truncate text-[15px] font-medium">已交卷，以下是自動批改結果</p>
@@ -310,7 +306,7 @@ function jump(index: number) {
         <p class="mt-2 mb-6 text-[15px] text-ink-2">
           {{ real ? '這場考試還沒有題目，請聯絡監考老師。' : '回到編輯模式新增題目後，就能在這裡以考生身分試考一次。' }}
         </p>
-        <Button v-if="!real" variant="primary" size="md" class="rounded-full" @click="emit('edit')">回到編輯</Button>
+        <Button v-if="!real" variant="primary" size="md" @click="emit('edit')"><Pencil />回到編輯</Button>
       </div>
 
       <!-- Answering: one question at a time -->
@@ -336,19 +332,18 @@ function jump(index: number) {
             :show-answers="false"
           />
           <footer class="mt-8 flex items-center justify-between border-t border-line pt-4">
-            <Button variant="outline" size="md" class="rounded-full" :disabled="current === 0" @click="current -= 1">
+            <Button variant="outline" size="md" :disabled="current === 0" @click="current -= 1">
               <ChevronLeft />上一題
             </Button>
             <Button
               v-if="current < questions.length - 1"
               variant="primary"
               size="md"
-              class="rounded-full"
               @click="current += 1"
             >
               下一題<ChevronRight />
             </Button>
-            <Button v-else variant="primary" size="md" class="rounded-full" @click="requestSubmit">交卷</Button>
+            <Button v-else variant="primary" size="md" @click="requestSubmit"><Send />交卷</Button>
           </footer>
         </section>
         <p v-if="remote" class="mt-3 px-5 text-[13px] md:px-1" :class="saveState === 'error' ? 'font-medium text-grade' : 'text-ink-3'" role="status">
@@ -370,7 +365,7 @@ function jump(index: number) {
         <section class="bg-paper px-5 py-12 shadow-card sm:px-10 md:rounded-card">
           <h2 class="text-3xl font-bold">已交卷</h2>
           <p class="mt-3 text-[15px] text-ink-2">你的作答已經送出。成績會在評分完成後公布，現在可以離開了。</p>
-          <Button variant="primary" size="md" class="mt-6 rounded-full" @click="emit('exit')">回到我的考試</Button>
+          <Button variant="primary" size="md" class="mt-6" @click="emit('exit')"><ChevronLeft />回到我的考試</Button>
         </section>
       </div>
 
@@ -396,12 +391,12 @@ function jump(index: number) {
           class="relative scroll-mt-20 bg-paper px-5 py-6 shadow-card sm:px-10 md:rounded-card"
         >
           <p class="mb-3 flex items-center gap-2 pl-9 sm:pl-10">
-            <span class="inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-[13px] font-medium" :class="STATUS[grades[index].status].class">
-              <Check v-if="grades[index].status === 'correct'" class="size-3.5" />
-              <X v-else-if="grades[index].status === 'wrong'" class="size-3.5" />
-              <Minus v-else-if="grades[index].status === 'unanswered'" class="size-3.5" />
+            <Badge :tone="STATUS[grades[index].status].tone">
+              <Check v-if="grades[index].status === 'correct'" />
+              <X v-else-if="grades[index].status === 'wrong'" />
+              <Minus v-else-if="grades[index].status === 'unanswered'" />
               {{ STATUS[grades[index].status].label }}
-            </span>
+            </Badge>
             <button
               v-if="!real"
               type="button"

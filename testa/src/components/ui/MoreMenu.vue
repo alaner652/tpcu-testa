@@ -37,4 +37,6 @@ defineProps<{ actions: MoreAction[]; label?: string }>()
       </MenuItem>
     </MenuContent>
   </DropdownMenuRoot>
+  <!-- Rows without extra actions keep the slot, so buttons and labels line up down the list -->
+  <span v-else class="size-9 shrink-0 max-md:size-10" aria-hidden="true" />
 </template>

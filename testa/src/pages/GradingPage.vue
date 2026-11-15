@@ -158,7 +158,7 @@ async function submit() {
         </label>
         <div class="mt-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
           <p class="min-w-0 flex-1 basis-60 text-[13px] text-ink-3">送出後不能自己修改。真的需要更正，請承辦人重開這份答卷的評分。</p>
-          <Button variant="primary" size="md" class="rounded-full" :disabled="sending" @click="submit"><Check />送出，看下一份</Button>
+          <Button variant="primary" size="md" :disabled="sending" @click="submit"><Check />送出，看下一份</Button>
         </div>
       </section>
     </div>

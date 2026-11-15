@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { Check, Download, Megaphone, RotateCcw, RotateCw, UserMinus, UserPlus, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { useExams, when, type Exam } from '@/composables/useExams'
@@ -128,7 +129,7 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
 <template>
   <p v-if="error" class="card flex items-center gap-3 px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
     <span class="min-w-0 flex-1">{{ error }}</span>
-    <Button variant="outline" class="rounded-full" @click="load"><RotateCw />重試</Button>
+    <Button variant="outline" @click="load"><RotateCw />重試</Button>
   </p>
 
   <!-- Grading -->
@@ -157,7 +158,7 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
           <Button
             v-if="!closed"
             variant="outline"
-            class="w-28 rounded-full"
+            class="w-28"
             :disabled="g.assigned && g.done > 0"
             :title="g.assigned && g.done > 0 ? '已經送出分數的評分者不能移除' : undefined"
             @click="toggle(g)"
@@ -183,20 +184,20 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
       <ul v-else class="divide-y divide-line border-t border-line">
         <li v-for="i in results.items" :key="i.anonId + i.questionId" class="px-5 py-3 sm:px-6">
           <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[15px]">
-            <span class="w-40 font-medium tabular-nums">答卷 {{ i.anonId }}，第 {{ i.number }} 題</span>
+            <span class="w-56 font-medium tabular-nums">答卷 {{ i.anonId }}，第 {{ i.number }} 題</span>
             <span v-if="i.locked" class="min-w-0 flex-1 basis-48 tabular-nums">
               {{ i.scores.join('、') }} → 平均 <strong class="font-semibold">{{ i.average }}</strong> / {{ i.points }}
             </span>
             <span v-else class="min-w-0 flex-1 basis-48 text-ink-2 tabular-nums">已評 {{ i.graded }} / {{ i.graders }} 位</span>
-            <span v-if="i.flagged" class="rounded-full bg-grade-soft px-2.5 py-0.5 text-[13px] font-medium text-grade">差距較大</span>
-            <Button v-if="i.graded > 0 && !closed" variant="outline" class="rounded-full" @click="((reopening = i), (reason = ''))">
+            <Badge v-if="i.flagged" tone="danger">差距較大</Badge>
+            <Button v-if="i.graded > 0 && !closed" variant="outline" @click="((reopening = i), (reason = ''))">
               <RotateCcw />重開評分
             </Button>
           </div>
           <form v-if="reopening === i" class="mt-3 flex flex-wrap gap-2" @submit.prevent="reopen">
             <input v-model="reason" class="field min-w-0 flex-1 basis-64" placeholder="重開的理由（必填，會留在操作紀錄）" aria-label="重開的理由" />
-            <Button variant="primary" size="md" class="h-11 rounded-full" type="submit" :disabled="!reason.trim()"><Check />確定重開</Button>
-            <Button size="md" class="h-11 rounded-full" @click="reopening = null"><X />取消</Button>
+            <Button size="md" @click="reopening = null"><X />取消</Button>
+            <Button variant="primary" size="md" type="submit" :disabled="!reason.trim()"><Check />確定重開</Button>
           </form>
         </li>
       </ul>
@@ -226,7 +227,6 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
       <Button
         v-if="!closed"
         variant="primary"
-        class="rounded-full"
         :disabled="!results.complete || exam.status !== 'ended'"
         @click="publish"
       >

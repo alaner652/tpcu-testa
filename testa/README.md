@@ -91,3 +91,34 @@ One sans-serif stack for the whole site; question content uses `.exam-text`, sha
 - Buttons, tabs and nav items carry a Lucide icon.
 - Whole cards are clickable; a one-line hint next to the status says what to do next.
 - Keep explanatory text to what is needed.
+
+### Buttons (`components/ui/Button.vue`)
+
+| Size | Where |
+| --- | --- |
+| `sm` | In list rows and card headers |
+| `md` | Beside form fields (same height as `.field`) and page-level actions |
+| `lg` | Full-width form submit (sign-in, setup, starting the exam) |
+
+- Variants: `primary` (at most one per row or form), `outline` (secondary), `ghost` (cancel), `danger` (quiet red in a row, e.g. revoke), `destructive` (solid red, confirms deleting).
+- In a pair the cancel button comes first and the confirming button last, as in the confirm dialog.
+- Every button is pill-shaped by default; do not add `rounded-full` or height overrides.
+
+### Status labels (`components/ui/Badge.vue`)
+
+One size; the tone carries the meaning, the same everywhere:
+
+| Tone | Meaning | Examples |
+| --- | --- | --- |
+| `live` | Happening now | 進行中, 作答中, 可以作答 |
+| `done` | Finished or positive | 已交卷, 答對, 系統管理員 |
+| `warn` | Waiting or worth a look | 已排程, 待閱卷, 離開畫面, 尚未換掉臨時密碼 |
+| `danger` | A problem someone has to act on | 已鎖定, 差距較大, 答錯, 備份過期 |
+| `neutral` | Inactive or plain information | 草稿, 已結束, 已停用, 已補時 |
+
+Badges are for status only (a bank's subject is plain text).
+
+### Row layout
+
+Title or name, then its status badges on the same line; details on the second line; at the right edge, the one primary button, then "...", then `›` for clickable cards.
+`MoreMenu` keeps its slot when a row has no extra actions, so buttons line up down a list.

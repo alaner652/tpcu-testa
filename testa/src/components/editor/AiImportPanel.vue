@@ -125,7 +125,7 @@ function onDrop(event: DragEvent) {
 
       <div class="mt-5 flex items-center justify-between gap-3 rounded-control bg-sunken px-3 py-2.5">
         <p class="text-sm text-ink-2">手邊沒有檔案？</p>
-        <Button variant="outline" class="rounded-full" @click="start(SAMPLE_FILE)">用範例考卷試試</Button>
+        <Button variant="outline" @click="start(SAMPLE_FILE)">用範例考卷試試</Button>
       </div>
 
       <p class="mt-5 text-xs leading-relaxed text-ink-3">
@@ -201,7 +201,7 @@ function onDrop(event: DragEvent) {
 
       <footer class="flex shrink-0 items-center justify-between gap-2 border-t border-line px-4 py-3">
         <Button size="md" @click="reset">換一個檔案</Button>
-        <Button variant="primary" size="md" class="rounded-full" :disabled="selectedCount === 0" @click="confirm">
+        <Button variant="primary" size="md" :disabled="selectedCount === 0" @click="confirm">
           匯入 {{ selectedCount }} 題
         </Button>
       </footer>

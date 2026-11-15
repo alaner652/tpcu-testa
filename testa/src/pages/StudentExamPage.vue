@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
-import { LoaderCircle, X } from 'lucide-vue-next'
+import { LoaderCircle, Play, UserX, X } from 'lucide-vue-next'
 import Logo from '@/components/app/Logo.vue'
 import ExamPreview from '@/components/editor/ExamPreview.vue'
+import Button from '@/components/ui/Button.vue'
 import Skeleton from '@/components/ui/Skeleton.vue'
 import { useAuth } from '@/composables/useAuth'
 import { useCandidate } from '@/composables/useCandidate'
@@ -143,21 +144,10 @@ onBeforeRouteLeave(async () => {
           </label>
           <p v-if="error" class="mt-2 text-sm text-grade" role="alert">{{ error }}</p>
           <div class="mt-3 flex flex-wrap-reverse gap-2">
-            <button
-              type="button"
-              class="h-12 flex-1 basis-32 rounded-full border border-line-strong px-5 text-[15px] font-medium transition-colors hover:bg-sunken"
-              @click="router.push({ name: 'student' })"
-            >
-              這不是我
-            </button>
-            <button
-              type="button"
-              class="h-12 flex-[2] basis-48 rounded-full bg-brand px-5 text-base font-semibold text-brand-fg transition-colors hover:bg-brand-strong disabled:opacity-45"
-              :disabled="!agreed || beginning"
-              @click="begin"
-            >
-              <LoaderCircle v-if="beginning" class="mr-1.5 inline size-4 animate-spin" />開始作答
-            </button>
+            <Button variant="outline" size="lg" class="flex-1 basis-32" @click="router.push({ name: 'student' })"><UserX />這不是我</Button>
+            <Button variant="primary" size="lg" class="flex-[2] basis-48" :disabled="!agreed || beginning" @click="begin">
+              <LoaderCircle v-if="beginning" class="animate-spin" /><Play v-else />開始作答
+            </Button>
           </div>
         </section>
       </div>

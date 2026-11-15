@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { CircleAlert, LoaderCircle } from 'lucide-vue-next'
+import { Check, CircleAlert, LoaderCircle } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import Logo from '@/components/app/Logo.vue'
+import Button from '@/components/ui/Button.vue'
 import { useAuth } from '@/composables/useAuth'
 
 /** Change password. Users signed in with a temporary password land here and must change it first. */
@@ -71,17 +72,12 @@ async function leave() {
         <p v-if="error" class="mt-4 flex items-start gap-1.5 text-sm text-grade" role="alert">
           <CircleAlert class="mt-0.5 size-4 shrink-0" />{{ error }}
         </p>
-        <button
-          type="submit"
-          class="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-brand text-base font-semibold text-brand-fg transition-colors hover:bg-brand-strong disabled:opacity-70"
-          :disabled="loading"
-        >
-          <LoaderCircle v-if="loading" class="size-4 animate-spin" />
-          {{ loading ? '儲存中…' : '儲存新密碼' }}
-        </button>
-        <button type="button" class="mt-3 h-10 w-full rounded-full text-[15px] text-ink-2 hover:text-ink" @click="leave">
+        <Button variant="primary" size="lg" type="submit" class="mt-6" :disabled="loading">
+          <LoaderCircle v-if="loading" class="animate-spin" /><Check v-else />{{ loading ? '儲存中…' : '儲存新密碼' }}
+        </Button>
+        <Button size="lg" class="mt-3 font-medium" @click="leave">
           {{ forced ? '登出' : '取消' }}
-        </button>
+        </Button>
       </form>
     </div>
   </div>
