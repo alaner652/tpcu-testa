@@ -37,7 +37,7 @@ choice and fill-in questions are auto-graded, essays are graded anonymously by o
 
 - English for code, identifiers, test names, comments, docs, commit messages and script output. Only what end users see is Chinese: UI text, API error messages, audit details, export headers, demo and test data.
 - No emojis in code, docs or commits.
-- `README.md` has a Traditional Chinese copy, `README.zh-TW.md`; update both. Other docs are English only. Keep docs concise and prefer editing existing files.
+- `README.md` and `docs/server-requirements.md` have Traditional Chinese copies (`*.zh-TW.md`); update both. Other docs are English only. Keep docs concise and prefer editing existing files.
 - Keep code minimal: no speculative features, unrelated changes or new dependencies without a reason.
 
 ## Workflow

@@ -1,5 +1,7 @@
 # Estimated server configuration
 
+**English** | [繁體中文](server-requirements.zh-TW.md)
+
 What to request from the IT office for one admission exam site with a few hundred candidates. The reasons and the set-up steps are in [Deployment](deployment.md).
 
 | Item | Estimate | Notes |

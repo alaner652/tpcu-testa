@@ -102,7 +102,7 @@ flowchart LR
 | 文件 | 內容 |
 | --- | --- |
 | [部署](docs/deployment.md) | 安裝、HTTPS、斷網考試、升級、備份與還原 |
-| [主機需求](docs/server-requirements.md) | 一張表：要申請的 VM 規格、網路、憑證 |
+| [主機需求](docs/server-requirements.zh-TW.md) | 一張表：要申請的 VM 規格、網路、憑證 |
 | [開發](docs/development.md) | 程式結構、後端規則、測試、如何貢獻 |
 | [前端](testa/README.md) | 頁面、元件、design tokens、介面規則 |
 | [專案狀態](docs/status.md) | 完成度、驗證方式、路線圖 |
