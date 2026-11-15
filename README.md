@@ -27,7 +27,7 @@ More in [Screenshots](docs/screenshots.md).
 **Grading and results**
 - Choice and fill-in questions are graded automatically.
 - Essays are graded anonymously by one or more graders; the score is their average, and large disagreements are flagged before publishing.
-- Results are published to candidates (total and subtotals only) and exported to Excel or CSV.
+- Results are locked on publishing and exported to Excel or CSV for the school's own announcement; each exam can also let candidates sign in to see their total and subtotals.
 
 **Operations**
 - No default credentials: the first administrator is created with a one-time token from the server log.
@@ -92,7 +92,7 @@ Roles are granted per unit (for example, an admissions office), and one person c
 | Proctor | Watch candidates, reset login codes, give extra time |
 | Grader | Grade assigned essays without seeing names or other graders' scores |
 | System administrator | Manage accounts and units, read the audit log and backup status |
-| Candidate | No account; signs in with the login slip to take the exam and check the score |
+| Candidate | No account; signs in with the login slip to take the exam (and check the score, if the exam allows it) |
 
 ## Documentation
 
@@ -117,4 +117,4 @@ Issues and pull requests are welcome. Read [Development](docs/development.md) fi
 
 ## License
 
-No license has been chosen yet, so all rights are reserved for now.
+Testa is free software under the [GNU Affero General Public License v3.0](LICENSE). You may use, modify and share it; if you run a modified version as a service for others, you must offer them its source code.
