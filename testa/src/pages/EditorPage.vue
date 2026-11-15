@@ -4,12 +4,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { useEventListener, useMediaQuery } from '@vueuse/core'
 import { toast } from 'vue-sonner'
 import SidePanel from '@/components/ui/SidePanel.vue'
-import { DEMO_FEATURES } from '@/lib/flags'
 import EditorToolbar from '@/components/editor/EditorToolbar.vue'
 import EditorTopBar from '@/components/editor/EditorTopBar.vue'
 import ExamPreview from '@/components/editor/ExamPreview.vue'
 import QuestionOverview from '@/components/editor/QuestionOverview.vue'
 import QuestionSheet from '@/components/editor/QuestionSheet.vue'
+import { useAi } from '@/composables/useAi'
 import { useBanks } from '@/composables/useBanks'
 import { useConfirm } from '@/composables/useConfirm'
 import { useQuestionActions } from '@/composables/useQuestionActions'
@@ -23,8 +23,9 @@ const wide = useMediaQuery('(min-width: 1280px)')
 
 const mode = ref<'edit' | 'preview'>('edit')
 const overviewOpen = ref(false)
-// AI import is still a demo (mock data), reachable and loaded only in development
-const AiImportPanel = DEMO_FEATURES ? defineAsyncComponent(() => import('@/components/editor/AiImportPanel.vue')) : null
+// AI import appears only when the server has a model configured; the panel is loaded on demand
+const AiImportPanel = defineAsyncComponent(() => import('@/components/editor/AiImportPanel.vue'))
+const { importEnabled } = useAi()
 const importOpen = ref(false)
 const scroller = ref<HTMLElement | null>(null)
 const exam = ref<InstanceType<typeof ExamPreview> | null>(null)
@@ -158,7 +159,7 @@ watch(store.bankId, (id) => {
       <QuestionOverview @navigate="onOverviewNavigate" />
     </SidePanel>
 
-    <SidePanel v-if="AiImportPanel" v-model:open="importOpen" :docked="false" side="right" title="AI 匯入題目">
+    <SidePanel v-if="importEnabled" v-model:open="importOpen" :docked="false" side="right" title="AI 匯入題目">
       <AiImportPanel @close="importOpen = false" @done="importOpen = false" />
     </SidePanel>
   </div>

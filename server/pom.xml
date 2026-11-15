@@ -57,6 +57,12 @@
       <artifactId>poi-ooxml</artifactId>
       <version>6.0.0</version>
     </dependency>
+    <!-- Text extraction from PDF exam papers for AI question import -->
+    <dependency>
+      <groupId>org.apache.pdfbox</groupId>
+      <artifactId>pdfbox</artifactId>
+      <version>3.0.5</version>
+    </dependency>
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>

@@ -17,6 +17,7 @@ More in [Screenshots](docs/screenshots.md).
 **Authoring**
 - Single choice, multiple choice, fill-in-the-blank and essay questions, with math typed as `$...$` and rendered by KaTeX.
 - Autosave with version conflict detection, and a "try it" mode that shows the bank exactly as a candidate sees it.
+- Optional: a local AI model drafts questions from an existing Word or PDF paper, and the author confirms each one. Off by default.
 
 **Running an exam**
 - Roster import from Excel or CSV (including Big5), one login code per candidate, printable login slips.
@@ -105,7 +106,7 @@ Roles are granted per unit (for example, an admissions office), and one person c
 | [Project status](docs/status.md) | What is done, how it was verified, roadmap |
 | [Screenshots](docs/screenshots.md) | Every page on desktop and phone |
 | [School accounts](docs/school-accounts.md) | Proposal: internal exams with school sign-in |
-| [AI features](docs/ai.md) | Evaluation of local models and the design for AI-assisted features |
+| [AI features](docs/ai.md) | AI question import, the evaluation of local models, and the design for other AI-assisted features |
 | [Design document](docs/testa-system-design.html) | Original requirements (Traditional Chinese; open in a browser) |
 
 ## Project status

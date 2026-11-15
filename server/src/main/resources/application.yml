@@ -47,6 +47,11 @@ testa:
     # Warn the officer when graders differ by more than this share of the question's points.
     # The school's rule is "gap over 20", read here as 20% of the points (20 on a 100-point question)
     flag-ratio: 0.2
+  ai:
+    # AI question import (off when blank): an OpenAI-compatible endpoint such as a local llama-server, e.g. http://10.0.0.5:8090
+    base-url: ${TESTA_AI_URL:}
+    model: ${TESTA_AI_MODEL:}
+    api-key: ${TESTA_AI_KEY:}
   retention:
     # Exam data is kept until the end of (year the exam ended + this many years), Taipei time; after that archived exams can be deleted by hand
     years: 1

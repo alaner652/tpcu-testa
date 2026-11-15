@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { DEMO_FEATURES } from '@/lib/flags'
 import { computed, ref } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import { Search, X } from 'lucide-vue-next'
@@ -17,6 +16,7 @@ import MathText from './MathText.vue'
 const emit = defineEmits<{ navigate: [] }>()
 const { questions, activeId, loading, select } = useBanks()
 /** The legend is needed only when there are incomplete or to-review questions */
+const hasReview = computed(() => questions.value.some((q) => q.review))
 const needsLegend = computed(() => questions.value.some((q) => statusOf(q) !== 'done'))
 
 const query = ref('')
@@ -126,7 +126,7 @@ function go(id: string) {
     <ul v-if="!loading && questions.length && !keyword && needsLegend" class="mt-4 space-y-1.5 px-1 text-[13px] text-ink-2">
       <li class="flex items-center gap-2"><span class="size-3 rounded-full bg-brand-soft shadow-[inset_0_0_0_1px_var(--brand)]" />已完成</li>
       <li class="flex items-center gap-2"><span class="size-3 rounded-full shadow-[inset_0_0_0_1.5px_var(--grade)]" />未完成</li>
-      <li v-if="DEMO_FEATURES" class="flex items-center gap-2"><span class="size-3 rounded-full bg-marker shadow-[inset_0_0_0_1px_var(--marker-ink)]" />AI 匯入待確認</li>
+      <li v-if="hasReview" class="flex items-center gap-2"><span class="size-3 rounded-full bg-marker shadow-[inset_0_0_0_1px_var(--marker-ink)]" />AI 匯入待確認</li>
     </ul>
     <p v-if="!loading && questions.length > 1 && !keyword" class="mt-3 px-1 text-[13px] text-ink-3">拖曳圓圈可以調整順序。</p>
   </div>

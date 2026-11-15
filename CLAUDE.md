@@ -30,7 +30,7 @@ choice and fill-in questions are auto-graded, essays are graded anonymously by o
 
 - Keep the UI simple: one primary button per row, rarely used actions in the "..." menu (`MoreMenu.vue`), Lucide icons on buttons and tabs, short text.
 - Graders are one to many per exam; one person may hold several roles in a unit.
-- No video proctoring, no lockdown browser, no AI in the first release (AI research and plan: `docs/ai.md`).
+- No video proctoring, no lockdown browser. AI is off by default: question import (`ai` package) appears only when `TESTA_AI_URL` is set, the model's output is checked by code and confirmed by the author, and candidate data never goes to a model (`docs/ai.md`).
 - Single VM, not distributed (recommended 2026-11-15): one VM handles the expected load; resilience comes from restart, extra time, backups and a rehearsed restore.
 
 ## Conventions

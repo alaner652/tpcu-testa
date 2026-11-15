@@ -5,6 +5,7 @@ import Button from '@/components/ui/Button.vue'
 import MenuContent from '@/components/ui/MenuContent.vue'
 import MenuItem from '@/components/ui/MenuItem.vue'
 import Tip from '@/components/ui/Tip.vue'
+import { useAi } from '@/composables/useAi'
 import { useQuestionActions } from '@/composables/useQuestionActions'
 import { useTheme } from '@/composables/useTheme'
 import BankSwitcher from './BankSwitcher.vue'
@@ -15,6 +16,7 @@ defineEmits<{ openOverview: []; import: []; 'update:mode': [mode: 'edit' | 'prev
 
 const { importDemo } = useQuestionActions()
 const dev = import.meta.env.DEV
+const { importEnabled } = useAi()
 const { dark, toggle } = useTheme()
 
 const MODES = [
@@ -68,7 +70,7 @@ const SHORTCUTS = [
 
       <div class="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
         <SaveIndicator class="mr-1 sm:mr-2" />
-        <Button v-if="dev && mode === 'edit'" variant="outline" class="max-md:hidden" @click="$emit('import')">
+        <Button v-if="importEnabled && mode === 'edit'" variant="outline" class="max-md:hidden" @click="$emit('import')">
           <Sparkles />AI 匯入
         </Button>
         <Tip v-if="mode === 'edit'" label="題號卡">

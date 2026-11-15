@@ -4,9 +4,9 @@ import { Eye, Plus, Sparkles } from 'lucide-vue-next'
 import MenuContent from '@/components/ui/MenuContent.vue'
 import MenuItem from '@/components/ui/MenuItem.vue'
 import Tip from '@/components/ui/Tip.vue'
+import { useAi } from '@/composables/useAi'
 import { useBanks } from '@/composables/useBanks'
 import { useQuestionActions } from '@/composables/useQuestionActions'
-import { DEMO_FEATURES } from '@/lib/flags'
 import { QUESTION_TYPES } from '@/lib/question'
 
 /**
@@ -17,6 +17,7 @@ const props = defineProps<{ orientation: 'vertical' | 'horizontal' }>()
 defineEmits<{ import: []; preview: [] }>()
 const store = useBanks()
 const { add } = useQuestionActions()
+const { importEnabled } = useAi()
 
 const vertical = props.orientation === 'vertical'
 const item = vertical
@@ -60,7 +61,7 @@ const item = vertical
       </MenuContent>
     </DropdownMenuRoot>
 
-    <Tip v-if="DEMO_FEATURES" label="AI 匯入 Word 或 PDF" :side="vertical ? 'left' : 'top'">
+    <Tip v-if="importEnabled" label="AI 匯入 Word 或 PDF" :side="vertical ? 'left' : 'top'">
       <button type="button" :class="item" aria-label="AI 匯入題目" @click="$emit('import')">
         <Sparkles class="size-5" />
         <span v-if="!vertical">AI 匯入</span>

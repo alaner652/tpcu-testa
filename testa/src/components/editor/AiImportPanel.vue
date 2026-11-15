@@ -4,24 +4,52 @@ import { Check, FileText, LoaderCircle, TriangleAlert, Upload, X } from 'lucide-
 import { toast } from 'vue-sonner'
 import Button from '@/components/ui/Button.vue'
 import { useBanks } from '@/composables/useBanks'
-import { createDetectedQuestions, IMPORT_STEPS, SAMPLE_FILE, type DetectedQuestion } from '@/data/mock-import'
-import { typeMeta } from '@/lib/question'
+import { api, ApiError } from '@/lib/api'
+import { createQuestion, typeMeta } from '@/lib/question'
+import type { Question, QuestionType } from '@/types/question'
 import MathText from './MathText.vue'
 
 const emit = defineEmits<{ close: []; done: [] }>()
 const store = useBanks()
 
+/** A question drafted by the model and checked by the server; note says what to look at. */
+interface Draft {
+  type: QuestionType
+  stem: string
+  points: number
+  choices: string[]
+  correct: number[]
+  blanks: string[][]
+  wordLimit: number | null
+  note: string | null
+}
+interface Job {
+  id: string
+  state: 'running' | 'done' | 'failed'
+  questions: Draft[]
+  error: string | null
+}
+interface Detected {
+  question: Question
+  note: string | null
+}
+
 type Stage = 'idle' | 'processing' | 'review'
 const stage = ref<Stage>('idle')
 const file = ref<{ name: string; size: string } | null>(null)
-const stepIndex = ref(0)
-const detected = ref<DetectedQuestion[]>([])
+const detected = ref<Detected[]>([])
 const selected = ref<Set<string>>(new Set())
 const dragging = ref(false)
 const error = ref('')
+const seconds = ref(0)
 
-let timer: ReturnType<typeof setTimeout> | undefined
-onBeforeUnmount(() => clearTimeout(timer))
+// Each upload gets a run number; a cancelled or replaced run stops polling and ignores its result
+let run = 0
+let ticker: ReturnType<typeof setInterval> | undefined
+onBeforeUnmount(() => {
+  run += 1
+  clearInterval(ticker)
+})
 
 const selectedCount = computed(() => selected.value.size)
 
@@ -31,34 +59,67 @@ function formatSize(bytes: number) {
 
 function accept(picked: File | undefined) {
   if (!picked) return
-  if (!/\.(docx?|pdf)$/i.test(picked.name)) {
-    error.value = `無法讀取「${picked.name}」。請上傳 .docx、.doc 或 .pdf 檔案。`
+  if (!/\.(docx|pdf|txt)$/i.test(picked.name)) {
+    error.value = `無法讀取「${picked.name}」。請上傳 .docx、.pdf 或 .txt 檔案；舊版 .doc 請先另存成 .docx。`
     return
   }
-  start({ name: picked.name, size: formatSize(picked.size) })
+  if (picked.size > 5 * 1024 * 1024) {
+    error.value = '檔案超過 5 MB，請分成幾個檔案匯入。'
+    return
+  }
+  void start(picked)
 }
 
-/** Simulated parsing: walk through each step, then produce the result. */
-function start(target: { name: string; size: string }) {
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+async function start(picked: File) {
+  const unitId = store.bank.value?.unitId
+  if (!unitId) return
+  const mine = ++run
   error.value = ''
-  file.value = target
+  file.value = { name: picked.name, size: formatSize(picked.size) }
   stage.value = 'processing'
-  stepIndex.value = 0
-  const advance = () => {
-    if (stepIndex.value < IMPORT_STEPS.length - 1) {
-      stepIndex.value += 1
-      timer = setTimeout(advance, 750)
-    } else {
-      detected.value = createDetectedQuestions()
-      selected.value = new Set(detected.value.map((d) => d.question.id))
-      stage.value = 'review'
+  seconds.value = 0
+  clearInterval(ticker)
+  ticker = setInterval(() => (seconds.value += 1), 1000)
+  try {
+    const form = new FormData()
+    form.append('file', picked)
+    form.append('unitId', String(unitId))
+    let job = await api<Job>('/ai/question-import', { method: 'POST', body: form })
+    while (job.state === 'running' && mine === run) {
+      await wait(1500)
+      job = await api<Job>(`/ai/question-import/${job.id}`)
     }
+    if (mine !== run) return
+    if (job.state === 'failed') throw new ApiError(job.error ?? '匯入失敗，請再試一次。', 0)
+    detected.value = job.questions.map((d) => ({
+      note: d.note,
+      question: createQuestion(d.type, {
+        stem: d.stem,
+        points: d.points,
+        choices: d.choices.length ? d.choices : undefined,
+        correct: d.correct,
+        blanks: d.blanks.length ? d.blanks : undefined,
+        wordLimit: d.wordLimit,
+        review: true,
+      }),
+    }))
+    selected.value = new Set(detected.value.map((d) => d.question.id))
+    stage.value = 'review'
+  } catch (e) {
+    if (mine !== run) return
+    error.value = e instanceof ApiError ? e.message : '匯入失敗，請再試一次。'
+    stage.value = 'idle'
+    file.value = null
+  } finally {
+    if (mine === run) clearInterval(ticker)
   }
-  timer = setTimeout(advance, 750)
 }
 
 function reset() {
-  clearTimeout(timer)
+  run += 1
+  clearInterval(ticker)
   stage.value = 'idle'
   file.value = null
   detected.value = []
@@ -99,7 +160,7 @@ function onDrop(event: DragEvent) {
 
     <!-- 1. Pick a file -->
     <div v-if="stage === 'idle'" class="thin-scroll min-h-0 flex-1 overflow-y-auto px-5 py-6">
-      <p class="text-sm text-ink-2">上傳現有的考卷，AI 會辨識題號、題型、選項與數學公式，拆成可以編輯的題目。</p>
+      <p class="text-sm text-ink-2">上傳現有的考卷，AI 會辨識題型、選項、配分與答案，拆成可以編輯的題目。每一題都要你核對過才算數。</p>
 
       <label
         class="mt-4 flex cursor-pointer flex-col items-center rounded-lg border border-dashed px-4 py-9 text-center transition-colors focus-within:border-brand"
@@ -110,26 +171,21 @@ function onDrop(event: DragEvent) {
       >
         <input
           type="file"
-          accept=".doc,.docx,.pdf"
+          accept=".docx,.pdf,.txt"
           class="sr-only"
           @change="accept(($event.target as HTMLInputElement).files?.[0])"
         />
         <Upload class="size-5 text-ink-2" />
         <span class="mt-3 text-sm font-medium">把檔案拖到這裡，或點一下選擇檔案</span>
-        <span class="mt-1 text-xs text-ink-3">支援 Word（.docx、.doc）與 PDF，單檔 20 MB 以內</span>
+        <span class="mt-1 text-xs text-ink-3">支援 Word（.docx）、PDF 與純文字，5 MB、約 8000 字以內</span>
       </label>
 
       <p v-if="error" class="mt-3 flex items-start gap-1.5 text-sm text-grade" role="alert">
         <TriangleAlert class="mt-0.5 size-4 shrink-0" />{{ error }}
       </p>
 
-      <div class="mt-5 flex items-center justify-between gap-3 rounded-control bg-sunken px-3 py-2.5">
-        <p class="text-sm text-ink-2">手邊沒有檔案？</p>
-        <Button variant="outline" @click="start(SAMPLE_FILE)">用範例考卷試試</Button>
-      </div>
-
       <p class="mt-5 text-xs leading-relaxed text-ink-3">
-        這是原型，檔案不會上傳到任何伺服器，辨識結果為示範資料。
+        考卷文字只會送到學校設定的 AI 服務。掃描成圖片的 PDF、Word 的方程式物件目前讀不到，請匯入後自行補上。
       </p>
     </div>
 
@@ -142,21 +198,10 @@ function onDrop(event: DragEvent) {
           <p class="text-xs text-ink-3">{{ file?.size }}</p>
         </div>
       </div>
-      <ol class="mt-6 space-y-3" aria-live="polite">
-        <li
-          v-for="(name, index) in IMPORT_STEPS"
-          :key="name"
-          class="flex items-center gap-2.5 text-sm"
-          :class="index > stepIndex ? 'text-ink-3' : 'text-ink'"
-        >
-          <span class="flex size-5 items-center justify-center">
-            <Check v-if="index < stepIndex" class="size-4 text-brand" />
-            <LoaderCircle v-else-if="index === stepIndex" class="size-4 animate-spin text-brand" />
-            <span v-else class="size-1.5 rounded-full bg-line-strong" />
-          </span>
-          {{ name }}
-        </li>
-      </ol>
+      <p class="mt-6 flex items-center gap-2.5 text-sm" aria-live="polite">
+        <LoaderCircle class="size-4 animate-spin text-brand" />AI 正在讀這份考卷，已經 {{ seconds }} 秒
+      </p>
+      <p class="mt-2 text-xs leading-relaxed text-ink-3">題目多的考卷可能要一兩分鐘，請先不要關掉這個面板。</p>
       <Button variant="outline" class="mt-8" @click="reset">取消</Button>
     </div>
 

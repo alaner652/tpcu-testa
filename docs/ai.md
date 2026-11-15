@@ -1,9 +1,9 @@
 # AI features: evaluation and design
 
-Testa's first release has no AI. This document records how small local models performed on exam tasks and, from those results, which AI features are worth building and how to build them safely.
+AI in Testa is optional and off by default. This document records how small local models performed on exam tasks, which AI features are worth building from those results, and how the one that exists (question import) works.
 
 **Summary**
-- A 4B model reliably turns messy exam text into structured questions. This is the first feature to build.
+- A 4B model reliably turns messy exam text into structured questions. This feature is built: see [Question import](#question-import).
 - Neither 1.7B nor 4B models grade essays well enough to produce scores. At most they can raise "please look again" reminders for a human grader.
 - Rules and code should decide everything they can; the model answers only narrow yes/no questions, and a person makes the final call.
 
@@ -34,12 +34,41 @@ Per-criterion scoring shows the evidence behind each item, which makes it suitab
 
 | Priority | Feature | Feasible with a small local model | Design |
 | --- | --- | --- | --- |
-| 1 | **Question import** from Word or PDF | Yes | The model drafts questions; each stays marked "to review" until the author confirms it. No candidate data involved. The UI exists behind `DEMO_FEATURES`; the backend is missing |
+| 1 | **Question import** from Word or PDF | Yes | Built, off by default: see [Question import](#question-import) |
 | 2 | **Second opinion on grading** | As a reminder only | The model acts as a non-scoring grader. After human graders submit, a large gap from the model raises "please look again" for the officer, like the existing disagreement warning. The model's score is never shown while grading, so it cannot anchor the grader. Run as an overnight batch (about 2.5 hours for 300 answers per criterion) |
 | 3 | **Question review** | Worth trying | An "AI check" button that points out ambiguous wording, more than one correct option or giveaway choices. Suggestions only |
 | 4 | **MCP server** | Not model-dependent | See [MCP](#mcp) |
 
 Not planned: letting a model decide scores (fairness and appeals), or generating whole papers (small models are not good enough, and every question would still need review).
+
+## Question import
+
+An author uploads an exam paper in the bank editor; a model drafts the questions; the author picks which to add, and each added question stays marked "imported by AI, to confirm" until the author confirms it. Nothing is written by the import itself: drafts enter a bank only through the editor's normal save.
+
+**Turning it on.** Set `TESTA_AI_URL` to an OpenAI-compatible endpoint (and `TESTA_AI_MODEL`, `TESTA_AI_KEY` if the endpoint needs them). Blank, the default, hides the feature. For a local model:
+
+```bash
+llama-server -m qwen3-4b-instruct-q4_k_m.gguf --port 8090 -c 16384 --jinja
+```
+
+**How it works**
+
+| Step | Where | What |
+| --- | --- | --- |
+| Read the file | `PaperText` | Text from .docx (paragraphs and tables), .pdf or .txt; up to 5 MB and 8,000 characters |
+| Ask the model | `ModelClient` | One chat completion with a JSON schema, so the answer is always a list of questions |
+| Check the answer | `QuestionDrafts` | Code, not the model, decides what is kept: answer letters must point at a choice, a single-choice question has one answer, blanks match answers, points are in range, and the stem must open with text found in the paper. Anything that fails is dropped or left empty with a note for the author, never guessed |
+| Review | Bank editor | The author sees every draft with its notes, chooses which to add, then confirms each question |
+
+Imports run one at a time on a background thread and the browser polls for the result, so a slow model cannot hold a request open. Only authors of the unit can import, and only the person who started an import can read its result. Jobs are kept in memory for 30 minutes.
+
+**Measured** on an Apple M1 laptop with Qwen3 4B Instruct (Q4): a 15-question Word paper (single choice, multiple choice, fill-in and essay, with the answer key at the end) took 66 seconds, and all 15 questions, their points and all 13 answers were correct. One essay's word limit was missed.
+
+**Limits**
+- Scanned PDFs have no text to read. Word equation objects and automatic list numbers are not extracted; type math in the paper as text, or fix it after import.
+- Legacy .doc files must be saved as .docx first.
+- A paper longer than 8,000 characters has to be imported in parts.
+- The result depends on the model. The checks catch malformed output, not a wrong but well-formed answer, which is why every question needs the author's confirmation.
 
 ## Design principle: rules first, model second, person last
 
@@ -80,7 +109,6 @@ flowchart LR
 
 ## Rollout
 
-1. First release: no AI.
-2. Question import, the lowest-risk and most certain gain.
-3. Once real papers and teachers' scores exist, measure the grading second opinion with the same script and enable it only if it proves accurate enough.
-4. MCP, once the school decides whether cloud AI may be used for authoring.
+1. Question import: built and off by default. Try it with real past papers before enabling it for teachers.
+2. Once real papers and teachers' scores exist, measure the grading second opinion with the same script and enable it only if it proves accurate enough.
+3. MCP, once the school decides whether cloud AI may be used for authoring.

@@ -41,6 +41,9 @@ services:
       TESTA_SETUP_TOKEN: ${TESTA_SETUP_TOKEN:-}
       TESTA_COOKIE_SECURE: ${TESTA_COOKIE_SECURE:-true}
       TESTA_BACKUP_PATH: /backups
+      TESTA_AI_URL: ${TESTA_AI_URL:-}
+      TESTA_AI_MODEL: ${TESTA_AI_MODEL:-}
+      TESTA_AI_KEY: ${TESTA_AI_KEY:-}
       TZ: ${TESTA_TZ:-Asia/Taipei}
     healthcheck:
       # Also checks the database connection

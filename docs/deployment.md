@@ -88,6 +88,10 @@ To arrange with the network administrators:
 
 Cutting the Internet does not make the exam secure on its own: candidates on the internal network can still reach each other and other internal services, so lab isolation is the school's responsibility; the application enforces sign-in, timing and access on the server.
 
+## AI question import (optional)
+
+Off unless `TESTA_AI_URL` in `.env` points to an OpenAI-compatible endpoint. Run the model on a separate VM so it never competes with the exam server, and switch it off during exams. Details and limits: [AI features](ai.md#question-import).
+
 ## Upgrades
 
 Never upgrade during an exam. Sessions survive a backend restart, but schema changes are one-way.
