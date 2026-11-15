@@ -45,7 +45,7 @@ Sessions are stored in the database (`spring_session`), so a backend restart doe
 
 ### Server sizing
 
-A single Linux VM running Docker Engine is enough. On Proxmox VE, use a VM rather than an LXC container.
+A single Linux VM running Docker Engine is enough. The full list to request from the IT office is in [Estimated server configuration](server-requirements.md). On Proxmox VE, use a VM rather than an LXC container.
 
 | Item | Recommendation | Reason |
 | --- | --- | --- |

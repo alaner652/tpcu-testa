@@ -99,6 +99,7 @@ Roles are granted per unit (for example, an admissions office), and one person c
 | Document | Contents |
 | --- | --- |
 | [Deployment](docs/deployment.md) | Installation, HTTPS, offline exams, upgrades, backup and restore |
+| [Server requirements](docs/server-requirements.md) | One table of what to request: VM size, network, certificate |
 | [Development](docs/development.md) | Code layout, backend rules, tests, contributing |
 | [Frontend](testa/README.md) | Pages, components, design tokens, UI rules |
 | [Project status](docs/status.md) | What is done, how it was verified, roadmap |
