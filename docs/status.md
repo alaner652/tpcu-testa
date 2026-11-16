@@ -6,7 +6,7 @@ Testa's first target is a school admission exam: a few hundred candidates in com
 
 | Area | Status | Scope |
 | --- | --- | --- |
-| Accounts and access | Done | First-run setup with a one-time token, staff sign-in, database-backed sessions, CSRF, units and roles, audit log, system settings in the admin pages |
+| Accounts and access | Done | First-run setup, staff sign-in, database-backed sessions, CSRF, units and roles, audit log, system settings in the admin pages |
 | Question banks | Done | Four question types, math, autosave, version conflict detection, try-it mode |
 | Exams and rosters | Done | Create, publish (freezes the paper), end; roster import (.xlsx, .csv, Big5); login codes and printable slips |
 | Taking the exam | Done | Candidate sign-in, single session, server-side timer, autosave, resume, submit, auto-submit, auto-grading |
@@ -56,6 +56,7 @@ Defaults agreed with the first deploying school. Those marked "System settings" 
 
 ## Known limitations
 
+- First-run setup has no token: on a fresh installation the first person to open the site becomes the system administrator, so the deployer must do it before the site is reachable by others (see [Deployment](deployment.md#going-live)).
 - Staff password recovery needs an administrator; there is no email-based reset.
 - The admin Backups tab shows status only; restoring is done on the server.
 - Frontend tests cover pure logic only; there are no component or browser-automation tests.

@@ -21,7 +21,6 @@ import com.jayway.jsonpath.JsonPath;
 
 /** Shared integration test setup: real PostgreSQL (Testcontainers) and the full Spring Security filter chain. */
 @SpringBootTest(properties = {
-        "testa.setup.token=" + IntegrationTestBase.SETUP_TOKEN,
         "testa.login.max-failures=3",
         // MockMvc tests carry sign-in state in a MockHttpSession; JDBC sessions are covered over real HTTP by deploy/smoke-test.py
         "spring.autoconfigure.exclude=org.springframework.boot.session.jdbc.autoconfigure.JdbcSessionAutoConfiguration",
@@ -30,7 +29,6 @@ import com.jayway.jsonpath.JsonPath;
 public abstract class IntegrationTestBase {
     protected static final String ADMIN_EMAIL = "admin@test.tw";
     protected static final String ADMIN_PASSWORD = "admin-password";
-    protected static final String SETUP_TOKEN = "test-setup-token";
 
     @ServiceConnection
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17-alpine");
@@ -47,8 +45,8 @@ public abstract class IntegrationTestBase {
     void ensureAdmin() throws Exception {
         MvcResult r = mvc.perform(get("/api/auth/setup")).andExpect(status().isOk()).andReturn();
         if (!(Boolean) read(r, "$.required")) return;
-        mvc.perform(json(post("/api/auth/setup"), "{\"token\":\"%s\",\"email\":\"%s\",\"name\":\"Admin\",\"password\":\"%s\"}"
-                .formatted(SETUP_TOKEN, ADMIN_EMAIL, ADMIN_PASSWORD))).andExpect(status().isOk());
+        mvc.perform(json(post("/api/auth/setup"), "{\"email\":\"%s\",\"name\":\"Admin\",\"password\":\"%s\"}"
+                .formatted(ADMIN_EMAIL, ADMIN_PASSWORD))).andExpect(status().isOk());
     }
 
     protected MockHttpSession login(String email, String password) throws Exception {

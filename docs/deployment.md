@@ -23,15 +23,13 @@ Only Nginx is exposed (port 80 by default, plus 443 with HTTPS). All four contai
 ```bash
 cp deploy/env.example .env      # at least the database password
 docker compose -f docker-compose.prod.yml up -d --build
-docker compose -f docker-compose.prod.yml logs server | grep "setup token"
 ```
 
-Then open the site: with no system administrator yet it shows the first-run setup page. Enter the setup token from the log and create the first administrator. Setup closes for good once an administrator exists, so there are no default credentials and no administrator password in `.env`. Only people who can read the server log (or `.env`) can complete setup; do it right after the first start.
+Then open the site at once: with no system administrator yet it shows the first-run setup page, and **whoever opens it first becomes the system administrator**. There is no setup token, so create the first administrator immediately after the first start, before the site is reachable by anyone else (for example before the DNS record or the firewall rule for the labs is in place). Setup closes for good once an administrator exists, so there are no default credentials and no administrator password in `.env`. If someone else got there first, stop the stack and start again with an empty database (`down -v`).
 
 | Variable | Meaning |
 | --- | --- |
 | `TESTA_DB_PASSWORD` | Database password; generate a long random string |
-| `TESTA_SETUP_TOKEN` | Optional fixed first-run setup token; when blank a random one is logged at start-up. Useless once setup is done |
 | `TESTA_HTTP_PORT` | Public port, default 80 |
 | `TESTA_COOKIE_SECURE` | Keep `true` behind HTTPS |
 | `TESTA_TZ` | Time zone for logs and backup file names, default `Asia/Taipei` |
@@ -132,7 +130,7 @@ docker compose -f docker-compose.prod.yml start server
 ## Post-deploy check
 
 ```bash
-python3 deploy/smoke-test.py http://HOST:PORT ADMIN_EMAIL ADMIN_PASSWORD [SETUP_TOKEN]   # token only on a fresh install
+python3 deploy/smoke-test.py http://HOST:PORT ADMIN_EMAIL ADMIN_PASSWORD
 ```
 
 Runs a full mock exam over real HTTP: accounts, bank, exam, answering, grading, publishing, candidates checking scores, emergency access, archiving.

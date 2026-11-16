@@ -49,7 +49,7 @@ public class AuthController {
     public record PasswordRequest(@NotBlank(message = "請輸入目前的密碼。") String currentPassword,
             @NotBlank(message = "請輸入新密碼。") String newPassword) {}
 
-    public record SetupRequest(@NotBlank(message = "請輸入設定碼。") String token,
+    public record SetupRequest(
             @NotBlank(message = "請輸入 Email。") @Email(message = "Email 格式不正確。") @Size(max = 254) String email,
             @NotBlank(message = "請輸入姓名。") @Size(max = 100) String name,
             @NotBlank(message = "請輸入密碼。") String password) {}
@@ -61,11 +61,11 @@ public class AuthController {
         return new SetupStatus(setup.required());
     }
 
-    /** First-run setup: creates the first system administrator with the setup token and signs them in. */
+    /** First-run setup: creates the first system administrator and signs them in. */
     @PostMapping("/setup")
     public AuthService.Me createFirstAdmin(@Valid @RequestBody SetupRequest body, HttpServletRequest request,
             HttpServletResponse response) {
-        Staff staff = setup.createFirstAdmin(body.token(), body.email(), body.name(), body.password());
+        Staff staff = setup.createFirstAdmin(body.email(), body.name(), body.password());
         if (request.getSession(false) != null) request.changeSessionId();
         signIn(staff, request, response);
         return auth.me(staff.getId());

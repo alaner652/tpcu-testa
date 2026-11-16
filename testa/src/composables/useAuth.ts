@@ -95,9 +95,9 @@ export function useAuth() {
     return user.value
   }
 
-  /** First-run setup: creates the first system administrator with the setup token from the server log and signs in. */
-  async function setupFirstAdmin(token: string, email: string, name: string, password: string) {
-    const me = await api<Me>('/auth/setup', { method: 'POST', body: { token, email, name, password } })
+  /** First-run setup: creates the first system administrator and signs in. */
+  async function setupFirstAdmin(email: string, name: string, password: string) {
+    const me = await api<Me>('/auth/setup', { method: 'POST', body: { email, name, password } })
     user.value = fromMe(me)
     return user.value
   }

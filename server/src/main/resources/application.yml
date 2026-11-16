@@ -35,9 +35,6 @@ server:
   forward-headers-strategy: native
 
 testa:
-  # First-run setup token. Leave blank to have a random one written to the log while there is no system administrator.
-  setup:
-    token: ${TESTA_SETUP_TOKEN:}
   login:
     max-failures: 5
     lock-minutes: 15

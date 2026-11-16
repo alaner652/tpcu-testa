@@ -1,10 +1,5 @@
 package tw.testa.auth;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
-import java.util.HexFormat;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -17,14 +12,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import tw.testa.audit.AuditService;
 import tw.testa.common.ApiException;
-import tw.testa.config.TestaProperties;
 import tw.testa.staff.Staff;
 import tw.testa.staff.StaffRepository;
 
 /**
- * First-run setup: while there is no system administrator, whoever holds the setup token can create the first one.
- * The token comes from TESTA_SETUP_TOKEN or is generated at start-up and written to the server log, so only someone
- * with access to the server can use it. Setup closes for good once an administrator exists.
+ * First-run setup: while there is no system administrator, the first person to open the site creates one.
+ * There is no token: whoever deploys the server must complete setup before anyone else can reach it.
+ * Setup closes for good once an administrator exists.
  */
 @Service
 public class SetupService {
@@ -36,27 +30,17 @@ public class SetupService {
     private final PasswordEncoder encoder;
     private final AuditService audit;
     private final JdbcTemplate jdbc;
-    private final boolean tokenFromEnvironment;
-    private final String token;
 
-    public SetupService(TestaProperties props, StaffRepository staffRepo, PasswordEncoder encoder, AuditService audit,
-            JdbcTemplate jdbc) {
+    public SetupService(StaffRepository staffRepo, PasswordEncoder encoder, AuditService audit, JdbcTemplate jdbc) {
         this.staffRepo = staffRepo;
         this.encoder = encoder;
         this.audit = audit;
         this.jdbc = jdbc;
-        this.tokenFromEnvironment = !props.setup().token().isBlank();
-        this.token = tokenFromEnvironment ? props.setup().token() : randomToken();
     }
 
     @EventListener(ApplicationReadyEvent.class)
     public void announce() {
-        if (!required()) return;
-        if (tokenFromEnvironment) {
-            log.warn("First-run setup is open: create the system administrator on the sign-in page with TESTA_SETUP_TOKEN");
-        } else {
-            log.warn("First-run setup is open: create the system administrator on the sign-in page with setup token {}", token);
-        }
+        if (required()) log.warn("First-run setup is open: whoever opens the site first creates the system administrator. Do it now.");
     }
 
     public boolean required() {
@@ -64,12 +48,8 @@ public class SetupService {
     }
 
     @Transactional
-    public Staff createFirstAdmin(String suppliedToken, String email, String name, String password) {
+    public Staff createFirstAdmin(String email, String name, String password) {
         if (!required()) throw closed();
-        if (!MessageDigest.isEqual(bytes(token), bytes(suppliedToken))) {
-            log.warn("First-run setup rejected: wrong setup token");
-            throw new ApiException(HttpStatus.FORBIDDEN, "bad_setup_token", "設定碼不正確，請向伺服器管理者確認。");
-        }
         jdbc.execute("select pg_advisory_xact_lock(" + LOCK_KEY + ")");
         if (!required()) throw closed();
         AuthService.validateNewPassword(password);
@@ -84,15 +64,5 @@ public class SetupService {
 
     private static ApiException closed() {
         return new ApiException(HttpStatus.CONFLICT, "setup_done", "系統已經完成初始設定，請直接登入。");
-    }
-
-    private static byte[] bytes(String s) {
-        return (s == null ? "" : s).getBytes(StandardCharsets.UTF_8);
-    }
-
-    private static String randomToken() {
-        byte[] b = new byte[16];
-        new SecureRandom().nextBytes(b);
-        return HexFormat.of().formatHex(b);
     }
 }

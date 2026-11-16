@@ -7,11 +7,10 @@ import Button from '@/components/ui/Button.vue'
 import { useAuth } from '@/composables/useAuth'
 import { api } from '@/lib/api'
 
-/** First-run setup: only while there is no system administrator, with the setup token from the server log. */
+/** First-run setup: only while there is no system administrator. Whoever deploys the server does this right away. */
 const { setupFirstAdmin } = useAuth()
 const router = useRouter()
 
-const token = ref('')
 const email = ref('')
 const name = ref('')
 const password = ref('')
@@ -25,7 +24,7 @@ api<{ required: boolean }>('/auth/setup', { quiet401: true })
 
 async function submit() {
   if (loading.value) return
-  if (!token.value.trim() || !email.value.trim() || !name.value.trim() || !password.value) {
+  if (!email.value.trim() || !name.value.trim() || !password.value) {
     return void (error.value = '每一欄都要填。')
   }
   if (password.value.length < 8) return void (error.value = '密碼至少需要 8 個字元。')
@@ -33,7 +32,7 @@ async function submit() {
   error.value = ''
   loading.value = true
   try {
-    await setupFirstAdmin(token.value.trim(), email.value.trim(), name.value.trim(), password.value)
+    await setupFirstAdmin(email.value.trim(), name.value.trim(), password.value)
     await router.push({ name: 'admin' })
   } catch (e) {
     error.value = (e as Error).message
@@ -50,13 +49,9 @@ async function submit() {
 
       <form class="rounded-card bg-paper p-6 shadow-card sm:p-8" novalidate @submit.prevent="submit">
         <h1 class="flex items-center gap-2 text-lg font-semibold"><KeyRound class="size-5 text-brand" />初始設定</h1>
-        <p class="mt-1 text-[15px] text-ink-2">建立第一位系統管理員。設定碼在伺服器的啟動紀錄裡，完成後這個頁面就會關閉。</p>
+        <p class="mt-1 text-[15px] text-ink-2">建立第一位系統管理員。完成後這個頁面就會關閉，之後的帳號由管理員建立。</p>
 
         <div class="mt-5 space-y-4">
-          <label class="block">
-            <span class="mb-1.5 block text-sm font-medium">設定碼</span>
-            <input v-model="token" autocomplete="off" spellcheck="false" class="field font-mono" />
-          </label>
           <label class="block">
             <span class="mb-1.5 block text-sm font-medium">Email（登入帳號）</span>
             <input v-model="email" type="email" autocomplete="username" class="field" />

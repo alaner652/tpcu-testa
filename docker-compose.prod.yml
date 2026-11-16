@@ -38,7 +38,6 @@ services:
     environment:
       TESTA_DB_URL: jdbc:postgresql://db:5432/testa
       TESTA_DB_PASSWORD: ${TESTA_DB_PASSWORD}
-      TESTA_SETUP_TOKEN: ${TESTA_SETUP_TOKEN:-}
       TESTA_COOKIE_SECURE: ${TESTA_COOKIE_SECURE:-true}
       TESTA_BACKUP_PATH: /backups
       TESTA_AI_URL: ${TESTA_AI_URL:-}

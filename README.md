@@ -31,7 +31,7 @@ More in [Screenshots](docs/screenshots.md).
 - Results are locked on publishing and exported to Excel or CSV for the school's own announcement; each exam can also let candidates sign in to see their total and subtotals.
 
 **Operations**
-- No default credentials: the first administrator is created with a one-time token from the server log.
+- No default credentials: the first administrator is created on a first-run setup page that closes for good afterwards.
 - Append-only audit log for sensitive actions; administrators cannot see papers unless an exam owner grants time-limited access.
 - Runs without Internet access: fonts, math and scripts are bundled, and sessions live in the database, so a restart signs no one out.
 - Docker Compose deployment with Nginx, daily database backups and an end-to-end smoke test.

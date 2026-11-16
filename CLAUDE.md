@@ -16,7 +16,7 @@ choice and fill-in questions are auto-graded, essays are graded anonymously by o
 
 ## Rules that are easy to break
 
-- No default credentials in production: the first system administrator comes from first-run setup (`SetupService`, one-time token from the server log). Demo accounts exist only in the dev profile.
+- No default credentials in production: the first system administrator comes from first-run setup (`SetupService`): no token, the first person to open a fresh site creates the administrator, so the deployer does it at once (the owner removed the token on 2026-11-16). Demo accounts exist only in the dev profile.
 - Permission checks only through `AccessGuard`. System administrators never pass unit role checks; they reach exams only via `EmergencyAccessService` (`*ForEmergency` methods).
 - Timing, auto-submit and grading live only in `AttemptService`. The frontend clock is display only.
 - Nothing sent to candidates may contain answers, explanations or rubrics (`AttemptDtos`).

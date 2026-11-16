@@ -26,27 +26,25 @@ class SetupTest extends IntegrationTestBase {
     @Autowired
     SetupService setup;
 
-    private static String body(String token, String email, String password) {
-        return "{\"token\":\"%s\",\"email\":\"%s\",\"name\":\"First\",\"password\":\"%s\"}".formatted(token, email, password);
+    private static String body(String email, String password) {
+        return "{\"email\":\"%s\",\"name\":\"First\",\"password\":\"%s\"}".formatted(email, password);
     }
 
     @Test
     void setupIsClosedOnceAnAdministratorExists() throws Exception {
         mvc.perform(get("/api/auth/setup")).andExpect(jsonPath("$.required").value(false));
-        mvc.perform(json(post("/api/auth/setup"), body(SETUP_TOKEN, "late@test.tw", "late-password")))
+        mvc.perform(json(post("/api/auth/setup"), body("late@test.tw", "late-password")))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("setup_done"));
     }
 
     @Test
-    void firstAdmin_needsToken_validPassword_andOnlyOneWinsConcurrently() throws Exception {
+    void firstAdmin_needsValidPassword_andOnlyOneWinsConcurrently() throws Exception {
         // Simulate a fresh installation by demoting the existing administrators for the duration of the test
         List<Long> admins = jdbc.queryForList("select id from staff where is_system_admin", Long.class);
         jdbc.update("update staff set is_system_admin = false");
         try {
             mvc.perform(get("/api/auth/setup")).andExpect(jsonPath("$.required").value(true));
-            mvc.perform(json(post("/api/auth/setup"), body("wrong-token", "first@test.tw", "first-password")))
-                    .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("bad_setup_token"));
-            mvc.perform(json(post("/api/auth/setup"), body(SETUP_TOKEN, "first@test.tw", "short")))
+            mvc.perform(json(post("/api/auth/setup"), body("first@test.tw", "short")))
                     .andExpect(status().isBadRequest());
 
             var pool = Executors.newFixedThreadPool(6);
@@ -55,7 +53,7 @@ class SetupTest extends IntegrationTestBase {
                 String email = "race" + i + "@test.tw";
                 Callable<Boolean> task = () -> {
                     try {
-                        setup.createFirstAdmin(SETUP_TOKEN, email, "Race", "race-password");
+                        setup.createFirstAdmin(email, "Race", "race-password");
                         return true;
                     } catch (ApiException e) {
                         assertThat(e.status()).isEqualTo(HttpStatus.CONFLICT);

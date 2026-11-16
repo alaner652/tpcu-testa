@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Post-deploy smoke test: a full mock exam over real HTTP through Nginx.
 
-    python3 deploy/smoke-test.py http://localhost:8088 ADMIN_EMAIL ADMIN_PASSWORD [SETUP_TOKEN]
+    python3 deploy/smoke-test.py http://localhost:8088 ADMIN_EMAIL ADMIN_PASSWORD
 
-On a fresh installation pass the setup token (TESTA_SETUP_TOKEN or the one in the server log) to create the administrator first.
+On a fresh installation it creates the administrator through first-run setup.
 
 Flow: administrator signs in (changing a temporary password if needed), units and staff, bank, exam, roster, publish,
 candidates sign in, answer and submit, graders assigned and grade, exam ended, results published, candidates see scores, CSV export.
@@ -73,7 +73,7 @@ def staff_login(base, email, password):
 
 
 def main():
-    if len(sys.argv) not in (4, 5):
+    if len(sys.argv) != 4:
         raise SystemExit(__doc__)
     base, admin_email, admin_password = sys.argv[1:4]
     tag = time.strftime('%m%d%H%M%S')
@@ -83,15 +83,10 @@ def main():
     step('Health check')
 
     if Client(base).call('GET', '/auth/setup')['required']:
-        if len(sys.argv) != 5:
-            raise SystemExit('✗ no administrator yet: pass the setup token as the fourth argument')
-        Client(base).call('POST', '/auth/setup', {'token': 'wrong', 'email': admin_email, 'name': 'Admin',
-                                                  'password': admin_password}, expect=(403,))
-        Client(base).call('POST', '/auth/setup', {'token': sys.argv[4], 'email': admin_email, 'name': 'Admin',
-                                                  'password': admin_password})
-        Client(base).call('POST', '/auth/setup', {'token': sys.argv[4], 'email': 'x' + admin_email, 'name': 'Admin',
+        Client(base).call('POST', '/auth/setup', {'email': admin_email, 'name': 'Admin', 'password': admin_password})
+        Client(base).call('POST', '/auth/setup', {'email': 'x' + admin_email, 'name': 'Admin',
                                                   'password': admin_password}, expect=(409,))
-        step('First-run setup: wrong token rejected, administrator created, setup closed')
+        step('First-run setup: administrator created, setup closed')
 
     admin, admin_password = staff_login(base, admin_email, admin_password)
     step('System administrator signs in')
