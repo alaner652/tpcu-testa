@@ -78,6 +78,8 @@ const createError = ref('')
 const saving = ref(false)
 /** The temporary password just generated, shown only this once */
 const issued = ref<{ name: string; email: string; password: string } | null>(null)
+const passwordCopied = ref(false)
+watch(issued, () => (passwordCopied.value = false))
 
 async function loadStaff() {
   try {
@@ -146,8 +148,10 @@ async function copyPassword() {
   if (!issued.value) return
   try {
     await navigator.clipboard.writeText(issued.value.password)
+    passwordCopied.value = true
     toast.success('已複製臨時密碼')
   } catch {
+    passwordCopied.value = false
     toast.error('無法複製，請手動抄寫')
   }
 }
@@ -374,7 +378,7 @@ watch(tab, load)
         <p class="text-[15px] font-medium">{{ issued.name }}（{{ issued.email }}）的臨時密碼</p>
         <div class="mt-2 flex flex-wrap items-center gap-2">
           <code class="rounded-control bg-paper px-3 py-1.5 text-lg font-semibold tracking-wider select-all">{{ issued.password }}</code>
-          <Button variant="outline" @click="copyPassword"><Copy />複製</Button>
+          <Button variant="outline" @click="copyPassword"><Copy />{{ passwordCopied ? '已複製' : '複製' }}</Button>
         </div>
         <p class="mt-2 text-sm text-ink-2">這組密碼只會顯示這一次，請親自交給對方。對方登入後必須先換成自己的密碼。</p>
       </div>
