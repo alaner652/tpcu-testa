@@ -8,9 +8,11 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -44,14 +46,16 @@ public class StaffAdminController {
     private final PasswordEncoder encoder;
     private final AuditService audit;
     private final AccessGuard access;
+    private final JdbcTemplate jdbc;
 
     public StaffAdminController(StaffRepository staffRepo, UnitRoleRepository roleRepo, PasswordEncoder encoder,
-            AuditService audit, AccessGuard access) {
+            AuditService audit, AccessGuard access, JdbcTemplate jdbc) {
         this.staffRepo = staffRepo;
         this.roleRepo = roleRepo;
         this.encoder = encoder;
         this.audit = audit;
         this.access = access;
+        this.jdbc = jdbc;
     }
 
     public record UnitRoleDto(Long unitId, String unitName, Role role) {}
@@ -69,6 +73,9 @@ public class StaffAdminController {
 
     /** After creating an account or resetting a password, the temporary password appears only in this response. */
     public record CreatedDto(StaffDto staff, String temporaryPassword) {}
+
+    public record DeletionImpact(boolean deletable, long banks, long exams, long graderAssignments,
+            long gradings, long emergencyAccesses) {}
 
     public record UpdateRequest(@Size(min = 1, max = 100, message = "請輸入姓名。") String name, Boolean active,
             Boolean systemAdmin) {}
@@ -139,6 +146,47 @@ public class StaffAdminController {
         s.invalidateSessions();
         audit.record("PASSWORD_RESET", "staff", s.getId());
         return new CreatedDto(toDto(s, List.of()), password);
+    }
+
+    /** Only unused, already-disabled accounts can be permanently deleted; historical work must keep its author. */
+    @GetMapping("/{id}/deletion-impact")
+    @Transactional(readOnly = true)
+    public DeletionImpact deletionImpact(@PathVariable Long id) {
+        find(id);
+        return impact(id);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    public void delete(@PathVariable Long id) {
+        Staff s = find(id);
+        if (s.getId().equals(access.current().id())) {
+            throw ApiException.badRequest("self", "不能刪除自己的帳號。");
+        }
+        if (s.isActive()) {
+            throw ApiException.conflict("active_account", "請先停用帳號，再永久刪除。");
+        }
+        if (!impact(id).deletable()) {
+            throw ApiException.conflict("staff_in_use", "這個帳號已有題庫、考試、評分或緊急授權紀錄。為了保留歷史資料，不能永久刪除，請維持停用即可。");
+        }
+        audit.record("STAFF_DELETED", "staff", s.getId(), null, null, s.getEmail());
+        staffRepo.delete(s);
+        staffRepo.flush();
+    }
+
+    private DeletionImpact impact(Long id) {
+        long banks = count("select count(*) from bank where created_by = ?", id);
+        long exams = count("select count(*) from exam where created_by = ?", id);
+        long graderAssignments = count("select count(*) from exam_grader where staff_id = ?", id);
+        long gradings = count("select count(*) from grading where staff_id = ?", id);
+        long emergencyAccesses = count("select count(*) from exam_emergency_access where staff_id = ? or granted_by = ?", id, id);
+        boolean deletable = banks + exams + graderAssignments + gradings + emergencyAccesses == 0;
+        return new DeletionImpact(deletable, banks, exams, graderAssignments, gradings, emergencyAccesses);
+    }
+
+    private long count(String sql, Object... args) {
+        return jdbc.queryForObject(sql, Long.class, args);
     }
 
     private Staff find(Long id) {

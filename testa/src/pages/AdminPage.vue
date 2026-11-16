@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { Ban, Building2, ChevronDown, Copy, DatabaseBackup, KeyRound, Lock, Plus, RotateCw, ScrollText, Search, Settings, Shield, UserCog, UserPlus, Users, X } from 'lucide-vue-next'
+import { Ban, Building2, ChevronDown, Copy, DatabaseBackup, KeyRound, Lock, Plus, RotateCw, ScrollText, Search, Settings, Shield, Trash2, UserCog, UserPlus, Users, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import EmergencyView from '@/components/app/EmergencyView.vue'
 import SystemSettings from '@/components/app/SystemSettings.vue'
@@ -45,6 +45,14 @@ interface AuditEntry {
   reason: string | null
   detail: string | null
   ip: string | null
+}
+interface DeletionImpact {
+  deletable: boolean
+  banks: number
+  exams: number
+  graderAssignments: number
+  gradings: number
+  emergencyAccesses: number
 }
 
 const { user } = useAuth()
@@ -144,6 +152,36 @@ async function resetPassword(s: Staff) {
   }
 }
 
+async function deleteStaff(s: Staff) {
+  try {
+    const impact = await api<DeletionImpact>(`/admin/staff/${s.id}/deletion-impact`)
+    if (!impact.deletable) {
+      const uses = [
+        impact.banks && `${impact.banks} 份題庫`,
+        impact.exams && `${impact.exams} 場考試`,
+        impact.graderAssignments && `${impact.graderAssignments} 筆評分指派`,
+        impact.gradings && `${impact.gradings} 筆評分`,
+        impact.emergencyAccesses && `${impact.emergencyAccesses} 筆緊急授權`,
+      ].filter(Boolean)
+      toast.error('無法永久刪除這個帳號', { description: `仍有${uses.join('、')}。為了保留歷史資料，請維持停用。` })
+      return
+    }
+    const ok = await confirm({
+      title: `永久刪除 ${s.name}？`,
+      description: `將刪除 ${s.email} 的帳號與單位角色，之後無法復原。操作紀錄仍會保留。`,
+      confirmLabel: '永久刪除',
+      tone: 'danger',
+    })
+    if (!ok) return
+    await api(`/admin/staff/${s.id}`, { method: 'DELETE' })
+    if (issued.value?.email === s.email) issued.value = null
+    toast.success(`已永久刪除 ${s.name} 的帳號`)
+    await loadStaff()
+  } catch (e) {
+    fail(e)
+  }
+}
+
 async function copyPassword() {
   if (!issued.value) return
   try {
@@ -220,6 +258,7 @@ const ACTION_LABEL: Record<string, string> = {
   STAFF_CREATED: '建立帳號',
   STAFF_ENABLED: '啟用帳號',
   STAFF_DISABLED: '停用帳號',
+  STAFF_DELETED: '永久刪除帳號',
   SYSTEM_ADMIN_GRANTED: '設為系統管理員',
   SYSTEM_ADMIN_REVOKED: '取消系統管理員',
   UNIT_CREATED: '建立單位',
@@ -297,12 +336,18 @@ interface BackupFile {
   at: string
 }
 const backups = ref<{ configured: boolean; items: BackupFile[] } | null>(null)
+const backupsLoading = ref(false)
+const showAllBackups = ref(false)
+const shownBackups = computed(() => (showAllBackups.value ? backups.value?.items : backups.value?.items.slice(0, 7)) ?? [])
 async function loadBackups() {
+  backupsLoading.value = true
   try {
     backups.value = await api('/admin/backups')
     loadError.value = ''
   } catch (e) {
     loadError.value = (e as Error).message
+  } finally {
+    backupsLoading.value = false
   }
 }
 /** Daily backups: warn when there has been none for 26 hours */
@@ -422,6 +467,7 @@ watch(tab, load)
               s.active
                 ? { label: '停用帳號', icon: Ban, run: () => toggleActive(s), danger: true }
                 : { label: '重新啟用', icon: RotateCw, run: () => toggleActive(s) },
+              ...(!s.active ? [{ label: '永久刪除', icon: Trash2, run: () => deleteStaff(s), danger: true }] : []),
             ]"
           />
         </li>
@@ -486,29 +532,50 @@ watch(tab, load)
 
     <!-- Backups -->
     <section v-else-if="tab === 'backups'" class="card">
-      <template v-if="backups">
-        <p v-if="!backups.configured" class="px-5 py-5 text-[15px] text-ink-2 sm:px-6">
-          這台主機沒有設定備份資料夾，這裡看不到備份狀態。用 docker-compose.prod.yml 部署時會自動設定。
+      <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
+        <div>
+          <h2 class="text-[17px] font-semibold">資料庫備份</h2>
+          <p class="mt-0.5 text-sm text-ink-2">系統每天自動備份一次。</p>
+        </div>
+        <Button variant="outline" :disabled="backupsLoading" @click="loadBackups">
+          <RotateCw :class="backupsLoading && 'animate-spin'" />重新整理
+        </Button>
+      </div>
+
+      <p v-if="backupsLoading && !backups" class="border-t border-line px-5 py-6 text-[15px] text-ink-2 sm:px-6" role="status">正在讀取備份狀態…</p>
+      <template v-else-if="backups">
+        <p v-if="!backups.configured" class="border-t border-line px-5 py-5 text-[15px] sm:px-6">
+          <Badge tone="danger">無法讀取備份狀態</Badge>
+          <span class="mt-2 block text-ink-2">請聯絡系統維護人員檢查備份設定。</span>
         </p>
-        <p v-else-if="!backups.items.length" class="px-5 py-5 text-[15px] sm:px-6">
+        <p v-else-if="!backups.items.length" class="border-t border-line px-5 py-5 text-[15px] sm:px-6">
           <Badge tone="warn">還沒有任何備份</Badge>
-          <span class="mt-2 block text-ink-2">備份每天做一次。部署超過一天還是空的，請檢查主機上的 backup 容器。</span>
+          <span class="mt-2 block text-ink-2">如果系統已運作超過一天，請聯絡系統維護人員。</span>
         </p>
         <template v-else>
-          <div class="px-5 py-4 text-[15px] sm:px-6">
-            <p>
-              最近一次備份：<span class="font-medium tabular-nums">{{ when(backups.items[0].at) }}</span>
-              <Badge v-if="backupStale(backups.items[0])" tone="danger" class="ml-2">超過一天沒有新的備份</Badge>
-            </p>
-            <p class="mt-1 text-sm text-ink-2">每天自動備份一次。這裡只能確認備份有在跑；還原要在主機上操作，步驟在部署文件（docs/deployment.md）。</p>
+          <div class="border-t border-line px-5 py-4 text-[15px] sm:px-6">
+            <div class="flex flex-wrap items-center gap-2">
+              <Badge :tone="backupStale(backups.items[0]) ? 'danger' : 'done'">
+                {{ backupStale(backups.items[0]) ? '需要注意' : '備份正常' }}
+              </Badge>
+              <span>最近一次：<span class="font-medium tabular-nums">{{ when(backups.items[0].at) }}</span></span>
+              <span class="text-sm text-ink-2">{{ fileSize(backups.items[0].size) }}</span>
+            </div>
+            <p v-if="backupStale(backups.items[0])" class="mt-2 text-sm text-grade">已超過一天沒有新的備份，請聯絡系統維護人員。</p>
+            <p v-else class="mt-2 text-sm text-ink-2">目前可查看 {{ backups.items.length }} 份備份。還原會替換整個系統資料，需由系統維護人員操作。</p>
           </div>
           <ul class="divide-y divide-line border-t border-line">
-            <li v-for="b in backups.items" :key="b.name" class="flex flex-wrap items-baseline gap-x-4 px-5 py-3 text-[15px] sm:px-6">
+            <li v-for="b in shownBackups" :key="b.name" class="flex flex-wrap items-baseline gap-x-4 px-5 py-3 text-[15px] sm:px-6">
               <span class="w-36 shrink-0 text-sm text-ink-2 tabular-nums">{{ when(b.at) }}</span>
               <span class="min-w-0 flex-1 basis-48 truncate font-mono text-sm">{{ b.name }}</span>
               <span class="text-sm text-ink-2 tabular-nums">{{ fileSize(b.size) }}</span>
             </li>
           </ul>
+          <div v-if="backups.items.length > 7" class="border-t border-line px-5 py-3 text-center sm:px-6">
+            <Button @click="showAllBackups = !showAllBackups">
+              <ChevronDown :class="showAllBackups && 'rotate-180'" />{{ showAllBackups ? '收合' : `查看全部 ${backups.items.length} 份` }}
+            </Button>
+          </div>
         </template>
       </template>
     </section>

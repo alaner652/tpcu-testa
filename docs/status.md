@@ -6,7 +6,7 @@ Testa's first target is a school admission exam: a few hundred candidates in com
 
 | Area | Status | Scope |
 | --- | --- | --- |
-| Accounts and access | Done | First-run setup, staff sign-in, database-backed sessions, CSRF, units and roles, audit log, system settings in the admin pages |
+| Accounts and access | Done | First-run setup, staff sign-in, database-backed sessions, CSRF, units and roles, safe deletion of unused accounts, audit log, system settings in the admin pages |
 | Question banks | Done | Four question types, math, autosave, version conflict detection, try-it mode |
 | Exams and rosters | Done | Create, publish (freezes the paper), end; roster import (.xlsx, .csv, Big5); login codes and printable slips |
 | Taking the exam | Done | Candidate sign-in, single session, server-side timer, autosave, resume, submit, auto-submit, auto-grading |
@@ -30,7 +30,7 @@ Testa's first target is a school admission exam: a few hundred candidates in com
 | HTTPS | Both TLS at a reverse proxy (with real client IPs and forged `X-Forwarded-For` ignored) and TLS on the VM (`deploy/https.yml`) |
 | Backup | Daily dump restored into an emptied database |
 | Browser | Every page in Chromium at 1440 px and 390 px (candidate pages also at 320 px); see [Screenshots](screenshots.md) |
-| Automated tests | 50 backend integration tests against real PostgreSQL (Testcontainers) and 19 frontend unit tests, run by GitHub Actions on every push |
+| Automated tests | 51 backend integration tests against real PostgreSQL (Testcontainers) and 19 frontend unit tests, run by GitHub Actions on every push |
 
 ## Before production
 

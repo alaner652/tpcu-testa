@@ -3,6 +3,7 @@ package tw.testa;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -136,6 +137,36 @@ class AuthTest extends IntegrationTestBase {
                 .andExpect(status().isBadRequest());
         mvc.perform(json(patch("/api/admin/staff/" + id), "{\"systemAdmin\":false}").session(admin))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void administratorCanDeleteOnlyDisabledUnusedAccounts() throws Exception {
+        MockHttpSession admin = adminSession();
+        Object[] unused = createStaff(admin, "unused@test.tw", "未使用帳號");
+
+        mvc.perform(delete("/api/admin/staff/" + unused[0]).with(
+                org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf()).session(admin))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("active_account"));
+        mvc.perform(json(patch("/api/admin/staff/" + unused[0]), "{\"active\":false}").session(admin))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/admin/staff/" + unused[0] + "/deletion-impact").session(admin))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.deletable").value(true));
+        mvc.perform(delete("/api/admin/staff/" + unused[0]).with(
+                org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf()).session(admin))
+                .andExpect(status().isNoContent());
+        assertThat(jdbc.queryForObject("select count(*) from staff where id = ?", Long.class, unused[0])).isZero();
+
+        Object[] used = createStaff(admin, "used@test.tw", "有歷史帳號");
+        long unitId = createUnit(admin, "刪除帳號測試單位");
+        jdbc.update("insert into bank (unit_id, created_by, name) values (?, ?, '歷史題庫')", unitId, used[0]);
+        mvc.perform(json(patch("/api/admin/staff/" + used[0]), "{\"active\":false}").session(admin))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/admin/staff/" + used[0] + "/deletion-impact").session(admin))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.deletable").value(false))
+                .andExpect(jsonPath("$.banks").value(1));
+        mvc.perform(delete("/api/admin/staff/" + used[0]).with(
+                org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf()).session(admin))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("staff_in_use"));
     }
 
     @Test
