@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { DropdownMenuRoot, DropdownMenuSeparator, DropdownMenuTrigger } from 'reka-ui'
-import { Check, ChevronDown, Plus } from 'lucide-vue-next'
+import { Circle, ChevronDown, Plus } from 'lucide-vue-next'
 import MenuContent from '@/components/ui/MenuContent.vue'
 import MenuItem from '@/components/ui/MenuItem.vue'
 import { useBanks } from '@/composables/useBanks'
@@ -26,7 +26,7 @@ const { createBank } = useQuestionActions()
           <span class="block truncate text-[15px]">{{ b.name || '未命名題庫' }}</span>
         </span>
         <span class="text-[13px] text-ink-3 tabular-nums">{{ b.questions.length }} 題</span>
-        <Check class="!text-brand" :class="b.id === bankId ? '' : 'invisible'" />
+        <Circle class="!text-brand" :class="b.id === bankId ? 'fill-current' : 'invisible'" />
       </MenuItem>
       <DropdownMenuSeparator class="my-1.5 h-px bg-line" />
       <MenuItem class="h-10 text-[15px] text-brand" @select="createBank">

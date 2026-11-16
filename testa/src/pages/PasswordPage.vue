@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Check, CircleAlert, LoaderCircle } from 'lucide-vue-next'
+import { CircleAlert, LoaderCircle, Save } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import Logo from '@/components/app/Logo.vue'
 import Button from '@/components/ui/Button.vue'
@@ -73,7 +73,7 @@ async function leave() {
           <CircleAlert class="mt-0.5 size-4 shrink-0" />{{ error }}
         </p>
         <Button variant="primary" size="lg" type="submit" class="mt-6" :disabled="loading">
-          <LoaderCircle v-if="loading" class="animate-spin" /><Check v-else />{{ loading ? '儲存中…' : '儲存新密碼' }}
+          <LoaderCircle v-if="loading" class="animate-spin" /><Save v-else />{{ loading ? '儲存中…' : '儲存新密碼' }}
         </Button>
         <Button size="lg" class="mt-3 font-medium" @click="leave">
           {{ forced ? '登出' : '取消' }}

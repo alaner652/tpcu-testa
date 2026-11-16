@@ -86,6 +86,12 @@
 }
 
 @layer base {
+  * {
+    scrollbar-width: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+  }
   html {
     -webkit-text-size-adjust: 100%;
   }
@@ -135,8 +141,7 @@
 }
 
 .thin-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: var(--line-strong) transparent;
+  scrollbar-width: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

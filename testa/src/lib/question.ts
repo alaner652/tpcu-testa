@@ -1,11 +1,11 @@
 import type { Component } from 'vue'
-import { CircleDot, PenLine, SquareCheck, TextCursorInput } from 'lucide-vue-next'
+import { CircleDot, ListPlus, PenLine, TextCursorInput } from 'lucide-vue-next'
 import type { Question, QuestionType } from '@/types/question'
 import { uid } from './utils'
 
 export const QUESTION_TYPES: { value: QuestionType; label: string; icon: Component }[] = [
   { value: 'single', label: '單選', icon: CircleDot },
-  { value: 'multiple', label: '多選', icon: SquareCheck },
+  { value: 'multiple', label: '多選', icon: ListPlus },
   { value: 'blank', label: '填空', icon: TextCursorInput },
   { value: 'essay', label: '申論', icon: PenLine },
 ]

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
 import { useRoute } from 'vue-router'
-import { ChartColumn, Check, ChevronLeft, EyeOff, KeyRound, ListChecks, LoaderCircle, Lock, Printer, RotateCw, ShieldCheck, Ticket, TimerReset, Trash2, Upload, Users, X } from 'lucide-vue-next'
+import { ChartColumn, ChevronLeft, ClipboardList, EyeOff, KeyRound, LoaderCircle, Lock, Printer, RotateCw, Shield, Ticket, TimerReset, Trash2, Upload, Users, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
@@ -45,12 +45,12 @@ const STEPS = computed<{ value: Step; label: string; icon: Component }[]>(() => 
   { value: 'tickets', label: '登入單', icon: Ticket },
   ...(exam.value?.canManage && exam.value.status !== 'draft'
     ? ([
-        { value: 'grading', label: '評分', icon: ListChecks },
+        { value: 'grading', label: '評分', icon: ClipboardList },
         { value: 'results', label: '成績', icon: ChartColumn },
       ] as const)
     : []),
   // Emergency access is rare: it lives in the "..." menu by the title and shows as a tab only when opened
-  ...(step.value === 'access' ? ([{ value: 'access', label: '緊急檢視', icon: ShieldCheck }] as const) : []),
+  ...(step.value === 'access' ? ([{ value: 'access', label: '緊急檢視', icon: Shield }] as const) : []),
 ])
 const step = ref<Step>('roster')
 // Moving to another exam starts over; once the exam has ended, open the tab for the next step
@@ -65,7 +65,7 @@ watch(
 )
 const headerActions = computed<MoreAction[]>(() =>
   exam.value?.canManage && exam.value.status !== 'draft'
-    ? [{ label: '緊急檢視授權（給系統管理員）', icon: ShieldCheck, run: () => (step.value = 'access') }]
+    ? [{ label: '緊急檢視授權（給系統管理員）', icon: Shield, run: () => (step.value = 'access') }]
     : [],
 )
 
@@ -317,7 +317,7 @@ const site = location.origin + location.pathname
         </p>
         <div class="mt-4 flex flex-wrap justify-end gap-2">
           <Button size="md" @click="preview = null"><X />取消</Button>
-          <Button variant="primary" size="md" :disabled="busy || !preview.rows.length" @click="doImport"><Check />匯入 {{ preview.rows.length }} 位考生</Button>
+          <Button variant="primary" size="md" :disabled="busy || !preview.rows.length" @click="doImport"><Upload />匯入 {{ preview.rows.length }} 位考生</Button>
         </div>
       </div>
 
@@ -353,7 +353,7 @@ const site = location.origin + location.pathname
             </select>
             <input v-model="extendReason" class="field min-w-0 flex-1 basis-56" maxlength="200" placeholder="原因（必填，會留在操作紀錄），例如：電腦當機換座位" aria-label="補時的原因" />
             <Button size="md" type="button" @click="extending = null"><X />取消</Button>
-            <Button variant="primary" size="md" type="submit" :disabled="!extendReason.trim()"><Check />確定補時</Button>
+            <Button variant="primary" size="md" type="submit" :disabled="!extendReason.trim()"><TimerReset />確定補時</Button>
           </form>
         </li>
         <li v-if="!shown.length" class="px-5 py-6 text-[15px] text-ink-2 sm:px-6">

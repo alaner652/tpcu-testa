@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { Check } from 'lucide-vue-next'
+import { ClipboardList, Send } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import Button from '@/components/ui/Button.vue'
 import MathText from '@/components/editor/MathText.vue'
@@ -118,7 +118,7 @@ async function submit() {
 
     <div v-else-if="!current" class="card px-5 py-12 text-center sm:px-10">
       <span class="mx-auto flex size-14 items-center justify-center rounded-full bg-brand-soft text-brand-strong">
-        <Check class="size-7" />
+        <ClipboardList class="size-7" />
       </span>
       <h2 class="mt-4 text-2xl font-bold">都批完了</h2>
       <p class="mt-2 text-[15px] text-ink-2">這場考試目前沒有等待你評分的申論答案。有新的交卷時會出現在這裡。</p>
@@ -158,7 +158,7 @@ async function submit() {
         </label>
         <div class="mt-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
           <p class="min-w-0 flex-1 basis-60 text-[13px] text-ink-3">送出後不能自己修改。真的需要更正，請承辦人重開這份答卷的評分。</p>
-          <Button variant="primary" size="md" :disabled="sending" @click="submit"><Check />送出，看下一份</Button>
+          <Button variant="primary" size="md" :disabled="sending" @click="submit"><Send />送出，看下一份</Button>
         </div>
       </section>
     </div>

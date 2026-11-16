@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Check, LoaderCircle, PencilLine, TriangleAlert } from 'lucide-vue-next'
+import { Cloud, LoaderCircle, PencilLine, TriangleAlert } from 'lucide-vue-next'
 import { useBanks } from '@/composables/useBanks'
 
 const { saveState, savedAt, loading } = useBanks()
@@ -21,7 +21,7 @@ const label = computed(() => {
     <LoaderCircle v-if="saveState === 'saving'" class="size-4 animate-spin" />
     <PencilLine v-else-if="saveState === 'dirty'" class="size-4" />
     <TriangleAlert v-else-if="saveState === 'error'" class="size-4 text-grade" />
-    <Check v-else class="size-4 text-brand" />
+    <Cloud v-else class="size-4 text-brand" />
     <span :class="saveState === 'error' ? 'font-medium text-grade' : 'max-sm:sr-only'">{{ label }}</span>
   </p>
 </template>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Ban, RotateCw, ShieldCheck } from 'lucide-vue-next'
+import { Ban, RotateCw, Shield } from 'lucide-vue-next'
 import { onMounted, reactive, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import Badge from '@/components/ui/Badge.vue'
@@ -127,7 +127,7 @@ const state = (g: Grant) => (g.active ? `有效到 ${when(g.expiresAt)}` : g.rev
           <span class="mb-1.5 block text-sm font-medium">理由（必填，會留在操作紀錄）</span>
           <input v-model="form.reason" class="field" maxlength="500" placeholder="例如：考生申訴成績，需要協助查證" />
         </label>
-        <Button variant="primary" size="md" type="submit" :disabled="sending || !form.staffId || !form.reason.trim()"><ShieldCheck />授權</Button>
+        <Button variant="primary" size="md" type="submit" :disabled="sending || !form.staffId || !form.reason.trim()"><Shield />授權</Button>
       </form>
     </section>
 

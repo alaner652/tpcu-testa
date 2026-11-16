@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
-import { Check, ChevronLeft, ChevronRight, Clock, Flag, Minus, Pencil, RotateCcw, Send, X } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, CircleDot, Clock, Flag, Minus, Pencil, RotateCcw, Send, X } from 'lucide-vue-next'
 import Badge, { type BadgeTone } from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import { useConfirm } from '@/composables/useConfirm'
@@ -392,7 +392,7 @@ function jump(index: number) {
         >
           <p class="mb-3 flex items-center gap-2 pl-9 sm:pl-10">
             <Badge :tone="STATUS[grades[index].status].tone">
-              <Check v-if="grades[index].status === 'correct'" />
+              <CircleDot v-if="grades[index].status === 'correct'" />
               <X v-else-if="grades[index].status === 'wrong'" />
               <Minus v-else-if="grades[index].status === 'unanswered'" />
               {{ STATUS[grades[index].status].label }}

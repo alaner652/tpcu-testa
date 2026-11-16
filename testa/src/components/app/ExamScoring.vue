@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Check, Download, Megaphone, RotateCcw, RotateCw, UserMinus, UserPlus, X } from 'lucide-vue-next'
+import { Download, Megaphone, RotateCcw, RotateCw, UserMinus, UserPlus, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
@@ -212,7 +212,7 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
           <form v-if="reopening === i" class="mt-3 flex flex-wrap gap-2" @submit.prevent="reopen">
             <input v-model="reason" class="field min-w-0 flex-1 basis-64" placeholder="重開的理由（必填，會留在操作紀錄）" aria-label="重開的理由" />
             <Button size="md" @click="reopening = null"><X />取消</Button>
-            <Button variant="primary" size="md" type="submit" :disabled="!reason.trim()"><Check />確定重開</Button>
+            <Button variant="primary" size="md" type="submit" :disabled="!reason.trim()"><RotateCcw />確定重開</Button>
           </form>
         </li>
       </ul>

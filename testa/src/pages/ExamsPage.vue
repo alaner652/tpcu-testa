@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, type Component } from 'vue'
-import { Archive, ArchiveRestore, CalendarClock, Check, ChevronRight, CircleAlert, CircleCheck, CircleStop, Clock, ListChecks, Pencil, Plus, RotateCw, Send, Trash2, Undo2, Upload, X } from 'lucide-vue-next'
+import { Archive, ArchiveRestore, CalendarClock, ChartColumn, ChevronRight, CircleAlert, CircleStop, Clock, Megaphone, Pencil, Plus, RotateCw, Save, Send, Trash2, Undo2, Upload, X } from 'lucide-vue-next'
 import MoreMenu, { type MoreAction } from '@/components/ui/MoreMenu.vue'
 import { toast } from 'vue-sonner'
 import Badge from '@/components/ui/Badge.vue'
@@ -190,8 +190,8 @@ function nextStep(exam: Exam): { text: string; icon: Component; todo: boolean } 
         : { text: `${time}，考試進行中`, icon: Clock, todo: false }
     default:
       return exam.resultsPublishedAt
-        ? { text: `${when(exam.startAt)}，成績已公布`, icon: CircleCheck, todo: false }
-        : { text: '下一步：點進去評分、公布成績', icon: ListChecks, todo: true }
+        ? { text: `${when(exam.startAt)}，成績已公布`, icon: Megaphone, todo: false }
+        : { text: '下一步：點進去評分、公布成績', icon: ChartColumn, todo: true }
   }
 }
 
@@ -334,7 +334,7 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
         </div>
         <footer class="flex shrink-0 justify-end gap-2 border-t border-line px-5 py-3">
           <Button size="md" @click="formOpen = false"><X />取消</Button>
-          <Button variant="primary" size="md" type="submit" :disabled="saving"><Check />{{ editing ? '儲存' : '建立草稿' }}</Button>
+          <Button variant="primary" size="md" type="submit" :disabled="saving"><Save />{{ editing ? '儲存' : '建立草稿' }}</Button>
         </footer>
       </form>
     </SidePanel>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, type Component } from 'vue'
-import { ChevronRight, CircleCheck, CircleStop, ClipboardCheck, Clock, LibraryBig, ListChecks, Plus, Send, Upload } from 'lucide-vue-next'
+import { ChartColumn, ChevronRight, CircleStop, ClipboardPenLine, Clock, Inbox, LibraryBig, Plus, Send, Upload } from 'lucide-vue-next'
 import { useAuth, type UnitRole } from '@/composables/useAuth'
 import { useBanks } from '@/composables/useBanks'
 import { useExams, when } from '@/composables/useExams'
@@ -32,7 +32,7 @@ const todos = computed<Todo[]>(() => {
   const list: Todo[] = []
   // Grading: the most important thing for graders
   for (const g of gradingExams.value.filter((g) => g.total > g.done)) {
-    list.push({ key: `g${g.examId}`, icon: ClipboardCheck, text: `「${g.name}」有 ${g.total - g.done} 份申論等你批改`, to: '/grading', action: '開始批改', urgent: true })
+    list.push({ key: `g${g.examId}`, icon: ClipboardPenLine, text: `「${g.name}」有 ${g.total - g.done} 份申論等你批改`, to: '/grading', action: '開始批改', urgent: true })
   }
   for (const e of exams.value.filter((e) => !e.archivedAt)) {
     const to = `/exams/${e.id}`
@@ -51,7 +51,7 @@ const todos = computed<Todo[]>(() => {
     } else if (e.status === 'scheduled') {
       list.push({ key: `e${e.id}`, icon: Clock, text: `「${e.name}」${when(e.startAt)} 開始`, sub: '考前記得印登入單', to, action: '看名單' })
     } else if (e.status === 'ended' && !e.resultsPublishedAt) {
-      list.push({ key: `e${e.id}`, icon: ListChecks, text: `「${e.name}」已結束，還沒公布成績`, to, action: '評分與成績' })
+      list.push({ key: `e${e.id}`, icon: ChartColumn, text: `「${e.name}」已結束，還沒公布成績`, to, action: '評分與成績' })
     }
   }
   return list
@@ -99,7 +99,7 @@ const starters = computed(() => [
     </section>
 
     <section v-else-if="user?.units?.length" class="card flex items-center gap-4 px-5 py-6 sm:px-6">
-      <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand-strong"><CircleCheck class="size-5" /></span>
+      <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand-strong"><Inbox class="size-5" /></span>
       <p class="text-base">目前沒有待辦事項。</p>
     </section>
 

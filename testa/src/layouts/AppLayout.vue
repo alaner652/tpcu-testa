@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { ClipboardCheck, FileText, House, LibraryBig, Settings } from 'lucide-vue-next'
+import { ClipboardPenLine, FileText, House, LibraryBig, Settings } from 'lucide-vue-next'
 import Logo from '@/components/app/Logo.vue'
 import UserMenu from '@/components/app/UserMenu.vue'
 import { useAuth, type UnitRole } from '@/composables/useAuth'
@@ -24,7 +24,7 @@ const staffLinks = computed(() => [
   ...(isAdmin.value && !user.value?.units?.length ? [] : [{ to: '/', label: '首頁', icon: House, exact: true, badge: 0 }]),
   ...(can('AUTHOR', 'OWNER') ? [{ to: '/banks', label: '題庫', icon: LibraryBig, exact: false, badge: 0 }] : []),
   ...(can('OWNER', 'PROCTOR') ? [{ to: '/exams', label: '考試', icon: FileText, exact: false, badge: 0 }] : []),
-  ...(can('GRADER') ? [{ to: '/grading', label: '閱卷', icon: ClipboardCheck, exact: false, badge: pending.value }] : []),
+  ...(can('GRADER') ? [{ to: '/grading', label: '閱卷', icon: ClipboardPenLine, exact: false, badge: pending.value }] : []),
   ...(isAdmin.value ? [{ to: '/admin', label: '管理', icon: Settings, exact: false, badge: 0 }] : []),
 ])
 </script>

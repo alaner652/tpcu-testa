@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Check, CircleAlert, KeyRound, LoaderCircle } from 'lucide-vue-next'
+import { CircleAlert, KeyRound, LoaderCircle, UserPlus } from 'lucide-vue-next'
 import Logo from '@/components/app/Logo.vue'
 import Button from '@/components/ui/Button.vue'
 import { useAuth } from '@/composables/useAuth'
@@ -75,7 +75,7 @@ async function submit() {
         </p>
 
         <Button variant="primary" size="lg" type="submit" class="mt-6" :disabled="loading">
-          <LoaderCircle v-if="loading" class="animate-spin" /><Check v-else />{{ loading ? '建立中…' : '建立管理員' }}
+          <LoaderCircle v-if="loading" class="animate-spin" /><UserPlus v-else />{{ loading ? '建立中…' : '建立管理員' }}
         </Button>
       </form>
     </div>

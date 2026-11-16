@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
-import { Check, FileText, LoaderCircle, TriangleAlert, Upload, X } from 'lucide-vue-next'
+import { Circle, FileText, LoaderCircle, TriangleAlert, Upload, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import Button from '@/components/ui/Button.vue'
 import { useBanks } from '@/composables/useBanks'
@@ -230,7 +230,7 @@ function onDrop(event: DragEvent) {
               class="mt-1 flex size-4 shrink-0 items-center justify-center rounded-[4px] border transition-colors"
               :class="selected.has(question.id) ? 'border-brand bg-brand text-brand-fg' : 'border-line-strong'"
             >
-              <Check v-if="selected.has(question.id)" class="size-3" :stroke-width="3" />
+              <Circle v-if="selected.has(question.id)" class="size-2 fill-current" />
             </span>
             <span class="min-w-0 flex-1">
               <MathText :text="question.stem" tag="span" class="exam-text block text-[15px]" />

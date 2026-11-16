@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { Ban, Building2, Check, ChevronDown, CircleCheck, Copy, DatabaseBackup, KeyRound, Lock, Plus, RotateCw, ScrollText, Search, Settings, ShieldCheck, UserCog, Users, X } from 'lucide-vue-next'
+import { Ban, Building2, ChevronDown, Copy, DatabaseBackup, KeyRound, Lock, Plus, RotateCw, ScrollText, Search, Settings, Shield, UserCog, UserPlus, Users, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import EmergencyView from '@/components/app/EmergencyView.vue'
 import SystemSettings from '@/components/app/SystemSettings.vue'
@@ -55,7 +55,7 @@ const TABS = [
   { value: 'units', label: '單位', icon: Building2 },
   { value: 'audit', label: '操作紀錄', icon: ScrollText },
   { value: 'backups', label: '備份', icon: DatabaseBackup },
-  { value: 'emergency', label: '緊急檢視', icon: ShieldCheck },
+  { value: 'emergency', label: '緊急檢視', icon: Shield },
   { value: 'settings', label: '系統設定', icon: Settings },
 ] as const
 const tabs = TABS
@@ -375,7 +375,6 @@ watch(tab, load)
         <div class="mt-2 flex flex-wrap items-center gap-2">
           <code class="rounded-control bg-paper px-3 py-1.5 text-lg font-semibold tracking-wider select-all">{{ issued.password }}</code>
           <Button variant="outline" @click="copyPassword"><Copy />複製</Button>
-          <Button @click="issued = null"><Check />我已經記下來了</Button>
         </div>
         <p class="mt-2 text-sm text-ink-2">這組密碼只會顯示這一次，請親自交給對方。對方登入後必須先換成自己的密碼。</p>
       </div>
@@ -385,7 +384,7 @@ watch(tab, load)
           <input v-model="draft.email" type="email" class="field bg-paper" placeholder="Email（登入帳號）" aria-label="Email" />
           <input v-model="draft.name" class="field bg-paper" placeholder="姓名" aria-label="姓名" />
           <Button size="md" @click="((creating = false), (createError = ''))"><X />取消</Button>
-          <Button variant="primary" size="md" type="submit" :disabled="saving"><Check />建立帳號</Button>
+          <Button variant="primary" size="md" type="submit" :disabled="saving"><UserPlus />建立帳號</Button>
         </div>
         <label class="mt-3 flex items-center gap-2 text-[15px]">
           <input v-model="draft.systemAdmin" type="checkbox" class="size-4 accent-brand" />
@@ -403,7 +402,7 @@ watch(tab, load)
           <div class="min-w-0 flex-1 basis-56">
             <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-medium">
               <span class="truncate">{{ s.name }}</span>
-              <Badge v-if="s.systemAdmin" tone="done"><ShieldCheck />系統管理員</Badge>
+              <Badge v-if="s.systemAdmin" tone="done"><Shield />系統管理員</Badge>
               <Badge v-if="s.email === user?.email">你自己</Badge>
               <Badge v-if="!s.active">已停用</Badge>
               <Badge v-if="s.locked" tone="danger"><Lock />密碼輸錯，已鎖定</Badge>
@@ -418,7 +417,7 @@ watch(tab, load)
               { label: '重設密碼', icon: KeyRound, run: () => resetPassword(s) },
               s.active
                 ? { label: '停用帳號', icon: Ban, run: () => toggleActive(s), danger: true }
-                : { label: '重新啟用', icon: CircleCheck, run: () => toggleActive(s) },
+                : { label: '重新啟用', icon: RotateCw, run: () => toggleActive(s) },
             ]"
           />
         </li>
@@ -445,7 +444,7 @@ watch(tab, load)
               :actions="[
                 u.active
                   ? { label: '停用單位', icon: Ban, run: () => toggleUnit(u), danger: true }
-                  : { label: '重新啟用', icon: CircleCheck, run: () => toggleUnit(u) },
+                  : { label: '重新啟用', icon: RotateCw, run: () => toggleUnit(u) },
               ]"
             />
           </div>

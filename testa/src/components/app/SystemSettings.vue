@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { CircleCheck, LoaderCircle, PlugZap, Save, TriangleAlert } from 'lucide-vue-next'
+import { LoaderCircle, PlugZap, Save, TriangleAlert, Wifi } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import Button from '@/components/ui/Button.vue'
 import Switch from '@/components/ui/Switch.vue'
@@ -174,7 +174,7 @@ async function save() {
             :class="probe.ok ? 'text-brand-strong' : 'text-grade'"
             role="status"
           >
-            <CircleCheck v-if="probe.ok" class="mt-0.5 size-4 shrink-0" />
+            <Wifi v-if="probe.ok" class="mt-0.5 size-4 shrink-0" />
             <TriangleAlert v-else class="mt-0.5 size-4 shrink-0" />{{ probe.message }}
           </p>
         </div>
