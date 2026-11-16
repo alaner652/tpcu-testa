@@ -31,7 +31,7 @@ import tw.testa.attempt.AttemptDtos.State;
 import tw.testa.audit.AuditService;
 import tw.testa.bank.BankDtos.QuestionDto;
 import tw.testa.common.ApiException;
-import tw.testa.config.TestaProperties;
+import tw.testa.settings.SettingsService;
 import tw.testa.exam.Candidate;
 import tw.testa.exam.CandidateRepository;
 import tw.testa.exam.Exam;
@@ -59,17 +59,17 @@ public class AttemptService {
     private final AnswerRepository answerRepo;
     private final GradingService grading;
     private final AuditService audit;
-    private final TestaProperties props;
+    private final SettingsService settings;
     private final TransactionTemplate tx;
 
     public AttemptService(CandidateRepository candidateRepo, AttemptRepository attemptRepo, AnswerRepository answerRepo,
-            GradingService grading, AuditService audit, TestaProperties props, TransactionTemplate tx) {
+            GradingService grading, AuditService audit, SettingsService settings, TransactionTemplate tx) {
+        this.settings = settings;
         this.grading = grading;
         this.candidateRepo = candidateRepo;
         this.attemptRepo = attemptRepo;
         this.answerRepo = answerRepo;
         this.audit = audit;
-        this.props = props;
         this.tx = tx;
     }
 
@@ -104,8 +104,8 @@ public class AttemptService {
         if (match == null) {
             for (Candidate c : found) {
                 c.setFailedLogins(c.getFailedLogins() + 1);
-                if (c.getFailedLogins() >= props.login().maxFailures()) {
-                    c.setLockedUntil(now.plus(Duration.ofMinutes(props.login().lockMinutes())));
+                if (c.getFailedLogins() >= settings.loginMaxFailures()) {
+                    c.setLockedUntil(now.plus(Duration.ofMinutes(settings.loginLockMinutes())));
                     c.setFailedLogins(0);
                 }
             }

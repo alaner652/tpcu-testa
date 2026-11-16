@@ -77,7 +77,7 @@ public class QuestionImportService {
     public Job start(Long unitId, String filename, byte[] bytes) {
         long me = access.current().id();
         access.requireUnitRole(unitId, Role.AUTHOR);
-        if (!model.configured()) throw ApiException.badRequest("ai_disabled", "這台伺服器沒有開啟 AI 匯入。");
+        if (!model.configured()) throw ApiException.badRequest("ai_disabled", "AI 匯入還沒有開啟，請系統管理員到「系統設定」設定。");
         String text = PaperText.extract(filename, bytes);
 
         Instant now = Instant.now();

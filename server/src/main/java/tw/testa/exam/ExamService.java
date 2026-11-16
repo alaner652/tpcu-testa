@@ -52,15 +52,15 @@ public class ExamService {
     private final AccessGuard access;
     private final AuditService audit;
     private final tw.testa.attempt.AttemptService attempts;
-    private final tw.testa.config.TestaProperties props;
+    private final tw.testa.settings.SettingsService settings;
     private static final java.time.ZoneId TAIPEI = java.time.ZoneId.of("Asia/Taipei");
 
     public ExamService(ExamRepository examRepo, CandidateRepository candidateRepo, BankRepository bankRepo,
             BankService bankService, UnitRoleRepository roleRepo, StaffRepository staffRepo, AccessGuard access,
             AuditService audit, @org.springframework.context.annotation.Lazy tw.testa.attempt.AttemptService attempts,
-            tw.testa.config.TestaProperties props) {
+            tw.testa.settings.SettingsService settings) {
+        this.settings = settings;
         this.attempts = attempts;
-        this.props = props;
         this.examRepo = examRepo;
         this.candidateRepo = candidateRepo;
         this.bankRepo = bankRepo;
@@ -226,7 +226,7 @@ public class ExamService {
     /** Retention: end of (year the exam ended + N), Taipei time. Exams that have not ended have none. */
     Instant retainUntil(Exam e) {
         if (e.getEndedAt() == null) return null;
-        int year = java.time.LocalDate.ofInstant(e.getEndedAt(), TAIPEI).getYear() + props.retention().years();
+        int year = java.time.LocalDate.ofInstant(e.getEndedAt(), TAIPEI).getYear() + settings.retentionYears();
         return java.time.LocalDate.of(year + 1, 1, 1).atStartOfDay(TAIPEI).toInstant();
     }
 

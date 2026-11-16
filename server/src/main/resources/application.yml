@@ -48,7 +48,8 @@ testa:
     # The school's rule is "gap over 20", read here as 20% of the points (20 on a 100-point question)
     flag-ratio: 0.2
   ai:
-    # AI question import (off when blank): an OpenAI-compatible endpoint such as a local llama-server, e.g. http://10.0.0.5:8090
+    # AI question import: presets for what administrators set in the admin pages (System settings).
+    # An OpenAI-compatible endpoint such as a local llama-server, e.g. http://10.0.0.5:8090
     base-url: ${TESTA_AI_URL:}
     model: ${TESTA_AI_MODEL:}
     api-key: ${TESTA_AI_KEY:}

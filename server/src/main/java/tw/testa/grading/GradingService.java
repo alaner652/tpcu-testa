@@ -21,7 +21,7 @@ import tw.testa.audit.AuditService;
 import tw.testa.auth.AccessGuard;
 import tw.testa.bank.BankDtos.QuestionDto;
 import tw.testa.common.ApiException;
-import tw.testa.config.TestaProperties;
+import tw.testa.settings.SettingsService;
 import tw.testa.exam.Exam;
 import tw.testa.exam.ExamRepository;
 import tw.testa.grading.GradingDtos.CandidateResult;
@@ -47,15 +47,15 @@ public class GradingService {
     private final ExamRepository examRepo;
     private final AccessGuard access;
     private final AuditService audit;
-    private final TestaProperties props;
+    private final SettingsService settings;
 
     public GradingService(JdbcTemplate jdbc, ExamRepository examRepo, AccessGuard access, AuditService audit,
-            TestaProperties props) {
+            SettingsService settings) {
+        this.settings = settings;
         this.jdbc = jdbc;
         this.examRepo = examRepo;
         this.access = access;
         this.audit = audit;
-        this.props = props;
     }
 
     /** An essay answer that needs a grader. */
@@ -340,7 +340,7 @@ public class GradingService {
                 avg = s.stream().reduce(BigDecimal.ZERO, BigDecimal::add).divide(BigDecimal.valueOf(s.size()), 1, RoundingMode.HALF_UP);
                 essayScore.merge(x.attemptId(), avg, BigDecimal::add);
                 BigDecimal spread = s.stream().max(Comparator.naturalOrder()).get().subtract(s.stream().min(Comparator.naturalOrder()).get());
-                flagged = s.size() > 1 && spread.doubleValue() > q.points().doubleValue() * props.grading().flagRatio();
+                flagged = s.size() > 1 && spread.doubleValue() > q.points().doubleValue() * settings.flagRatio();
             } else {
                 pending.merge(x.attemptId(), 1, Integer::sum);
             }

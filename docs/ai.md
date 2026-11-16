@@ -45,7 +45,7 @@ Not planned: letting a model decide scores (fairness and appeals), or generating
 
 An author uploads an exam paper in the bank editor; a model drafts the questions; the author picks which to add, and each added question stays marked "imported by AI, to confirm" until the author confirms it. Nothing is written by the import itself: drafts enter a bank only through the editor's normal save.
 
-**Turning it on.** Set `TESTA_AI_URL` to an OpenAI-compatible endpoint (and `TESTA_AI_MODEL`, `TESTA_AI_KEY` if the endpoint needs them). Blank, the default, hides the feature. For a local model:
+**Turning it on.** A system administrator opens Admin > System settings, enters the address of an OpenAI-compatible endpoint, presses "Test connection" (which also lists the endpoint's models to choose from), switches the feature on and saves. No restart is needed, and the change is audited. Off, the default, hides the feature. The same values can be preset with `TESTA_AI_URL`, `TESTA_AI_MODEL` and `TESTA_AI_KEY`; what is saved in the admin pages takes precedence. The API key is write-only: it is never sent back to the browser or written to the audit log. To run a local model:
 
 ```bash
 llama-server -m qwen3-4b-instruct-q4_k_m.gguf --port 8090 -c 16384 --jinja

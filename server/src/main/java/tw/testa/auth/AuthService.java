@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import tw.testa.audit.AuditService;
 import tw.testa.common.ApiException;
-import tw.testa.config.TestaProperties;
+import tw.testa.settings.SettingsService;
 import tw.testa.staff.Staff;
 import tw.testa.staff.StaffRepository;
 import tw.testa.unit.Role;
@@ -35,17 +35,17 @@ public class AuthService {
     private final UnitRoleRepository roleRepo;
     private final PasswordEncoder encoder;
     private final AuditService audit;
-    private final TestaProperties props;
+    private final SettingsService settings;
     /** Hash even when the account does not exist, so response time does not reveal whether it does. */
     private final String dummyHash;
 
     public AuthService(StaffRepository staffRepo, UnitRoleRepository roleRepo, PasswordEncoder encoder,
-            AuditService audit, TestaProperties props) {
+            AuditService audit, SettingsService settings) {
+        this.settings = settings;
         this.staffRepo = staffRepo;
         this.roleRepo = roleRepo;
         this.encoder = encoder;
         this.audit = audit;
-        this.props = props;
         this.dummyHash = encoder.encode("testa-dummy-password");
     }
 
@@ -69,13 +69,13 @@ public class AuthService {
         if (s.isLocked(now)) {
             audit.recordNow("LOGIN_FAILED", "STAFF", s.getId(), email, "locked");
             throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "locked",
-                    "密碼錯誤次數過多，帳號已暫時鎖定，請 " + props.login().lockMinutes() + " 分鐘後再試，或洽系統管理員。");
+                    "密碼錯誤次數過多，帳號已暫時鎖定，請 " + settings.loginLockMinutes() + " 分鐘後再試，或洽系統管理員。");
         }
         if (tooLong || !encoder.matches(password, s.getPasswordHash())) {
             int failures = s.getFailedLogins() + 1;
             s.setFailedLogins(failures);
-            if (failures >= props.login().maxFailures()) {
-                s.setLockedUntil(now.plus(Duration.ofMinutes(props.login().lockMinutes())));
+            if (failures >= settings.loginMaxFailures()) {
+                s.setLockedUntil(now.plus(Duration.ofMinutes(settings.loginLockMinutes())));
                 s.setFailedLogins(0);
             }
             staffRepo.save(s);

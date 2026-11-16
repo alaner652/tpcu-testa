@@ -3,15 +3,13 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { Ban, Building2, Check, ChevronDown, CircleCheck, Copy, DatabaseBackup, KeyRound, Lock, Plus, RotateCw, ScrollText, Search, Settings, ShieldCheck, UserCog, Users, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import EmergencyView from '@/components/app/EmergencyView.vue'
+import SystemSettings from '@/components/app/SystemSettings.vue'
 import UnitMembers from '@/components/app/UnitMembers.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import MoreMenu from '@/components/ui/MoreMenu.vue'
-import Switch from '@/components/ui/Switch.vue'
 import { UNIT_ROLE_LABEL, useAuth, type UnitRole } from '@/composables/useAuth'
 import { useConfirm } from '@/composables/useConfirm'
-import { useWorkspace } from '@/composables/useWorkspace'
-import { DEMO_FEATURES } from '@/lib/flags'
 import { api } from '@/lib/api'
 
 /**
@@ -50,7 +48,6 @@ interface AuditEntry {
 }
 
 const { user } = useAuth()
-const { settings } = useWorkspace()
 const { confirm } = useConfirm()
 
 const TABS = [
@@ -61,8 +58,7 @@ const TABS = [
   { value: 'emergency', label: '緊急檢視', icon: ShieldCheck },
   { value: 'settings', label: '系統設定', icon: Settings },
 ] as const
-// System settings have no backend yet and are hidden in production
-const tabs = TABS.filter((t) => t.value !== 'settings' || DEMO_FEATURES)
+const tabs = TABS
 const tab = ref<(typeof TABS)[number]['value']>('staff')
 
 const loadError = ref('')
@@ -255,6 +251,7 @@ const ACTION_LABEL: Record<string, string> = {
   GRADING_REOPENED: '重開評分',
   RESULTS_PUBLISHED: '公布成績',
   CANDIDATE_RESULTS_CHANGED: '考生查詢成績設定',
+  SETTINGS_CHANGED: '變更系統設定',
   RESULTS_EXPORTED: '匯出成績',
 }
 const DETAIL_LABEL: Record<string, string> = {
@@ -515,30 +512,6 @@ watch(tab, load)
 
     <EmergencyView v-else-if="tab === 'emergency'" />
 
-    <!-- System settings (no backend yet) -->
-    <section v-else-if="DEMO_FEATURES" class="card divide-y divide-line">
-      <p class="px-5 py-4 text-sm text-ink-2 sm:px-6">這一頁還是示範，設定不會儲存到伺服器。</p>
-      <label class="block px-5 py-5 sm:px-6">
-        <span class="mb-1.5 block text-[15px] font-medium">平台名稱</span>
-        <input v-model="settings.siteName" class="field max-w-sm" @change="toast.success('已儲存平台名稱')" />
-      </label>
-      <label
-        v-for="item in [
-          { key: 'aiImport', title: 'AI 匯入題庫', text: '允許教師上傳 Word、PDF 讓 AI 拆成題目。' },
-          { key: 'aiGrading', title: 'AI 輔助評分', text: '閱卷時顯示 AI 的建議分數，最終分數仍由教師決定。' },
-        ] as const"
-        :key="item.key"
-        class="flex items-center gap-4 px-5 py-5 sm:px-6"
-      >
-        <span class="min-w-0 flex-1">
-          <span class="block text-[15px] font-medium">{{ item.title }}</span>
-          <span class="block text-sm text-ink-2">{{ item.text }}</span>
-        </span>
-        <Switch
-          :model-value="settings[item.key]"
-          @update:model-value="(v: boolean) => ((settings[item.key] = v), toast.success(`已${v ? '開啟' : '關閉'}「${item.title}」`))"
-        />
-      </label>
-    </section>
+    <SystemSettings v-else />
   </div>
 </template>

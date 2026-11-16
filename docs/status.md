@@ -6,7 +6,7 @@ Testa's first target is a school admission exam: a few hundred candidates in com
 
 | Area | Status | Scope |
 | --- | --- | --- |
-| Accounts and access | Done | First-run setup with a one-time token, staff sign-in, database-backed sessions, CSRF, units and roles, audit log |
+| Accounts and access | Done | First-run setup with a one-time token, staff sign-in, database-backed sessions, CSRF, units and roles, audit log, system settings in the admin pages |
 | Question banks | Done | Four question types, math, autosave, version conflict detection, try-it mode |
 | Exams and rosters | Done | Create, publish (freezes the paper), end; roster import (.xlsx, .csv, Big5); login codes and printable slips |
 | Taking the exam | Done | Candidate sign-in, single session, server-side timer, autosave, resume, submit, auto-submit, auto-grading |
@@ -30,7 +30,7 @@ Testa's first target is a school admission exam: a few hundred candidates in com
 | HTTPS | Both TLS at a reverse proxy (with real client IPs and forged `X-Forwarded-For` ignored) and TLS on the VM (`deploy/https.yml`) |
 | Backup | Daily dump restored into an emptied database |
 | Browser | Every page in Chromium at 1440 px and 390 px (candidate pages also at 320 px); see [Screenshots](screenshots.md) |
-| Automated tests | 46 backend integration tests against real PostgreSQL (Testcontainers) and 19 frontend unit tests, run by GitHub Actions on every push |
+| Automated tests | 50 backend integration tests against real PostgreSQL (Testcontainers) and 19 frontend unit tests, run by GitHub Actions on every push |
 
 ## Before production
 
@@ -43,12 +43,13 @@ These depend on the deploying site and cannot be tested in development:
 
 ## Policies
 
-Defaults agreed with the first deploying school. Each is a setting or a small change if another site needs something different.
+Defaults agreed with the first deploying school. Those marked "System settings" can be changed by a system administrator in the admin pages, without touching the server; every change is audited.
 
 | Policy | Default | Where |
 | --- | --- | --- |
-| Data retention | Until 31 December of the year after the exam ends; then an archived exam can be deleted | `testa.retention.years` |
-| Grader disagreement | Warn when graders differ by more than 20% of a question's points | `testa.grading.flag-ratio` |
+| Data retention | Until 31 December of the year after the exam ends; then an archived exam can be deleted | Admin > System settings |
+| Grader disagreement | Warn when graders differ by more than 20% of a question's points | Admin > System settings |
+| Sign-in lockout | Locked for 15 minutes after 5 wrong passwords or login codes | Admin > System settings |
 | Authors as graders | Allowed, no recusal rule | |
 | Login codes | Stored in plain text so slips can be reprinted; visible only to the unit's owners and proctors | |
 | Candidate results | Off: publishing locks scores for export and the school announces them. When an owner turns it on for an exam, candidates see their total and subtotals, never answers or comments | Per exam, on the Results tab |

@@ -90,7 +90,7 @@ Cutting the Internet does not make the exam secure on its own: candidates on the
 
 ## AI question import (optional)
 
-Off unless `TESTA_AI_URL` in `.env` points to an OpenAI-compatible endpoint. Run the model on a separate VM. It is idle unless a teacher imports a paper; if that VM shares a physical host with the exam server, cap its CPU so an import during an exam cannot slow the exam down. Details and limits: [AI features](ai.md#question-import).
+Off until a system administrator turns it on in Admin > System settings and enters the address of an OpenAI-compatible endpoint (`TESTA_AI_URL` in `.env` presets it). Run the model on a separate VM. It is idle unless a teacher imports a paper; if that VM shares a physical host with the exam server, cap its CPU so an import during an exam cannot slow the exam down. Details and limits: [AI features](ai.md#question-import).
 
 ## Upgrades
 
