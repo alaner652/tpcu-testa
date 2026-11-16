@@ -34,7 +34,7 @@ More in [Screenshots](docs/screenshots.md).
 - No default credentials: the first administrator is created on a first-run setup page that closes for good afterwards.
 - Append-only audit log for sensitive actions; administrators cannot see papers unless an exam owner grants time-limited access.
 - Runs without Internet access: fonts, math and scripts are bundled, and sessions live in the database, so a restart signs no one out.
-- Docker Compose deployment with Nginx, daily database backups and an end-to-end smoke test.
+- Docker Compose deployment with Nginx, daily database backups and an end-to-end smoke test. Administrators can create, download, delete and restore backups in the admin panel; destructive actions ask for confirmation, and a restore must be confirmed by typing a word.
 
 ## Design principles
 
@@ -79,8 +79,8 @@ flowchart LR
 | [testa/](testa/) | Frontend: Vue 3, TypeScript, Vite, Tailwind CSS v4 |
 | [server/](server/) | Backend: Spring Boot, Flyway, Spring Session (JDBC) |
 | [deploy/](deploy/) | Nginx config, backup script, environment template, smoke test |
-| [docs/](docs/) | Guides and design documents |
-| [tools/](tools/) | Developer tools (local AI model evaluation) |
+| [docs/](docs/) | Guides and design documents ([index](docs/README.md)) |
+| [tools/](tools/) | Developer tools (local AI model evaluation, screenshot capture) |
 
 ## Roles
 
@@ -92,7 +92,7 @@ Roles are granted per unit (for example, an admissions office), and one person c
 | Author | Create and edit question banks |
 | Proctor | Watch candidates, reset login codes, give extra time |
 | Grader | Grade assigned essays without seeing names or other graders' scores |
-| System administrator | Manage accounts and units, read the audit log and backup status |
+| System administrator | Manage accounts and units, read the audit log, manage backups, change system settings |
 | Candidate | No account; signs in with the login slip to take the exam (and check the score, if the exam allows it) |
 
 ## Documentation

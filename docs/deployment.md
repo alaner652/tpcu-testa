@@ -154,12 +154,22 @@ docker compose -f docker-compose.prod.yml restart web
 
 ## Backup and restore
 
-- The database is backed up daily to `TESTA_BACKUP_DIR` and kept for `BACKUP_KEEP_DAYS` days.
-- Administrators can check backups, request an extra backup and download a dump in Admin > Backups. Every request and download is audited. A dump contains papers and personal data, so store downloaded copies securely.
-- Restoring remains a host operation: it replaces the live database and is intentionally unavailable in the web interface.
-- From the host, take an extra backup now with `docker compose -f docker-compose.prod.yml restart backup` (or use Admin > Backups).
+- The database is backed up daily to `TESTA_BACKUP_DIR`. Backups older than the retention period are removed; it starts at `BACKUP_KEEP_DAYS` (default 30) and is changed in Admin > System settings.
+- In Admin > Backups, an administrator can take a backup now, download, delete or restore one. Delete asks for confirmation; restore also asks the administrator to type 「還原」. Every action is audited. A dump contains papers and personal data, so store downloaded copies securely.
+- The backend never writes dumps. It leaves a request in a small control volume, and the separate `backup` container does the work.
 
-Restoring **replaces** the whole database with the backup. Stop the backend first:
+### Restoring from the admin panel
+
+1. The site goes into maintenance: every API request returns 503 and the sign-in page waits.
+2. The current database is backed up first. If that fails, nothing is replaced.
+3. The chosen dump replaces the database in one transaction. If it fails, the old data stays.
+4. The site comes back. Sessions are those saved in the dump, so people may need to sign in again.
+
+Do not restore during an exam: answers saved after the backup are lost. A dump from another Testa version (different number of database migrations) is refused; restore it on the host as below, so the backend migrates the schema when it starts.
+
+### Restoring on the host
+
+Use this for a dump from another version, or when the site does not start. Restoring **replaces** the whole database with the backup. Stop the backend first:
 
 ```bash
 docker compose -f docker-compose.prod.yml stop server

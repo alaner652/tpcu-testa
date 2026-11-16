@@ -10,7 +10,7 @@ Testa 是學校自行架設的線上考試系統。教師建立題庫，承辦�
 | --- | --- |
 | ![監考畫面](docs/images/exam-proctor.png) | ![考生作答畫面](docs/images/candidate-exam.png) |
 
-更多畫面請看[截圖](docs/screenshots.md)。
+更多畫面請看[截圖](docs/screenshots.zh-TW.md)。
 
 ## 功能
 
@@ -34,7 +34,7 @@ Testa 是學校自行架設的線上考試系統。教師建立題庫，承辦�
 - 沒有預設帳密：第一位管理員在初始設定頁建立，完成後這個頁面就永久關閉。
 - 敏感操作都寫進不可修改的操作紀錄；系統管理員看不到考卷，除非考試負責人授權限時檢視。
 - 不需要網際網路：字型、數學式、程式都打包在內；登入狀態存在資料庫，重開機不會把人登出。
-- 用 Docker Compose 部署，內含 Nginx、每日資料庫備份，以及整場模擬考的自動測試。
+- 用 Docker Compose 部署，內含 Nginx、每日資料庫備份，以及整場模擬考的自動測試。管理員可在管理頁建立、下載、刪除與還原備份；危險操作都要再次確認，還原還要輸入文字確認。
 
 ## 設計原則
 
@@ -79,8 +79,8 @@ flowchart LR
 | [testa/](testa/) | 前端：Vue 3、TypeScript、Vite、Tailwind CSS v4 |
 | [server/](server/) | 後端：Spring Boot、Flyway、Spring Session（JDBC） |
 | [deploy/](deploy/) | Nginx 設定、備份腳本、環境變數範本、整場測試 |
-| [docs/](docs/) | 指南與設計文件 |
-| [tools/](tools/) | 開發工具（本地 AI 模型評測） |
+| [docs/](docs/) | 指南與設計文件（[目錄](docs/README.zh-TW.md)） |
+| [tools/](tools/) | 開發工具（本地 AI 模型評測、截圖） |
 
 ## 角色
 
@@ -92,7 +92,7 @@ flowchart LR
 | 出題 | 建立與編輯題庫 |
 | 監考 | 看考生狀態、重設登入碼、補時 |
 | 評分 | 批改被指派的申論題，看不到考生姓名與其他人的分數 |
-| 系統管理員 | 管理帳號與單位、查看操作紀錄與備份狀態 |
+| 系統管理員 | 管理帳號與單位、查看操作紀錄、管理備份、調整系統設定 |
 | 考生 | 沒有帳號，用登入單作答（該場考試有開放時也能查成績） |
 
 ## 文件
@@ -106,7 +106,7 @@ flowchart LR
 | [開發](docs/development.md) | 程式結構、後端規則、測試、如何貢獻 |
 | [前端](testa/README.md) | 頁面、元件、design tokens、介面規則 |
 | [專案狀態](docs/status.md) | 完成度、驗證方式、路線圖 |
-| [截圖](docs/screenshots.md) | 每個畫面的桌機與手機版 |
+| [截圖](docs/screenshots.zh-TW.md) | 每個畫面的桌機與手機版 |
 | [校務帳號](docs/school-accounts.md) | 提案：校內考試用校務帳號登入 |
 | [AI 功能](docs/ai.md) | AI 匯入題目、本地模型評測，以及其他 AI 輔助功能的設計 |
 | [設計文件](docs/testa-system-design.html) | 原始需求（用瀏覽器開） |

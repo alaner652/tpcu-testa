@@ -20,7 +20,7 @@ server/                       backend (Spring Boot 4.1, Java 21)
       ai/                     optional AI question import: file text, model client, checks on the model's output
       settings/               settings an administrator changes in the admin pages (defaults come from application.yml)
       audit/                  audit log
-      config/                 security, properties, first-run setup, backup listing
+      config/                 security, properties, first-run setup, backups, maintenance mode
       common/                 errors (problem+json), paging
     resources/db/migration/   Flyway migrations (add only)
 deploy/                       Nginx (HTTP, HTTPS override), backup script, env template, smoke test

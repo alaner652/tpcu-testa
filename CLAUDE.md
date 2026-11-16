@@ -21,6 +21,7 @@ choice and fill-in questions are auto-graded, essays are graded anonymously by o
 - Timing, auto-submit and grading live only in `AttemptService`. The frontend clock is display only.
 - Nothing sent to candidates may contain answers, explanations or rubrics (`AttemptDtos`).
 - Sensitive or irreversible actions go through `AuditService`; `audit_log` is append-only. A new action also needs its Chinese label in `AdminPage.vue`.
+- Admin actions may be powerful but must be confirmed: irreversible ones (delete, restore) sit in the "..." menu behind a confirm dialog, and the most destructive ones also ask for typed text (`confirmText` in `useConfirm`).
 - Flyway migrations are add-only. Never edit a shipped `V*__*.sql`, not even its comments (checksums).
 - Errors are problem+json: `detail` is Chinese text for the user, `code` is for the program.
 - After changing the login or session flow, run `deploy/smoke-test.py`; integration tests use mock sessions.
@@ -38,7 +39,8 @@ choice and fill-in questions are auto-graded, essays are graded anonymously by o
 
 - English for code, identifiers, test names, comments, docs, commit messages and script output. Only what end users see is Chinese: UI text, API error messages, audit details, export headers, demo and test data.
 - No emojis in code, docs or commits.
-- `README.md` and `docs/server-requirements.md` have Traditional Chinese copies (`*.zh-TW.md`); update both. Other docs are English only. Keep docs concise and prefer editing existing files.
+- Docs are English by default. The ones for people who run Testa have Traditional Chinese copies (`*.zh-TW.md`): `README.md`, `docs/README.md`, `docs/deployment.md`, `docs/server-requirements.md`, `docs/screenshots.md`; update both. Developer docs are English only. Keep docs concise and prefer editing existing files.
+- Screenshots in `docs/images/` are retaken with `tools/capture-screenshots.mjs` (steps in `docs/screenshots.md`).
 - Keep code minimal: no speculative features, unrelated changes or new dependencies without a reason.
 
 ## Workflow

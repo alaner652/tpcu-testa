@@ -16,6 +16,7 @@ Testa's first target is a school admission exam: a few hundred candidates in com
 | Data lifecycle | Done | Archiving, retention period, deletion with a reason |
 | Emergency access | Done | An exam owner grants one administrator time-limited, read-only access; every view is audited |
 | Deployment | Done | Docker Compose with Nginx, HTTPS option, daily backups, health checks, smoke test |
+| Backups in the admin panel | Done | Take, download, delete and restore backups; retention in System settings; restore puts the site in maintenance, backs up the current data first, needs a typed confirmation, and is refused during an exam or for a dump from another schema version |
 | AI question import | Experimental, off by default | A local model drafts questions from a Word, PDF or text exam paper; the author confirms each one. See [AI features](ai.md#question-import) |
 | On-site trial | Not started | Real lab network, printers and browsers; see [Before production](#before-production) |
 
@@ -30,7 +31,7 @@ Testa's first target is a school admission exam: a few hundred candidates in com
 | HTTPS | Both TLS at a reverse proxy (with real client IPs and forged `X-Forwarded-For` ignored) and TLS on the VM (`deploy/https.yml`) |
 | Backup | Daily dump restored into an emptied database |
 | Browser | Every page in Chromium at 1440 px and 390 px (candidate pages also at 320 px); see [Screenshots](screenshots.md) |
-| Automated tests | 52 backend integration tests against real PostgreSQL (Testcontainers) and 19 frontend unit tests, run by GitHub Actions on every push |
+| Automated tests | 54 backend integration tests against real PostgreSQL (Testcontainers) and 19 frontend unit tests, run by GitHub Actions on every push |
 
 ## Before production
 
@@ -58,7 +59,7 @@ Defaults agreed with the first deploying school. Those marked "System settings" 
 
 - First-run setup has no token: on a fresh installation the first person to open the site becomes the system administrator, so the deployer must do it before the site is reachable by others (see [Deployment](deployment.md#going-live)).
 - Staff password recovery needs an administrator; there is no email-based reset.
-- Administrators can request and download backups; restoring is deliberately restricted to the server because it replaces the live database.
+- Restoring from the admin panel only accepts a dump with the same database migrations as the running version; older dumps are restored on the host (see [Deployment](deployment.md#restoring-on-the-host)).
 - Frontend tests cover pure logic only; there are no component or browser-automation tests.
 
 ## Roadmap

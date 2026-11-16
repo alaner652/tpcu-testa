@@ -1,6 +1,8 @@
 # Screenshots
 
-The production build with demo data, in the order an admission exam runs. Desktop at 1440 x 900; phone at 390 px wide.
+**English** | [繁體中文](screenshots.zh-TW.md)
+
+The production build with demo data, in the order an admission exam runs. Desktop at 1440 x 900; phone at 390 x 844 (2x).
 Retake them after visible UI changes (see "Retaking" at the end).
 
 ## Signing in
@@ -79,8 +81,20 @@ Results can be published once the exam has ended and every essay is graded.
 
 The audit log is append-only and can be filtered by action.
 
+![Backups](images/admin-backups.png)
+
+Backups can be taken, downloaded, deleted and restored here. Delete and restore sit in the "..." menu and ask for confirmation; restore also asks the administrator to type 「還原」, and is refused while candidates are answering.
+
+![System settings](images/admin-settings.png)
+
+Everything a site may need to adjust, in plain words: AI import, grading flags, data retention, backup retention and sign-in lockout.
+
 ## Retaking
 
-1. Run the backend in the dev profile against an empty database, and serve the production build: `cd testa && npm run build && npx vite preview`.
-2. Create realistic demo data through the API (banks, an exam in progress, an ended exam with essays half graded, a draft), the same way `deploy/smoke-test.py` does.
-3. Capture with a headless browser at 1440 x 900 (1x) and 390 x 844 (2x). Keep names and the demo data free of real people and school details.
+`tools/capture-screenshots.mjs` creates the demo data through the API and saves every image above. It drives Chrome over the DevTools protocol, so it needs no extra dependency.
+
+1. Run the backend in the dev profile, with a backup directory so the backup tab has content: `TESTA_BACKUP_PATH=/tmp/testa-backups TESTA_BACKUP_CONTROL_PATH=/tmp/testa-control ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev` (put a few `testa-YYYYmmdd-HHMMSS.sql.gz` files in the first one).
+2. Serve the production build, so the dev-only demo sign-in buttons are hidden: `cd testa && npm run build && npx vite preview`.
+3. From the repository root: `node tools/capture-screenshots.mjs` (set `CHROMIUM` if Chrome is not in `/Applications`, and `TESTA_APP` if the preview is not on `http://localhost:4173/`).
+
+Keep the file names so links in the README keep working, and keep the demo data free of real people and school details.
