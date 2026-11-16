@@ -62,7 +62,7 @@ cd testa && npm install && npm run dev                                # 前端 :
 | 教師（出題＋評分） | teacher@testa.tw、teacher2@、teacher3@ | testa-teacher |
 | 考生 | 准考證號 A115-0001 | 登入碼 482915 |
 
-示範帳號只存在於 `dev` profile。正式上線請照[部署指南](docs/deployment.md)。
+示範帳號只存在於 `dev` profile。正式上線請照[部署指南](docs/deployment.zh-TW.md)。
 
 ## 架構
 
@@ -97,11 +97,11 @@ flowchart LR
 
 ## 文件
 
-除了設計文件，其他文件都以英文撰寫。
+部署指南與主機需求提供英文、繁體中文對照；其餘技術文件目前以英文為主。
 
 | 文件 | 內容 |
 | --- | --- |
-| [部署](docs/deployment.md) | 安裝、HTTPS、斷網考試、升級、備份與還原 |
+| [部署](docs/deployment.zh-TW.md) | 安裝、HTTPS、斷網考試、升級、備份與還原 |
 | [主機需求](docs/server-requirements.zh-TW.md) | 一張表：要申請的 VM 規格、網路、憑證 |
 | [開發](docs/development.md) | 程式結構、後端規則、測試、如何貢獻 |
 | [前端](testa/README.md) | 頁面、元件、design tokens、介面規則 |

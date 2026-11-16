@@ -1,5 +1,7 @@
 # Deployment
 
+**English** | [繁體中文](deployment.zh-TW.md)
+
 This guide covers a production install on one Linux server: configuration, HTTPS, running exams without Internet access, upgrades, and backup and restore.
 
 ```mermaid
@@ -17,6 +19,33 @@ Only Nginx is exposed (port 80 by default, plus 443 with HTTPS). All four contai
 - The Compose project is named `tpcu-testa`; the database lives in the `tpcu-testa_db-data` volume and survives restarts, rebuilds and upgrades. `docker compose down -v` deletes it.
 - `docker compose -f docker-compose.prod.yml ps` shows each container's health. The backend is healthy when `/api/health` answers and the database is reachable (otherwise 503); Nginx waits for it.
 - Container logs rotate at 10 MB, five files per container: `docker compose -f docker-compose.prod.yml logs -f server`.
+
+## Prepare an Ubuntu server
+
+On a recent Ubuntu server, install Docker Engine, Compose v2, Buildx and Git from Ubuntu's package repository:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl git docker.io docker-compose-v2 docker-buildx
+sudo systemctl enable --now docker
+sudo usermod -aG docker "$USER"
+```
+
+Sign out and back in once so the Docker group takes effect, then verify the installation:
+
+```bash
+docker --version
+docker compose version
+docker buildx version
+```
+
+If the VM is reachable only through an SSH bastion, connect without copying private keys to the bastion:
+
+```bash
+ssh -J <USER>@<BASTION_IP> <USER>@<SERVER_IP>
+```
+
+You can put equivalent `Host`, `HostName`, `User` and `ProxyJump` entries in your local `~/.ssh/config`. Keep real addresses and credentials in the operator's private records, not in this repository.
 
 ## Going live
 
@@ -61,6 +90,16 @@ The site needs a host name such as `exam.example.edu.tw` and a certificate for i
 **The school's reverse proxy terminates HTTPS** and forwards to this VM's port 80. Nginx rate limits and the audit log use the client IP, so tell Nginx which proxy to trust: uncomment `set_real_ip_from` in `deploy/http.conf` with the proxy's address (trusted proxies only, or anyone can forge their IP).
 
 **This VM terminates HTTPS.** Put `fullchain.pem` and `privkey.pem` in `TESTA_TLS_DIR` (default `./tls`, not in git) and add the override file:
+
+When the certificate authority gives you a server certificate, an intermediate certificate and a matching private key, prepare them as follows. The server certificate must come first in `fullchain.pem`; never commit the resulting files.
+
+```bash
+install -d -m 700 tls
+cat server.crt intermediate.crt > tls/fullchain.pem
+install -m 600 server.key tls/privkey.pem
+chmod 644 tls/fullchain.pem
+openssl x509 -in tls/fullchain.pem -noout -subject -issuer -dates
+```
 
 ```bash
 docker compose -f docker-compose.prod.yml -f deploy/https.yml up -d
