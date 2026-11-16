@@ -8,7 +8,7 @@ RUN mvn -q -B -DskipTests package
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-RUN useradd --system --no-create-home testa
+RUN useradd --system --uid 10001 --no-create-home testa
 COPY --from=build /app/target/testa-server-*.jar app.jar
 USER testa
 EXPOSE 8080

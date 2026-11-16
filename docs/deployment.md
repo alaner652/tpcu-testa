@@ -116,8 +116,9 @@ docker compose -f docker-compose.prod.yml restart web
 ## Backup and restore
 
 - The database is backed up daily to `TESTA_BACKUP_DIR` and kept for `BACKUP_KEEP_DAYS` days.
-- Administrators can check backups in the admin "Backups" tab; it warns when there has been no new file for 26 hours. The page is read-only: no download or restore.
-- Take an extra backup now: `docker compose -f docker-compose.prod.yml restart backup`
+- Administrators can check backups, request an extra backup and download a dump in Admin > Backups. Every request and download is audited. A dump contains papers and personal data, so store downloaded copies securely.
+- Restoring remains a host operation: it replaces the live database and is intentionally unavailable in the web interface.
+- From the host, take an extra backup now with `docker compose -f docker-compose.prod.yml restart backup` (or use Admin > Backups).
 
 Restoring **replaces** the whole database with the backup. Stop the backend first:
 

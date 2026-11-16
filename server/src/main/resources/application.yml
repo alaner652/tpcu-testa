@@ -38,8 +38,10 @@ testa:
   login:
     max-failures: 5
     lock-minutes: 15
-  # Backup directory (read-only). When set, the admin pages list backups so administrators can see they run daily.
+  # The dump directory stays read-only to the backend. A separate control directory lets administrators request a backup.
   backup-dir: ${TESTA_BACKUP_PATH:}
+  backup-control-dir: ${TESTA_BACKUP_CONTROL_PATH:}
+  backup-keep-days: ${TESTA_BACKUP_KEEP_DAYS:30}
   grading:
     # Warn the officer when graders differ by more than this share of the question's points.
     # The school's rule is "gap over 20", read here as 20% of the points (20 on a 100-point question)

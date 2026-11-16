@@ -35,11 +35,15 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      backup:
+        condition: service_healthy
     environment:
       TESTA_DB_URL: jdbc:postgresql://db:5432/testa
       TESTA_DB_PASSWORD: ${TESTA_DB_PASSWORD}
       TESTA_COOKIE_SECURE: ${TESTA_COOKIE_SECURE:-true}
       TESTA_BACKUP_PATH: /backups
+      TESTA_BACKUP_CONTROL_PATH: /backup-control
+      TESTA_BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-30}
       TESTA_AI_URL: ${TESTA_AI_URL:-}
       TESTA_AI_MODEL: ${TESTA_AI_MODEL:-}
       TESTA_AI_KEY: ${TESTA_AI_KEY:-}
@@ -52,8 +56,9 @@ services:
       retries: 3
       start_period: 60s
     volumes:
-      # Read-only: the admin pages show backup status; the backend never writes or deletes backups
+      # Dumps stay read-only. The small control volume can only request work from the backup container.
       - ${TESTA_BACKUP_DIR:-./backups}:/backups:ro
+      - backup-control:/backup-control
 
   web:
     build: ./testa
@@ -89,7 +94,14 @@ services:
     volumes:
       - ./deploy/backup.sh:/backup.sh:ro
       - ${TESTA_BACKUP_DIR:-./backups}:/backups
+      - backup-control:/backup-control
+    healthcheck:
+      test: ["CMD", "test", "-f", "/backup-control/ready"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
     entrypoint: ["/bin/sh", "/backup.sh"]
 
 volumes:
   db-data:
+  backup-control:

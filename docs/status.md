@@ -30,7 +30,7 @@ Testa's first target is a school admission exam: a few hundred candidates in com
 | HTTPS | Both TLS at a reverse proxy (with real client IPs and forged `X-Forwarded-For` ignored) and TLS on the VM (`deploy/https.yml`) |
 | Backup | Daily dump restored into an emptied database |
 | Browser | Every page in Chromium at 1440 px and 390 px (candidate pages also at 320 px); see [Screenshots](screenshots.md) |
-| Automated tests | 51 backend integration tests against real PostgreSQL (Testcontainers) and 19 frontend unit tests, run by GitHub Actions on every push |
+| Automated tests | 52 backend integration tests against real PostgreSQL (Testcontainers) and 19 frontend unit tests, run by GitHub Actions on every push |
 
 ## Before production
 
@@ -58,7 +58,7 @@ Defaults agreed with the first deploying school. Those marked "System settings" 
 
 - First-run setup has no token: on a fresh installation the first person to open the site becomes the system administrator, so the deployer must do it before the site is reachable by others (see [Deployment](deployment.md#going-live)).
 - Staff password recovery needs an administrator; there is no email-based reset.
-- The admin Backups tab shows status only; restoring is done on the server.
+- Administrators can request and download backups; restoring is deliberately restricted to the server because it replaces the live database.
 - Frontend tests cover pure logic only; there are no component or browser-automation tests.
 
 ## Roadmap

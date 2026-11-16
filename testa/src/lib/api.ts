@@ -38,7 +38,7 @@ interface Options {
   quiet401?: boolean
 }
 
-export async function api<T = void>(path: string, { method = 'GET', body, quiet401 }: Options = {}): Promise<T> {
+async function request(path: string, { method = 'GET', body, quiet401 }: Options = {}) {
   const headers: Record<string, string> = { Accept: 'application/json' }
   let res: Response
   try {
@@ -56,10 +56,7 @@ export async function api<T = void>(path: string, { method = 'GET', body, quiet4
     throw new ApiError('無法連線到伺服器，請檢查網路後再試一次。', 0, 'network')
   }
 
-  if (res.ok) {
-    if (res.status === 204) return undefined as T
-    return (await res.json()) as T
-  }
+  if (res.ok) return res
 
   let problem: { detail?: string; code?: string; errors?: Record<string, string> } = {}
   try {
@@ -75,4 +72,16 @@ export async function api<T = void>(path: string, { method = 'GET', body, quiet4
         ? '伺服器暫時無法處理，請稍後再試。'
         : '操作沒有成功，請再試一次。'
   throw new ApiError(problem.detail ?? fallback, res.status, problem.code, problem.errors)
+}
+
+export async function api<T = void>(path: string, options: Options = {}): Promise<T> {
+  const res = await request(path, options)
+  if (res.status === 204) return undefined as T
+  const text = await res.text()
+  return (text ? JSON.parse(text) : undefined) as T
+}
+
+/** Downloads a protected API response without bypassing the shared authentication and error handling. */
+export async function apiBlob(path: string): Promise<Blob> {
+  return (await request(path)).blob()
 }

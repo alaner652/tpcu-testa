@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { Ban, Building2, ChevronDown, Copy, DatabaseBackup, KeyRound, Lock, Plus, RotateCw, ScrollText, Search, Settings, Shield, Trash2, UserCog, UserPlus, Users, X } from 'lucide-vue-next'
+import { Ban, Building2, ChevronDown, Copy, DatabaseBackup, Download, KeyRound, Lock, Plus, RotateCw, ScrollText, Search, Settings, Shield, Trash2, UserCog, UserPlus, Users, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import EmergencyView from '@/components/app/EmergencyView.vue'
 import SystemSettings from '@/components/app/SystemSettings.vue'
@@ -10,7 +10,7 @@ import Button from '@/components/ui/Button.vue'
 import MoreMenu from '@/components/ui/MoreMenu.vue'
 import { UNIT_ROLE_LABEL, useAuth, type UnitRole } from '@/composables/useAuth'
 import { useConfirm } from '@/composables/useConfirm'
-import { api } from '@/lib/api'
+import { api, apiBlob } from '@/lib/api'
 
 /**
  * Admin pages (system administrators): staff accounts, units and roles, audit log.
@@ -259,6 +259,8 @@ const ACTION_LABEL: Record<string, string> = {
   STAFF_ENABLED: '啟用帳號',
   STAFF_DISABLED: '停用帳號',
   STAFF_DELETED: '永久刪除帳號',
+  BACKUP_REQUESTED: '建立備份',
+  BACKUP_DOWNLOADED: '下載備份',
   SYSTEM_ADMIN_GRANTED: '設為系統管理員',
   SYSTEM_ADMIN_REVOKED: '取消系統管理員',
   UNIT_CREATED: '建立單位',
@@ -329,25 +331,77 @@ async function loadAudit(page = 0) {
   }
 }
 
-/** Backup status, read-only; the backup container on the host runs once a day */
+/** The backend can list and download dumps, and signal the isolated backup container to create one. */
 interface BackupFile {
   name: string
   size: number
   at: string
 }
-const backups = ref<{ configured: boolean; items: BackupFile[] } | null>(null)
+interface BackupState {
+  configured: boolean
+  triggerSupported: boolean
+  running: boolean
+  lastFailed: boolean
+  keepDays: number
+  items: BackupFile[]
+}
+const backups = ref<BackupState | null>(null)
 const backupsLoading = ref(false)
+const backupStarting = ref(false)
 const showAllBackups = ref(false)
 const shownBackups = computed(() => (showAllBackups.value ? backups.value?.items : backups.value?.items.slice(0, 7)) ?? [])
-async function loadBackups() {
-  backupsLoading.value = true
+async function loadBackups(silent = false) {
+  if (!silent) backupsLoading.value = true
   try {
-    backups.value = await api('/admin/backups')
+    backups.value = await api<BackupState>('/admin/backups')
     loadError.value = ''
   } catch (e) {
     loadError.value = (e as Error).message
   } finally {
-    backupsLoading.value = false
+    if (!silent) backupsLoading.value = false
+  }
+}
+
+async function startBackup() {
+  if (backupStarting.value || backups.value?.running) return
+  const previous = backups.value?.items[0]?.name
+  backupStarting.value = true
+  try {
+    await api('/admin/backups/run', { method: 'POST' })
+    toast('正在建立備份', { description: '完成後會自動更新清單。' })
+    for (let i = 0; i < 60; i++) {
+      await new Promise((resolve) => window.setTimeout(resolve, 1000))
+      await loadBackups(true)
+      if (!backups.value?.running) {
+        if (backups.value?.lastFailed) throw new Error('備份建立失敗，請聯絡系統維護人員。')
+        if (backups.value?.items[0]?.name !== previous) {
+          toast.success('備份已建立')
+          return
+        }
+      }
+    }
+    toast('備份仍在背景執行', { description: '稍後按「重新整理」查看結果。' })
+  } catch (e) {
+    fail(e)
+  } finally {
+    backupStarting.value = false
+  }
+}
+
+async function downloadBackup(b: BackupFile) {
+  try {
+    const blob = await apiBlob(`/admin/backups/${encodeURIComponent(b.name)}`)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = b.name
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    toast.success('已開始下載備份')
+  } catch (e) {
+    fail(e)
   }
 }
 /** Daily backups: warn when there has been none for 26 hours */
@@ -537,9 +591,20 @@ watch(tab, load)
           <h2 class="text-[17px] font-semibold">資料庫備份</h2>
           <p class="mt-0.5 text-sm text-ink-2">系統每天自動備份一次。</p>
         </div>
-        <Button variant="outline" :disabled="backupsLoading" @click="loadBackups">
-          <RotateCw :class="backupsLoading && 'animate-spin'" />重新整理
-        </Button>
+        <div class="flex flex-wrap gap-2">
+          <Button variant="outline" :disabled="backupsLoading" @click="loadBackups()">
+            <RotateCw :class="backupsLoading && 'animate-spin'" />重新整理
+          </Button>
+          <Button
+            v-if="backups?.triggerSupported"
+            variant="primary"
+            :disabled="backupStarting || backups.running"
+            @click="startBackup"
+          >
+            <RotateCw v-if="backupStarting || backups.running" class="animate-spin" /><DatabaseBackup v-else />
+            {{ backupStarting || backups.running ? '建立中…' : '立即備份' }}
+          </Button>
+        </div>
       </div>
 
       <p v-if="backupsLoading && !backups" class="border-t border-line px-5 py-6 text-[15px] text-ink-2 sm:px-6" role="status">正在讀取備份狀態…</p>
@@ -549,26 +614,30 @@ watch(tab, load)
           <span class="mt-2 block text-ink-2">請聯絡系統維護人員檢查備份設定。</span>
         </p>
         <p v-else-if="!backups.items.length" class="border-t border-line px-5 py-5 text-[15px] sm:px-6">
-          <Badge tone="warn">還沒有任何備份</Badge>
-          <span class="mt-2 block text-ink-2">如果系統已運作超過一天，請聯絡系統維護人員。</span>
+          <Badge tone="warn">{{ backups.running ? '正在建立第一份備份' : backups.lastFailed ? '備份建立失敗' : '還沒有任何備份' }}</Badge>
+          <span class="mt-2 block text-ink-2">
+            {{ backups.running ? '完成後會自動出現在這裡。' : backups.lastFailed ? '請再試一次；如果仍然失敗，請聯絡系統維護人員。' : '如果系統已運作超過一天，請聯絡系統維護人員。' }}
+          </span>
         </p>
         <template v-else>
           <div class="border-t border-line px-5 py-4 text-[15px] sm:px-6">
             <div class="flex flex-wrap items-center gap-2">
-              <Badge :tone="backupStale(backups.items[0]) ? 'danger' : 'done'">
-                {{ backupStale(backups.items[0]) ? '需要注意' : '備份正常' }}
+              <Badge :tone="backups.running ? 'warn' : backups.lastFailed || backupStale(backups.items[0]) ? 'danger' : 'done'">
+                {{ backups.running ? '正在建立備份' : backups.lastFailed ? '上次備份失敗' : backupStale(backups.items[0]) ? '需要注意' : '備份正常' }}
               </Badge>
               <span>最近一次：<span class="font-medium tabular-nums">{{ when(backups.items[0].at) }}</span></span>
               <span class="text-sm text-ink-2">{{ fileSize(backups.items[0].size) }}</span>
             </div>
-            <p v-if="backupStale(backups.items[0])" class="mt-2 text-sm text-grade">已超過一天沒有新的備份，請聯絡系統維護人員。</p>
-            <p v-else class="mt-2 text-sm text-ink-2">目前可查看 {{ backups.items.length }} 份備份。還原會替換整個系統資料，需由系統維護人員操作。</p>
+            <p v-if="backups.lastFailed" class="mt-2 text-sm text-grade">上次建立備份失敗，請再試一次；如果仍然失敗，請聯絡系統維護人員。</p>
+            <p v-else-if="backupStale(backups.items[0])" class="mt-2 text-sm text-grade">已超過一天沒有新的備份，請聯絡系統維護人員。</p>
+            <p v-else class="mt-2 text-sm text-ink-2">保留 {{ backups.keepDays }} 天，目前可查看 {{ backups.items.length }} 份。還原需由系統維護人員操作。</p>
           </div>
           <ul class="divide-y divide-line border-t border-line">
-            <li v-for="b in shownBackups" :key="b.name" class="flex flex-wrap items-baseline gap-x-4 px-5 py-3 text-[15px] sm:px-6">
+            <li v-for="b in shownBackups" :key="b.name" class="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 text-[15px] sm:px-6">
               <span class="w-36 shrink-0 text-sm text-ink-2 tabular-nums">{{ when(b.at) }}</span>
               <span class="min-w-0 flex-1 basis-48 truncate font-mono text-sm">{{ b.name }}</span>
               <span class="text-sm text-ink-2 tabular-nums">{{ fileSize(b.size) }}</span>
+              <Button variant="outline" @click="downloadBackup(b)"><Download />下載</Button>
             </li>
           </ul>
           <div v-if="backups.items.length > 7" class="border-t border-line px-5 py-3 text-center sm:px-6">
