@@ -3,6 +3,7 @@ package tw.testa.config;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.Comparator;
@@ -17,19 +18,25 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import tw.testa.attempt.AttemptRepository;
 import tw.testa.audit.AuditService;
+import tw.testa.auth.StaffPrincipal;
 import tw.testa.common.ApiException;
+import tw.testa.settings.SettingsService;
 
 /**
- * Backup status and safe administrator actions. The dump directory is read-only to this process; a separate signal directory asks the
- * backup container to run pg_dump. Restoring remains a host-only operation because it replaces the live database.
+ * Backup status and administrator actions. The dump directory stays read-only to this process; a separate signal directory asks the
+ * isolated backup container to create, delete or restore a dump.
  */
 @RestController
 @RequestMapping("/api/admin/backups")
@@ -37,30 +44,42 @@ import tw.testa.common.ApiException;
 public class BackupController {
     private static final int MAX_ITEMS = 60;
     private final String dir;
-    private final String controlDir;
-    private final int keepDays;
+    private final BackupMaintenanceService maintenance;
+    private final SettingsService settings;
+    private final AttemptRepository attempts;
     private final AuditService audit;
 
-    public BackupController(TestaProperties props, AuditService audit) {
+    public BackupController(TestaProperties props, BackupMaintenanceService maintenance, SettingsService settings,
+            AttemptRepository attempts, AuditService audit) {
+        this.attempts = attempts;
         this.dir = props.backupDir();
-        this.controlDir = props.backupControlDir();
-        this.keepDays = props.backupKeepDays();
+        this.maintenance = maintenance;
+        this.settings = settings;
         this.audit = audit;
     }
 
     public record BackupFile(String name, long size, Instant at) {}
 
     public record Backups(boolean configured, boolean triggerSupported, boolean running, boolean lastFailed,
-            int keepDays, List<BackupFile> items) {}
+            boolean maintenance, String operation, int keepDays, List<BackupFile> items) {}
+
+    public record RestoreRequest(String confirmation) {}
 
     @GetMapping
     public Backups list() {
-        boolean triggerSupported = controlPath() != null;
-        boolean running = triggerSupported && (Files.exists(controlPath().resolve("request")) || status().equals("running"));
-        boolean lastFailed = triggerSupported && status().equals("error");
-        if (dir.isBlank()) return new Backups(false, triggerSupported, running, lastFailed, keepDays, List.of());
+        Path control = maintenance.controlPath();
+        boolean triggerSupported = control != null;
+        String operation = maintenance.status();
+        boolean running = triggerSupported && (Files.exists(control.resolve("request"))
+                || Files.exists(control.resolve("delete-request")) || Files.exists(control.resolve("restore-request"))
+                || operation.equals("backup") || operation.equals("deleting") || operation.equals("restoring"));
+        boolean lastFailed = triggerSupported && operation.equals("error");
+        int keepDays = settings.backupKeepDays();
+        if (dir.isBlank()) return new Backups(false, triggerSupported, running, lastFailed, maintenance.active(), operation,
+                keepDays, List.of());
         Path path = Path.of(dir);
-        if (!Files.isDirectory(path)) return new Backups(false, triggerSupported, running, lastFailed, keepDays, List.of());
+        if (!Files.isDirectory(path)) return new Backups(false, triggerSupported, running, lastFailed, maintenance.active(), operation,
+                keepDays, List.of());
         try (Stream<Path> files = Files.list(path)) {
             List<BackupFile> items = files
                     .filter(f -> f.getFileName().toString().matches("testa-.*\\.sql\\.gz") && Files.isRegularFile(f))
@@ -68,42 +87,54 @@ public class BackupController {
                     .sorted(Comparator.comparing(BackupFile::at).reversed())
                     .limit(MAX_ITEMS)
                     .toList();
-            return new Backups(true, triggerSupported, running, lastFailed, keepDays, items);
+            return new Backups(true, triggerSupported, running, lastFailed, maintenance.active(), operation, keepDays, items);
         } catch (IOException | java.io.UncheckedIOException e) {
-            return new Backups(false, triggerSupported, running, lastFailed, keepDays, List.of());
+            return new Backups(false, triggerSupported, running, lastFailed, maintenance.active(), operation, keepDays, List.of());
         }
     }
 
     @PostMapping("/run")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public void run() {
-        Path control = controlPath();
-        if (control == null) {
-            throw ApiException.conflict("backup_unavailable", "這台主機尚未啟用手動備份，請聯絡系統維護人員。");
-        }
-        if (Files.exists(control.resolve("request")) || status().equals("running")) {
-            throw ApiException.conflict("backup_running", "備份正在建立中，請稍候。");
-        }
-        try {
-            Files.writeString(control.resolve("request"), Instant.now().toString(), StandardOpenOption.CREATE_NEW,
-                    StandardOpenOption.WRITE);
-        } catch (java.nio.file.FileAlreadyExistsException e) {
-            throw ApiException.conflict("backup_running", "備份正在建立中，請稍候。");
-        } catch (IOException e) {
-            throw ApiException.conflict("backup_unavailable", "目前無法啟動備份，請聯絡系統維護人員。");
-        }
+        Path control = availableControl();
+        ensureIdle(control);
+        writeSignal(control, "request", Instant.now().toString());
         audit.record("BACKUP_REQUESTED", "backup", null);
+    }
+
+    @DeleteMapping("/{name:.+}")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void delete(@PathVariable String name) {
+        backupFile(name);
+        Path control = availableControl();
+        ensureIdle(control);
+        writeSignal(control, "delete-request", name);
+        audit.record("BACKUP_DELETE_REQUESTED", "backup", name);
+    }
+
+    @PostMapping("/{name:.+}/restore")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void restore(@PathVariable String name, @RequestBody RestoreRequest body) {
+        backupFile(name);
+        if (body == null || !"還原".equals(body.confirmation())) {
+            throw ApiException.badRequest("restore_confirmation_required", "請輸入「還原」確認這個操作。");
+        }
+        Path control = availableControl();
+        ensureIdle(control);
+        // A restore would drop every answer saved after the dump was taken
+        if (attempts.existsInProgress(Instant.now())) {
+            throw ApiException.conflict("exam_in_progress", "有考生正在作答，考試結束前不能還原備份。");
+        }
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (!(principal instanceof StaffPrincipal staff)) throw ApiException.forbidden();
+        String label = staff.email().replace("\r", "").replace("\n", "");
+        writeSignal(control, "restore-request", name + "\n" + label + "\n");
+        audit.record("BACKUP_RESTORE_REQUESTED", "backup", name);
     }
 
     @GetMapping("/{name:.+}")
     public ResponseEntity<Resource> download(@PathVariable String name) {
-        if (!name.matches("testa-[0-9]{8}-[0-9]{6}\\.sql\\.gz") || dir.isBlank()) {
-            throw ApiException.notFound("找不到這份備份。");
-        }
-        Path file = Path.of(dir).resolve(name).normalize();
-        if (!file.getParent().equals(Path.of(dir).normalize()) || !Files.isRegularFile(file)) {
-            throw ApiException.notFound("找不到這份備份。");
-        }
+        Path file = backupFile(name);
         audit.record("BACKUP_DOWNLOADED", "backup", name);
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType("application/gzip"))
@@ -113,21 +144,44 @@ public class BackupController {
                 .body(new FileSystemResource(file));
     }
 
-    private Path controlPath() {
-        if (controlDir.isBlank()) return null;
-        Path path = Path.of(controlDir);
-        return Files.isDirectory(path) && Files.isWritable(path) ? path : null;
+    private Path availableControl() {
+        Path control = maintenance.controlPath();
+        if (control == null) {
+            throw ApiException.conflict("backup_unavailable", "這台主機尚未啟用備份管理，請聯絡系統維護人員。");
+        }
+        return control;
     }
 
-    private String status() {
-        Path control = controlPath();
-        if (control == null) return "";
-        try {
-            Path status = control.resolve("status");
-            return Files.isRegularFile(status) ? Files.readString(status).trim() : "";
-        } catch (IOException e) {
-            return "";
+    private void ensureIdle(Path control) {
+        String status = maintenance.status();
+        if (maintenance.active() || Files.exists(control.resolve("request")) || Files.exists(control.resolve("delete-request"))
+                || Files.exists(control.resolve("restore-request")) || status.equals("backup") || status.equals("deleting")
+                || status.equals("restoring")) {
+            throw ApiException.conflict("backup_running", "另一個備份操作正在執行，請稍候。");
         }
+    }
+
+    private static void writeSignal(Path control, String name, String content) {
+        Path temp = control.resolve(name + ".tmp");
+        try {
+            Files.writeString(temp, content, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+            Files.move(temp, control.resolve(name), StandardCopyOption.ATOMIC_MOVE);
+        } catch (java.nio.file.FileAlreadyExistsException e) {
+            throw ApiException.conflict("backup_running", "另一個備份操作正在執行，請稍候。");
+        } catch (IOException e) {
+            try { Files.deleteIfExists(temp); } catch (IOException ignored) {}
+            throw ApiException.conflict("backup_unavailable", "目前無法啟動備份操作，請聯絡系統維護人員。");
+        }
+    }
+
+    private Path backupFile(String name) {
+        if (!name.matches("testa-[0-9]{8}-[0-9]{6}\\.sql\\.gz") || dir.isBlank()) {
+            throw ApiException.notFound("找不到這份備份。");
+        }
+        Path root = Path.of(dir).normalize();
+        Path file = root.resolve(name).normalize();
+        if (!file.getParent().equals(root) || !Files.isRegularFile(file)) throw ApiException.notFound("找不到這份備份。");
+        return file;
     }
 
     private static BackupFile describe(Path f) {

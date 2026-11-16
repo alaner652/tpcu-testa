@@ -1,5 +1,9 @@
 package tw.testa.settings;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -24,6 +28,7 @@ public class SettingsService {
     static final String RETENTION_YEARS = "retention.years";
     static final String LOGIN_MAX_FAILURES = "login.max-failures";
     static final String LOGIN_LOCK_MINUTES = "login.lock-minutes";
+    static final String BACKUP_KEEP_DAYS = "backup.keep-days";
 
     /** ready: switched on and an endpoint is set. */
     public record Ai(boolean enabled, String baseUrl, String model, String apiKey, int timeoutSeconds) {
@@ -35,11 +40,13 @@ public class SettingsService {
     private final JdbcTemplate jdbc;
     private final Map<String, String> defaults = new HashMap<>();
     private final int aiTimeoutSeconds;
+    private final String backupControlDir;
     private volatile Map<String, String> stored;
 
     public SettingsService(JdbcTemplate jdbc, TestaProperties props) {
         this.jdbc = jdbc;
         this.aiTimeoutSeconds = props.ai().timeoutSeconds();
+        this.backupControlDir = props.backupControlDir();
         // An endpoint set in the environment keeps working without visiting the admin pages
         defaults.put(AI_ENABLED, String.valueOf(!props.ai().baseUrl().isBlank()));
         defaults.put(AI_BASE_URL, props.ai().baseUrl().strip());
@@ -49,6 +56,7 @@ public class SettingsService {
         defaults.put(RETENTION_YEARS, String.valueOf(props.retention().years()));
         defaults.put(LOGIN_MAX_FAILURES, String.valueOf(props.login().maxFailures()));
         defaults.put(LOGIN_LOCK_MINUTES, String.valueOf(props.login().lockMinutes()));
+        defaults.put(BACKUP_KEEP_DAYS, String.valueOf(props.backupKeepDays()));
     }
 
     public Ai ai() {
@@ -74,6 +82,12 @@ public class SettingsService {
 
     public int loginLockMinutes() {
         return number(LOGIN_LOCK_MINUTES);
+    }
+
+    public int backupKeepDays() {
+        int days = number(BACKUP_KEEP_DAYS);
+        syncBackupKeepDays(days);
+        return days;
     }
 
     String get(String key) {
@@ -113,10 +127,25 @@ public class SettingsService {
             }
         });
         stored = null;
+        if (changes.containsKey(BACKUP_KEEP_DAYS)) syncBackupKeepDays(Integer.parseInt(changes.get(BACKUP_KEEP_DAYS)));
     }
 
     /** Drops the cache; the next read loads the table again. */
     public void reload() {
         stored = null;
+    }
+
+    private void syncBackupKeepDays(int days) {
+        if (backupControlDir.isBlank()) return;
+        Path control = Path.of(backupControlDir);
+        if (!Files.isDirectory(control) || !Files.isWritable(control)) return;
+        Path temp = control.resolve("keep-days.tmp");
+        try {
+            Files.writeString(temp, String.valueOf(days));
+            Files.move(temp, control.resolve("keep-days"), StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            try { Files.deleteIfExists(temp); } catch (IOException ignored) {}
+        }
     }
 }

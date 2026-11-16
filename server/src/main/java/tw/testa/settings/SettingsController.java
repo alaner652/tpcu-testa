@@ -43,7 +43,8 @@ public class SettingsController {
 
     public record AiDto(boolean enabled, String baseUrl, String model, boolean apiKeySet) {}
 
-    public record SettingsDto(AiDto ai, int flagPercent, int retentionYears, int loginMaxFailures, int loginLockMinutes) {}
+    public record SettingsDto(AiDto ai, int flagPercent, int retentionYears, int loginMaxFailures, int loginLockMinutes,
+            int backupKeepDays) {}
 
     /** aiApiKey: null keeps the stored key, an empty string removes it. */
     public record SaveRequest(
@@ -54,7 +55,8 @@ public class SettingsController {
             @Min(value = 5, message = "評分差距提醒最少 5%。") @Max(value = 100, message = "評分差距提醒最多 100%。") int flagPercent,
             @Min(value = 1, message = "資料至少保存 1 年。") @Max(value = 10, message = "資料最多保存 10 年。") int retentionYears,
             @Min(value = 3, message = "至少要允許輸錯 3 次。") @Max(value = 20, message = "最多允許輸錯 20 次。") int loginMaxFailures,
-            @Min(value = 1, message = "鎖定時間至少 1 分鐘。") @Max(value = 1440, message = "鎖定時間最多 1440 分鐘（一天）。") int loginLockMinutes) {}
+            @Min(value = 1, message = "鎖定時間至少 1 分鐘。") @Max(value = 1440, message = "鎖定時間最多 1440 分鐘（一天）。") int loginLockMinutes,
+            @Min(value = 1, message = "備份至少保留 1 天。") @Max(value = 365, message = "備份最多保留 365 天。") int backupKeepDays) {}
 
     /** apiKey: null tests with the stored key. */
     public record TestRequest(@NotNull @Size(max = 500) String baseUrl, @Size(max = 500) String apiKey) {}
@@ -63,7 +65,8 @@ public class SettingsController {
     public SettingsDto get() {
         SettingsService.Ai ai = settings.ai();
         return new SettingsDto(new AiDto(ai.enabled(), ai.baseUrl(), ai.model(), !ai.apiKey().isBlank()),
-                settings.flagPercent(), settings.retentionYears(), settings.loginMaxFailures(), settings.loginLockMinutes());
+                settings.flagPercent(), settings.retentionYears(), settings.loginMaxFailures(), settings.loginLockMinutes(),
+                settings.backupKeepDays());
     }
 
     @PutMapping
@@ -98,6 +101,7 @@ public class SettingsController {
         number(changes, notes, SettingsService.RETENTION_YEARS, "資料保存年數", settings.retentionYears(), body.retentionYears(), " 年");
         number(changes, notes, SettingsService.LOGIN_MAX_FAILURES, "登入錯誤上限", settings.loginMaxFailures(), body.loginMaxFailures(), " 次");
         number(changes, notes, SettingsService.LOGIN_LOCK_MINUTES, "登入鎖定時間", settings.loginLockMinutes(), body.loginLockMinutes(), " 分鐘");
+        number(changes, notes, SettingsService.BACKUP_KEEP_DAYS, "備份保留天數", settings.backupKeepDays(), body.backupKeepDays(), " 天");
 
         if (!changes.isEmpty()) {
             settings.save(changes);

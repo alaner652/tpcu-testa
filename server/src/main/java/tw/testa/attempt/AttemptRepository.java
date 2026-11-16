@@ -25,6 +25,10 @@ public interface AttemptRepository extends JpaRepository<Attempt, Long> {
     @Query("select a.id from Attempt a where a.submittedAt is null and a.deadlineAt < ?1")
     List<Long> findOverdueIds(Instant before);
 
+    /** A candidate is still answering: their attempt is open and its deadline has not passed. */
+    @Query("select count(a) > 0 from Attempt a where a.submittedAt is null and a.deadlineAt > ?1")
+    boolean existsInProgress(Instant now);
+
     @Query("select a from Attempt a where a.exam.id = ?1")
     List<Attempt> findByExamId(Long examId);
 

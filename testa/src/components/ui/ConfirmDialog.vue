@@ -27,6 +27,10 @@ const { state, settle } = useConfirm()
         <AlertDialogDescription class="mt-2 text-[15px] leading-relaxed text-ink-2">
           {{ state.options.description }}
         </AlertDialogDescription>
+        <label v-if="state.options.confirmText" class="mt-4 block text-sm font-medium">
+          請輸入「{{ state.options.confirmText }}」確認
+          <input v-model="state.input" class="field mt-1.5 w-full" autocomplete="off" />
+        </label>
         <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <AlertDialogCancel
             class="h-10 rounded-full border border-line-strong px-5 text-sm font-medium transition-colors hover:bg-sunken max-sm:h-11"
@@ -41,6 +45,7 @@ const { state, settle } = useConfirm()
                 ? 'bg-grade text-white hover:brightness-90 dark:text-desk'
                 : 'bg-brand text-brand-fg hover:bg-brand-strong'
             "
+            :disabled="!!state.options.confirmText && state.input !== state.options.confirmText"
             @click="settle(true)"
           >
             {{ state.options.confirmLabel ?? '確定' }}

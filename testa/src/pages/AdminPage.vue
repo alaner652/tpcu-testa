@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { Ban, Building2, ChevronDown, Copy, DatabaseBackup, Download, KeyRound, Lock, Plus, RotateCw, ScrollText, Search, Settings, Shield, Trash2, UserCog, UserPlus, Users, X } from 'lucide-vue-next'
+import { Ban, Building2, ChevronDown, Copy, DatabaseBackup, Download, History, KeyRound, Lock, Plus, RotateCw, ScrollText, Search, Settings, Shield, Trash2, UserCog, UserPlus, Users, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import EmergencyView from '@/components/app/EmergencyView.vue'
 import SystemSettings from '@/components/app/SystemSettings.vue'
@@ -261,6 +261,9 @@ const ACTION_LABEL: Record<string, string> = {
   STAFF_DELETED: '永久刪除帳號',
   BACKUP_REQUESTED: '建立備份',
   BACKUP_DOWNLOADED: '下載備份',
+  BACKUP_DELETE_REQUESTED: '刪除備份',
+  BACKUP_RESTORE_REQUESTED: '要求還原備份',
+  BACKUP_RESTORED: '完成還原備份',
   SYSTEM_ADMIN_GRANTED: '設為系統管理員',
   SYSTEM_ADMIN_REVOKED: '取消系統管理員',
   UNIT_CREATED: '建立單位',
@@ -342,12 +345,15 @@ interface BackupState {
   triggerSupported: boolean
   running: boolean
   lastFailed: boolean
+  maintenance: boolean
+  operation: string
   keepDays: number
   items: BackupFile[]
 }
 const backups = ref<BackupState | null>(null)
 const backupsLoading = ref(false)
 const backupStarting = ref(false)
+const backupAction = ref<string | null>(null)
 const showAllBackups = ref(false)
 const shownBackups = computed(() => (showAllBackups.value ? backups.value?.items : backups.value?.items.slice(0, 7)) ?? [])
 async function loadBackups(silent = false) {
@@ -404,6 +410,76 @@ async function downloadBackup(b: BackupFile) {
     fail(e)
   }
 }
+
+async function deleteBackup(b: BackupFile) {
+  const ok = await confirm({
+    title: '刪除這份備份？',
+    description: `${b.name} 將永久刪除，之後無法用它還原資料。`,
+    confirmLabel: '刪除備份',
+    tone: 'danger',
+  })
+  if (!ok) return
+  backupAction.value = b.name
+  try {
+    await api(`/admin/backups/${encodeURIComponent(b.name)}`, { method: 'DELETE' })
+    for (let i = 0; i < 30; i++) {
+      await new Promise((resolve) => window.setTimeout(resolve, 1000))
+      await loadBackups(true)
+      if (backups.value?.lastFailed) throw new Error('備份刪除失敗，請查看伺服器日誌。')
+      if (!backups.value?.items.some((item) => item.name === b.name)) {
+        toast.success('備份已刪除')
+        return
+      }
+    }
+    toast('刪除仍在背景執行', { description: '稍後按「重新整理」查看結果。' })
+  } catch (e) {
+    fail(e)
+  } finally {
+    backupAction.value = null
+  }
+}
+
+async function restoreBackup(b: BackupFile) {
+  const ok = await confirm({
+    title: '從這份備份還原整個系統？',
+    description: `目前的資料會先自動備份，再以 ${b.name} 取代整個資料庫。還原期間所有人會暫時無法操作，完成後可能需要重新登入。`,
+    confirmLabel: '開始還原',
+    confirmText: '還原',
+    tone: 'danger',
+  })
+  if (!ok) return
+  backupAction.value = b.name
+  try {
+    await api(`/admin/backups/${encodeURIComponent(b.name)}/restore`, { method: 'POST', body: { confirmation: '還原' } })
+    toast('正在還原備份', { description: '請勿關閉伺服器；完成後頁面會自動重新載入。' })
+    let started = false
+    for (let i = 0; i < 300; i++) {
+      await new Promise((resolve) => window.setTimeout(resolve, 1000))
+      const state = await api<{ active: boolean; status: string }>('/maintenance')
+      if (state.active || state.status === 'restoring') started = true
+      if (started && state.status === 'version-mismatch') {
+        throw new Error('這份備份來自不同版本的系統，無法從網頁還原，請由系統維護人員在主機上還原。原本的資料未被取代。')
+      }
+      if (started && !state.active && state.status === 'error') throw new Error('備份還原失敗，原本的資料未被取代。')
+      if (started && !state.active && state.status === 'ok') {
+        toast.success('備份已還原，正在重新載入')
+        window.setTimeout(() => window.location.reload(), 800)
+        return
+      }
+    }
+    throw new Error('還原時間超過五分鐘，請查看伺服器狀態。')
+  } catch (e) {
+    fail(e)
+  } finally {
+    backupAction.value = null
+  }
+}
+
+const backupOperationLabel = computed(() => {
+  if (backups.value?.operation === 'deleting') return '正在刪除備份'
+  if (backups.value?.operation === 'restoring' || backups.value?.maintenance) return '正在還原備份'
+  return '正在建立備份'
+})
 /** Daily backups: warn when there has been none for 26 hours */
 const backupStale = (b: BackupFile) => Date.now() - new Date(b.at).getTime() > 26 * 3600 * 1000
 const fileSize = (bytes: number) => (bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`)
@@ -602,7 +678,7 @@ watch(tab, load)
             @click="startBackup"
           >
             <RotateCw v-if="backupStarting || backups.running" class="animate-spin" /><DatabaseBackup v-else />
-            {{ backupStarting || backups.running ? '建立中…' : '立即備份' }}
+            {{ backupStarting || backups.running ? backupOperationLabel : '立即備份' }}
           </Button>
         </div>
       </div>
@@ -623,21 +699,28 @@ watch(tab, load)
           <div class="border-t border-line px-5 py-4 text-[15px] sm:px-6">
             <div class="flex flex-wrap items-center gap-2">
               <Badge :tone="backups.running ? 'warn' : backups.lastFailed || backupStale(backups.items[0]) ? 'danger' : 'done'">
-                {{ backups.running ? '正在建立備份' : backups.lastFailed ? '上次備份失敗' : backupStale(backups.items[0]) ? '需要注意' : '備份正常' }}
+                {{ backups.running ? backupOperationLabel : backups.lastFailed ? '上次備份操作失敗' : backupStale(backups.items[0]) ? '需要注意' : '備份正常' }}
               </Badge>
               <span>最近一次：<span class="font-medium tabular-nums">{{ when(backups.items[0].at) }}</span></span>
               <span class="text-sm text-ink-2">{{ fileSize(backups.items[0].size) }}</span>
             </div>
-            <p v-if="backups.lastFailed" class="mt-2 text-sm text-grade">上次建立備份失敗，請再試一次；如果仍然失敗，請聯絡系統維護人員。</p>
+            <p v-if="backups.lastFailed" class="mt-2 text-sm text-grade">上次備份操作失敗，請再試一次；如果仍然失敗，請查看伺服器日誌。</p>
             <p v-else-if="backupStale(backups.items[0])" class="mt-2 text-sm text-grade">已超過一天沒有新的備份，請聯絡系統維護人員。</p>
-            <p v-else class="mt-2 text-sm text-ink-2">保留 {{ backups.keepDays }} 天，目前可查看 {{ backups.items.length }} 份。還原需由系統維護人員操作。</p>
+            <p v-else class="mt-2 text-sm text-ink-2">保留 {{ backups.keepDays }} 天，目前可管理 {{ backups.items.length }} 份。保留天數可在「系統設定」調整。</p>
           </div>
           <ul class="divide-y divide-line border-t border-line">
             <li v-for="b in shownBackups" :key="b.name" class="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 text-[15px] sm:px-6">
               <span class="w-36 shrink-0 text-sm text-ink-2 tabular-nums">{{ when(b.at) }}</span>
               <span class="min-w-0 flex-1 basis-48 truncate font-mono text-sm">{{ b.name }}</span>
               <span class="text-sm text-ink-2 tabular-nums">{{ fileSize(b.size) }}</span>
-              <Button variant="outline" @click="downloadBackup(b)"><Download />下載</Button>
+              <Button variant="outline" :disabled="backups.running || !!backupAction" @click="downloadBackup(b)"><Download />下載</Button>
+              <MoreMenu
+                :label="`${b.name} 更多動作`"
+                :actions="backups.running || backupAction ? [] : [
+                  { label: '還原到這份備份', icon: History, run: () => restoreBackup(b), danger: true },
+                  { label: '刪除備份', icon: Trash2, run: () => deleteBackup(b), danger: true },
+                ]"
+              />
             </li>
           </ul>
           <div v-if="backups.items.length > 7" class="border-t border-line px-5 py-3 text-center sm:px-6">

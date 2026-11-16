@@ -88,7 +88,7 @@ class SettingsTest extends IntegrationTestBase {
     }
 
     private static String body(boolean aiEnabled, String aiUrl, String aiKey, int flag, int years, int failures, int minutes) {
-        return "{\"aiEnabled\":%s,\"aiBaseUrl\":\"%s\",\"aiModel\":\"qwen3-4b\",\"aiApiKey\":%s,\"flagPercent\":%d,\"retentionYears\":%d,\"loginMaxFailures\":%d,\"loginLockMinutes\":%d}"
+        return "{\"aiEnabled\":%s,\"aiBaseUrl\":\"%s\",\"aiModel\":\"qwen3-4b\",\"aiApiKey\":%s,\"flagPercent\":%d,\"retentionYears\":%d,\"loginMaxFailures\":%d,\"loginLockMinutes\":%d,\"backupKeepDays\":30}"
                 .formatted(aiEnabled, aiUrl, aiKey == null ? "null" : "\"" + aiKey + "\"", flag, years, failures, minutes);
     }
 
@@ -97,7 +97,8 @@ class SettingsTest extends IntegrationTestBase {
         mvc.perform(get("/api/admin/settings").session(admin)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.ai.enabled").value(false)).andExpect(jsonPath("$.ai.apiKeySet").value(false))
                 .andExpect(jsonPath("$.flagPercent").value(20)).andExpect(jsonPath("$.retentionYears").value(1))
-                .andExpect(jsonPath("$.loginMaxFailures").value(3)).andExpect(jsonPath("$.loginLockMinutes").value(15));
+                .andExpect(jsonPath("$.loginMaxFailures").value(3)).andExpect(jsonPath("$.loginLockMinutes").value(15))
+                .andExpect(jsonPath("$.backupKeepDays").value(30));
 
         MvcResult r = mvc.perform(json(put("/api/admin/settings"), body(true, url(), KEY, 15, 2, 5, 10)).session(admin))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.ai.enabled").value(true))
@@ -139,6 +140,9 @@ class SettingsTest extends IntegrationTestBase {
         mvc.perform(json(put("/api/admin/settings"), body(false, "", null, 20, 0, 3, 15)).session(admin))
                 .andExpect(status().isBadRequest());
         mvc.perform(json(put("/api/admin/settings"), body(false, "", null, 20, 1, 1, 15)).session(admin))
+                .andExpect(status().isBadRequest());
+        mvc.perform(json(put("/api/admin/settings"), body(false, "", null, 20, 1, 3, 15)
+                .replace("\"backupKeepDays\":30", "\"backupKeepDays\":0")).session(admin))
                 .andExpect(status().isBadRequest());
     }
 

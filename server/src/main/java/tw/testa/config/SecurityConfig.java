@@ -18,6 +18,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.context.SecurityContextRepository;
 
 import jakarta.servlet.DispatcherType;
@@ -34,7 +35,7 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http, SecurityContextRepository contextRepo, StaffRepository staff,
             tw.testa.exam.CandidateRepository candidates,
-            AuditService audit) throws Exception {
+            AuditService audit, BackupMaintenanceService maintenance) throws Exception {
         http
             .authorizeHttpRequests(a -> a
                 .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
@@ -47,6 +48,7 @@ public class SecurityConfig {
             // SPA: the CSRF token is in the XSRF-TOKEN cookie and writes send it back in the X-XSRF-TOKEN header
             .csrf(c -> c.spa())
             .securityContext(s -> s.securityContextRepository(contextRepo))
+            .addFilterBefore(new MaintenanceFilter(maintenance), SecurityContextHolderFilter.class)
             .addFilterBefore(new SessionGuardFilter(staff, candidates), AuthorizationFilter.class)
             .formLogin(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable)

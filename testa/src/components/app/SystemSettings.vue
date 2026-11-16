@@ -16,6 +16,7 @@ interface Settings {
   retentionYears: number
   loginMaxFailures: number
   loginLockMinutes: number
+  backupKeepDays: number
 }
 interface Probe {
   ok: boolean
@@ -35,6 +36,7 @@ const form = reactive({
   retentionYears: 1,
   loginMaxFailures: 5,
   loginLockMinutes: 15,
+  backupKeepDays: 30,
 })
 const loadError = ref('')
 const saving = ref(false)
@@ -53,6 +55,7 @@ function fill(s: Settings) {
     retentionYears: s.retentionYears,
     loginMaxFailures: s.loginMaxFailures,
     loginLockMinutes: s.loginLockMinutes,
+    backupKeepDays: s.backupKeepDays,
   })
 }
 
@@ -77,6 +80,7 @@ const dirty = computed(() => {
     form.retentionYears !== s.retentionYears ||
     form.loginMaxFailures !== s.loginMaxFailures ||
     form.loginLockMinutes !== s.loginLockMinutes
+    || form.backupKeepDays !== s.backupKeepDays
   )
 })
 
@@ -119,6 +123,7 @@ async function save() {
           retentionYears: form.retentionYears,
           loginMaxFailures: form.loginMaxFailures,
           loginLockMinutes: form.loginLockMinutes,
+          backupKeepDays: form.backupKeepDays,
         },
       }),
     )
@@ -220,6 +225,19 @@ async function save() {
         <span class="flex items-center gap-2">
           <input id="flag" v-model.number="form.flagPercent" type="number" min="5" max="100" required class="field w-24 text-right tabular-nums" />
           <span class="text-ink-2">%</span>
+        </span>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-x-6 gap-y-3 px-5 py-5 sm:px-6">
+        <label for="backup-days" class="min-w-0 flex-1 basis-72">
+          <span class="block text-[15px] font-medium">備份保留天數</span>
+          <span class="mt-0.5 block text-sm text-ink-2">
+            系統每天清理超過這個天數的資料庫備份。建議至少保留 30 天，並另外保留 VM 層級備份。
+          </span>
+        </label>
+        <span class="flex items-center gap-2">
+          <input id="backup-days" v-model.number="form.backupKeepDays" type="number" min="1" max="365" required class="field w-24 text-right tabular-nums" />
+          <span class="text-ink-2">天</span>
         </span>
       </div>
 

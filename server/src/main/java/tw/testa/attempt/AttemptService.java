@@ -31,6 +31,7 @@ import tw.testa.attempt.AttemptDtos.State;
 import tw.testa.audit.AuditService;
 import tw.testa.bank.BankDtos.QuestionDto;
 import tw.testa.common.ApiException;
+import tw.testa.config.BackupMaintenanceService;
 import tw.testa.settings.SettingsService;
 import tw.testa.exam.Candidate;
 import tw.testa.exam.CandidateRepository;
@@ -60,11 +61,14 @@ public class AttemptService {
     private final GradingService grading;
     private final AuditService audit;
     private final SettingsService settings;
+    private final BackupMaintenanceService maintenance;
     private final TransactionTemplate tx;
 
     public AttemptService(CandidateRepository candidateRepo, AttemptRepository attemptRepo, AnswerRepository answerRepo,
-            GradingService grading, AuditService audit, SettingsService settings, TransactionTemplate tx) {
+            GradingService grading, AuditService audit, SettingsService settings, BackupMaintenanceService maintenance,
+            TransactionTemplate tx) {
         this.settings = settings;
+        this.maintenance = maintenance;
         this.grading = grading;
         this.candidateRepo = candidateRepo;
         this.attemptRepo = attemptRepo;
@@ -200,6 +204,7 @@ public class AttemptService {
     /** Submits and grades attempts that ran out of time. */
     @Scheduled(fixedDelay = 15000, initialDelay = 15000)
     public void sweep() {
+        if (maintenance.active()) return;
         for (Long id : attemptRepo.findOverdueIds(Instant.now().minus(GRACE))) {
             try {
                 tx.executeWithoutResult(s -> attemptRepo.findForUpdate(id).ifPresent(a -> {
