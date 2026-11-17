@@ -32,9 +32,9 @@ const staffLinks = computed(() => [
 </script>
 
 <template>
-  <div class="flex h-dvh flex-col">
+  <div class="relative flex h-dvh flex-col">
     <!-- Nav -->
-    <NavCapsule class="gap-6 pr-2 pl-5">
+    <NavCapsule overlay class="gap-6 pr-2 pl-5">
       <RouterLink to="/" class="rounded-control" aria-label="Testa 首頁"><Logo /></RouterLink>
       <nav class="flex items-center gap-1 max-md:hidden" aria-label="主要導覽">
         <RouterLink v-for="link in links" :key="link.to" v-slot="{ href, navigate }" :to="link.to" custom>
@@ -50,7 +50,7 @@ const staffLinks = computed(() => [
     </NavCapsule>
 
     <main class="thin-scroll min-h-0 flex-1 overflow-y-auto">
-      <div class="mx-auto max-w-[1080px] py-4 md:px-6 md:py-8">
+      <div class="mx-auto max-w-[1080px] px-0 pt-20 pb-4 md:px-6 md:pt-24 md:pb-8">
         <RouterView />
       </div>
     </main>

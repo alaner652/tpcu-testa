@@ -354,13 +354,11 @@
   }
   /* The navigation shell is translucent glass; the selected destination is the only filled capsule. */
   .nav-glass {
-    border: 1px solid color-mix(in srgb, var(--line-strong) 76%, transparent);
-    background: color-mix(in srgb, var(--paper) 72%, transparent);
-    box-shadow:
-      0 1px 0 rgb(255 255 255 / 0.32) inset,
-      0 10px 30px -18px rgb(26 31 28 / 0.38);
-    -webkit-backdrop-filter: blur(18px) saturate(145%);
-    backdrop-filter: blur(18px) saturate(145%);
+    border: 1px solid var(--line-strong);
+    background: color-mix(in srgb, var(--paper) 80%, transparent);
+    box-shadow: 0 8px 24px -20px rgb(26 31 28 / 0.5);
+    -webkit-backdrop-filter: blur(16px) saturate(125%);
+    backdrop-filter: blur(16px) saturate(125%);
   }
   .pill-tab {
     @apply inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-4 text-[15px] text-ink-2 transition-colors hover:bg-ink/[0.05] hover:text-ink;

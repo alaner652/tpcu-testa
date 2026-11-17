@@ -5,11 +5,14 @@
  * sits under the capsule.
  */
 defineOptions({ inheritAttrs: false })
-withDefaults(defineProps<{ frame?: string }>(), { frame: 'max-w-[1080px]' })
+withDefaults(defineProps<{ frame?: string; overlay?: boolean }>(), { frame: 'max-w-[1080px]', overlay: false })
 </script>
 
 <template>
-  <header class="relative z-20 mx-auto w-full shrink-0 px-3 pt-3 md:px-6" :class="frame">
+  <header
+    class="z-20 mx-auto w-full shrink-0 px-3 pt-3 md:px-6"
+    :class="[frame, overlay ? 'absolute inset-x-0 top-0' : 'relative']"
+  >
     <div v-bind="$attrs" class="nav-glass relative flex h-14 items-center rounded-full">
       <slot />
     </div>
