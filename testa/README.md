@@ -19,7 +19,7 @@ Hash routing, so URLs look like `http://localhost:5173/#/exams`. UI text is Trad
 | --- | --- | --- |
 | `/login` | everyone | Candidates: candidate number + login code. Staff: email + password |
 | `/help` | everyone | Operation manual: a chapter per role, short clips with numbered steps; the candidate chapter prints |
-| `/about` | everyone | About Testa: how an exam runs (linking into the manual), principles, architecture, credits |
+| `/about` | everyone | About Testa for non-technical readers: how an exam runs (linking into the manual), why it is safe, credits |
 | `/password` | staff | Change password (forced after signing in with a temporary one) |
 | `/` | staff | Home: a to-do list, one button per item |
 | `/banks` | authors, owners | Question banks |
