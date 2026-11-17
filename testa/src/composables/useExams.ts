@@ -85,8 +85,6 @@ export const CANDIDATE_STATUS: Record<CandidateStatus, { label: string; tone: Ba
   IN: { label: '作答中', tone: 'live' },
   DONE: { label: '已交卷', tone: 'done' },
 }
-export const MODE_LABEL: Record<ExamMode, string> = { CLASSROOM: '電腦教室', ONLINE: '純線上' }
-
 /** "11 月 20 日 10:00" */
 export function when(iso: string | null) {
   if (!iso) return '尚未設定開始時間'

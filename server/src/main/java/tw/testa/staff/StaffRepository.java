@@ -12,7 +12,6 @@ public interface StaffRepository extends JpaRepository<Staff, Long> {
     Optional<Staff> findByEmail(String email);
     boolean existsByEmail(String email);
     boolean existsBySystemAdminTrue();
-    long countBySystemAdminTrueAndActiveTrue();
     List<Staff> findByEmailIn(Collection<String> emails);
 
     /** Active accounts whose name or email contains the (lower-case) text. */

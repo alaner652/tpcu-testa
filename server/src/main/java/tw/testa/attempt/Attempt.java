@@ -50,9 +50,6 @@ public class Attempt {
     @Column(name = "auto_score")
     private BigDecimal autoScore;
 
-    @Column(name = "final_score")
-    private BigDecimal finalScore;
-
     @Column(name = "extra_minutes", nullable = false)
     private int extraMinutes;
 
@@ -86,6 +83,4 @@ public class Attempt {
     public String getAnonId() { return anonId; }
     public BigDecimal getAutoScore() { return autoScore; }
     public void setAutoScore(BigDecimal autoScore) { this.autoScore = autoScore; }
-    public BigDecimal getFinalScore() { return finalScore; }
-    public void setFinalScore(BigDecimal finalScore) { this.finalScore = finalScore; }
 }

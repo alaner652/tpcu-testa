@@ -11,8 +11,6 @@ import org.springframework.data.jpa.repository.Query;
 import jakarta.persistence.LockModeType;
 
 public interface AttemptRepository extends JpaRepository<Attempt, Long> {
-    Optional<Attempt> findByCandidateId(Long candidateId);
-
     /** Locks the attempt so saves, submission and auto-submit for one candidate never run concurrently. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select a from Attempt a where a.candidate.id = ?1")
