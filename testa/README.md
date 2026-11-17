@@ -64,7 +64,8 @@ src/
     math.ts               formulas to HTML (KaTeX)
     flags.ts              DEMO_FEATURES
     __tests__/            unit tests
-  data/                   demo banks, mock AI import result, the manual's text (manual.ts)
+  data/                   demo banks, mock AI import result, the manual's chapter list (manual.ts)
+  manual/                 the operation manual, one Markdown file per chapter (/help)
 ```
 
 ## Conventions

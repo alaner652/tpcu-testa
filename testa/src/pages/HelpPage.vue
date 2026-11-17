@@ -1,22 +1,29 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { Info, Printer } from 'lucide-vue-next'
+import { ChevronDown, Info, Printer } from 'lucide-vue-next'
 import PublicHeader from '@/components/app/PublicHeader.vue'
 import Button from '@/components/ui/Button.vue'
 import { useAuth } from '@/composables/useAuth'
 import { CHAPTERS } from '@/data/manual'
 
-/** The operation manual: one chapter per role, each section a short silent clip with numbered steps. Open to everyone. */
+/** The operation manual: one chapter per role, written in Markdown (src/manual), each section a card. Open to everyone. */
 const { isStudent } = useAuth()
 const route = useRoute()
 const chapter = computed(
   () => CHAPTERS.find((c) => c.id === route.params.chapter) ?? CHAPTERS.find((c) => c.id === (isStudent.value ? 'candidate' : 'start'))!,
 )
-const videoSrc = (name: string) => `${import.meta.env.BASE_URL}manual/${name}.mp4#t=0.1`
 
 const content = ref<HTMLElement>()
-watch(chapter, () => content.value?.scrollTo({ top: 0 }))
+/** FAQ: one answer open at a time */
+const open = ref<string | null>(null)
+watch(chapter, () => {
+  open.value = null
+  content.value?.scrollTo({ top: 0 })
+})
+/** "In this chapter" links on wide screens, for chapters long enough to need them */
+const toc = computed(() => (!chapter.value.accordion && chapter.value.sections.length >= 3 ? chapter.value.sections : []))
+const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 const print = () => window.print()
 </script>
 
@@ -25,7 +32,7 @@ const print = () => window.print()
     <PublicHeader title="操作手冊" />
 
     <main ref="content" class="thin-scroll min-h-0 flex-1 overflow-y-auto">
-      <div class="mx-auto flex max-w-[1080px] gap-8 py-4 md:px-6 md:py-8">
+      <div class="mx-auto flex max-w-[1080px] gap-8 py-4 md:px-6 md:py-8 xl:max-w-[1240px]">
         <!-- Chapters: a side list on wide screens, a scrolling row on phones -->
         <nav aria-label="章節" class="no-print shrink-0 max-md:hidden md:w-44">
           <ul class="sticky top-0 space-y-0.5">
@@ -70,40 +77,49 @@ const print = () => window.print()
             </Button>
           </div>
 
-          <div class="space-y-3">
-            <section v-for="s in chapter.sections" :key="s.title" class="card px-5 py-5 sm:px-6">
-              <h2 class="text-[17px] font-semibold">{{ s.title }}</h2>
-              <video
-                v-if="s.video"
-                :key="s.video"
-                :src="videoSrc(s.video)"
-                class="no-print mt-3 aspect-[16/10] w-full rounded-control bg-sunken"
-                controls
-                muted
-                playsinline
-                preload="metadata"
-                :aria-label="`${s.title}的示範影片`"
-              />
-              <ol v-if="s.steps" class="mt-3 space-y-2">
-                <li v-for="(step, i) in s.steps" :key="i" class="flex gap-3 text-[15px] leading-relaxed">
-                  <span
-                    class="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[13px] font-semibold text-brand tabular-nums"
-                  >
-                    {{ i + 1 }}
-                  </span>
-                  <span>{{ step }}</span>
-                </li>
-              </ol>
-              <!-- After steps the notes get their own heading; a section of notes only (FAQ, tips) reads as plain text under its title -->
-              <template v-if="s.notes">
-                <h3 v-if="s.steps" class="mt-4 text-[13px] font-semibold text-ink-3">注意</h3>
-                <ul class="space-y-1.5 text-[15px] leading-relaxed text-ink-2" :class="s.steps ? 'mt-1.5 list-disc pl-5' : 'mt-2'">
-                  <li v-for="note in s.notes" :key="note">{{ note }}</li>
-                </ul>
-              </template>
+          <!-- FAQ: questions fold open one at a time -->
+          <div v-if="chapter.accordion" class="card divide-y divide-line">
+            <section v-for="s in chapter.sections" :key="s.id">
+              <h2>
+                <button
+                  type="button"
+                  class="flex w-full items-center gap-3 px-5 py-4 text-left text-[16px] font-semibold hover:bg-ink/[0.03] sm:px-6"
+                  :aria-expanded="open === s.id"
+                  :aria-controls="`${s.id}-answer`"
+                  @click="open = open === s.id ? null : s.id"
+                >
+                  <span class="min-w-0 flex-1">{{ s.title }}</span>
+                  <ChevronDown class="size-5 shrink-0 text-ink-3 transition-transform" :class="open === s.id && 'rotate-180 text-brand'" />
+                </button>
+              </h2>
+              <div v-show="open === s.id" :id="`${s.id}-answer`" class="manual-prose px-5 pb-5 sm:px-6" v-html="s.html" />
+            </section>
+          </div>
+
+          <div v-else class="space-y-3">
+            <section v-for="s in chapter.sections" :id="s.id" :key="s.id" class="card scroll-mt-4 px-5 py-5 sm:px-6">
+              <h2 class="text-[18px] font-semibold">{{ s.title }}</h2>
+              <div class="manual-prose mt-3" v-html="s.html" />
             </section>
           </div>
         </article>
+
+        <nav v-if="toc.length" aria-label="本章內容" class="no-print shrink-0 max-xl:hidden xl:w-44">
+          <div class="sticky top-0">
+            <p class="px-3 pb-1.5 text-[13px] font-semibold text-ink-3">本章內容</p>
+            <ul class="space-y-0.5 border-l border-line">
+              <li v-for="s in toc" :key="s.id">
+                <a
+                  :href="`#${s.id}`"
+                  class="-ml-px block border-l-2 border-transparent px-3 py-1.5 text-sm text-ink-2 hover:border-brand hover:text-ink"
+                  @click.prevent="jump(s.id)"
+                >
+                  {{ s.title }}
+                </a>
+              </li>
+            </ul>
+          </div>
+        </nav>
       </div>
     </main>
   </div>

@@ -1,13 +1,15 @@
+import { Marked } from 'marked'
+
 /**
- * The operation manual shown at /help. Text is for end users, so it is Chinese.
- * Videos live in public/manual and are recorded by tools/record-videos.mjs; keep step wording in line with the UI labels.
+ * The operation manual shown at /help. Each chapter is a Markdown file in src/manual (Chinese, for end users).
+ * - `## Title` starts a section (one card); `#### 注意` is a small sub-heading inside it.
+ * - `![label](name)` embeds the clip public/manual/name.mp4, recorded by tools/record-videos.mjs.
+ * Keep wording in line with the UI labels; the files are ours, so the rendered HTML is trusted.
  */
 export interface ManualSection {
+  id: string
   title: string
-  /** File name in public/manual, without .mp4 */
-  video?: string
-  steps?: string[]
-  notes?: string[]
+  html: string
 }
 
 export interface ManualChapter {
@@ -15,225 +17,51 @@ export interface ManualChapter {
   title: string
   /** Who reads this chapter, shown under the title */
   who: string
+  /** Sections fold into a list that opens one at a time (FAQ) */
+  accordion?: boolean
   sections: ManualSection[]
 }
 
+const marked = new Marked({
+  renderer: {
+    image({ href, text }) {
+      const src = `${import.meta.env.BASE_URL}manual/${href}.mp4#t=0.1`
+      return `<video src="${src}" class="no-print" controls muted playsinline preload="metadata" aria-label="${text}的示範影片"></video>`
+    },
+  },
+})
+
+// Wide tables scroll sideways on phones instead of stretching the page
+const render = (md: string) =>
+  marked.parse(md, { async: false }).replaceAll('<table>', '<div class="table-scroll"><table>').replaceAll('</table>', '</table></div>')
+
+const files = import.meta.glob<string>('../manual/*.md', { query: '?raw', import: 'default', eager: true })
+
+/** Split a chapter file into its `##` sections and render each one. */
+export function parseChapter(markdown: string): ManualSection[] {
+  return markdown
+    .split(/^## /m)
+    .slice(1)
+    .map((part, i) => {
+      const [title, ...body] = part.split('\n')
+      return { id: `s${i + 1}`, title: title!.trim(), html: render(body.join('\n').trim()) }
+    })
+}
+
+const chapter = (id: string, title: string, who: string, accordion = false): ManualChapter => ({
+  id,
+  title,
+  who,
+  accordion,
+  sections: parseChapter(files[`../manual/${id}.md`] ?? ''),
+})
+
 export const CHAPTERS: ManualChapter[] = [
-  {
-    id: 'start',
-    title: '開始使用',
-    who: '所有人',
-    sections: [
-      {
-        title: '教職員登入',
-        video: 'staff-login',
-        steps: [
-          '在登入頁選「教職員」。',
-          '輸入系統管理員給你的 Email 與密碼，按「登入」。',
-          '第一次登入或密碼被重設過時，會先要求換一組自己的密碼。',
-        ],
-        notes: ['忘記密碼時請找系統管理員重設，系統會給一組臨時密碼。', '密碼連續輸錯太多次，帳號會暫時鎖定，稍後再試或請管理員協助。'],
-      },
-      {
-        title: '角色與能做的事',
-        steps: [
-          '負責人：安排考試、匯入名單、指派評分者、公布成績、管理單位成員。',
-          '出題：建立與編輯題庫。',
-          '監考：看考生狀態、重設登入碼、補時。',
-          '評分：批改被指派的申論題，看不到考生姓名。',
-          '系統管理員：管理帳號與單位、備份、系統設定。',
-        ],
-        notes: [
-          '角色是依單位（例如招生組）指派的，一個人可以同時有多個角色。常見組合是「承辦人」（負責人＋監考）與「教師」（出題＋評分）。',
-          '上方選單只會出現你的角色用得到的頁面。',
-        ],
-      },
-      {
-        title: '小技巧',
-        notes: [
-          '右上角的帳號選單可以切換深色模式、變更密碼、打開這份手冊。',
-          '用電腦時按 ? 可以看鍵盤快捷鍵，例如 / 搜尋、N 新增。',
-          '名單可以一次選取多位：按住一列、按住 Ctrl（Mac 是 ⌘）點選，或勾選列首的方框。',
-        ],
-      },
-    ],
-  },
-  {
-    id: 'admin',
-    title: '系統管理員',
-    who: '管理帳號、單位與系統的人',
-    sections: [
-      {
-        title: '新增帳號並加入單位',
-        video: 'admin-create-account',
-        steps: [
-          '到「管理」>「使用者」，按「新增帳號」。',
-          '填 Email 與姓名。',
-          '在同一個表單選要加入的單位和角色，按「建立帳號」。',
-          '畫面會顯示臨時密碼，請交給本人；對方第一次登入時會被要求更換。',
-        ],
-        notes: ['人數多時用「批次建立」：從 Excel 選取姓名與 Email 兩欄貼上，一次建立。'],
-      },
-      {
-        title: '管理帳號',
-        steps: [
-          '點一個人可以展開他的單位與角色，直接增減。',
-          '列尾的「⋯」選單可以重設密碼、停用帳號。',
-          '停用後的帳號才能永久刪除；刪除前會再確認一次。',
-        ],
-      },
-      {
-        title: '其他分頁',
-        steps: [
-          '單位：新增單位，或停用不再使用的單位。',
-          '操作紀錄：所有敏感操作都會留下紀錄，無法修改。',
-          '備份：系統每天自動備份，也可以手動建立、下載；還原前會要求輸入文字確認。',
-          '系統設定：AI 匯入、登入鎖定次數等都在這裡調整，每一項都有說明。',
-        ],
-        notes: ['系統管理員看不到考卷。需要查看時，須由考試負責人在該場考試授權「緊急檢視」，且有時間限制。'],
-      },
-    ],
-  },
-  {
-    id: 'author',
-    title: '出題老師',
-    who: '有「出題」角色的人',
-    sections: [
-      {
-        title: '建立題庫與寫題目',
-        video: 'bank-write',
-        steps: [
-          '到「題庫」，按「新增題庫」。',
-          '填題庫名稱與科目。',
-          '選題型（單選、多選、填空、申論）新增一題，輸入題目與選項。',
-          '點選項旁的圓圈設為正確答案。',
-          '按「模擬作答」，用考生看到的畫面試考一次。',
-        ],
-        notes: [
-          '內容會自動儲存，不用按儲存。兩個人同時改同一份題庫時，系統會提醒。',
-          '數學式用 $...$ 包起來，例如 $x^2$。',
-          '填空題可以設定多個可接受的答案；申論題可以寫評分規準，只有評分者看得到。',
-        ],
-      },
-    ],
-  },
-  {
-    id: 'officer',
-    title: '考試承辦人',
-    who: '有「負責人」或「監考」角色的人',
-    sections: [
-      {
-        title: '建立考試、匯入名單、發布',
-        video: 'exam-create',
-        steps: [
-          '到「考試」，按「建立考試」，填名稱、選題庫、開始時間與作答時間，按「建立草稿」。',
-          '點進這場考試，在「考生」按「匯入名單」，選 Excel 或 CSV 檔。',
-          '確認可以匯入的筆數；有問題的資料會列出原因，修正後再上傳即可。',
-          '到「登入單」列印，每位考生一張，上面有准考證號與登入碼。',
-          '回到「考試」列表，按「發布」。發布後考生在開始時間就能進入。',
-        ],
-        notes: [
-          '名單第一列是欄位標題，需要「准考證號」與「姓名」，「報考科系」可有可無。CSV 可以是 Big5 或 UTF-8。',
-          '系統會自動排座位並產生登入碼。',
-        ],
-      },
-      {
-        title: '監考與補時',
-        video: 'exam-proctor',
-        steps: [
-          '考試進行中打開這場考試，上方數字顯示作答中、已交卷、尚未登入的人數，點一下可以篩選。',
-          '「需要注意」列出登入碼輸錯被鎖定的考生，按他那一列的「重設登入碼」，再把新的登入單交給他。',
-          '要補時，選取考生（可以多位），按「補時」，選分鐘數並寫原因。',
-        ],
-        notes: ['考生離開考試畫面會被記錄次數，顯示在他的名字旁。', '考生斷線或換電腦，重新登入就能從原進度繼續，時間由伺服器計算。'],
-      },
-      {
-        title: '指派評分者',
-        steps: ['在考試的「評分」分頁，替申論題指派一到多位評分者。', '每位評分者各自評分，系統取平均；評分者看不到考生身分，也看不到彼此的分數。'],
-      },
-      {
-        title: '公布成績',
-        video: 'results-publish',
-        steps: [
-          '評分完成後，到「成績」分頁確認分數。',
-          '評分者之間差距較大的答案會被標出，需要的話可以重開評分。',
-          '按「公布成績」。公布後成績鎖定，不能再修改。',
-          '用「匯出 Excel」或 CSV 下載成績交給學校放榜。',
-        ],
-        notes: ['想讓考生自己登入查分數，在「成績」分頁開放考生查詢。'],
-      },
-    ],
-  },
-  {
-    id: 'grader',
-    title: '閱卷老師',
-    who: '有「評分」角色的人',
-    sections: [
-      {
-        title: '匿名評分',
-        video: 'grading',
-        steps: [
-          '到「閱卷」，畫面一次顯示一份答案，附上題目與評分規準。',
-          '輸入分數，評語可以不寫。',
-          '按「送出，看下一份」。',
-        ],
-        notes: ['你看不到考生姓名，也看不到其他評分者給的分數。', '送出後不能自己修改。真的需要更正，請承辦人重開這份答卷的評分。'],
-      },
-    ],
-  },
-  {
-    id: 'candidate',
-    title: '考生須知',
-    who: '考生（可以列印發給考生）',
-    sections: [
-      {
-        title: '登入與作答',
-        video: 'candidate-exam',
-        steps: [
-          '在登入頁輸入登入單上的「准考證號」與「登入碼」，按「登入」。',
-          '按「進入考試」，確認畫面上的資料是你本人，勾選「我已閱讀考試須知」。',
-          '按「開始作答」後開始計時。',
-          '用「下一題」或題號切換題目，答案會自動儲存。',
-          '寫完按「交卷」並確認。交卷後不能再修改。',
-        ],
-      },
-      {
-        title: '注意事項',
-        steps: [
-          '計時不會暫停，時間到會自動交卷。',
-          '斷線或電腦當機時，舉手告訴監考人員，重新登入就能從原進度繼續。',
-          '考試期間請不要離開考試畫面，離開會被記錄。',
-          '登入碼連續輸錯會被鎖定，請舉手請監考人員協助。',
-          '登入單請妥善保管，不要給別人看。',
-        ],
-      },
-    ],
-  },
-  {
-    id: 'faq',
-    title: '常見問題',
-    who: '所有人',
-    sections: [
-      {
-        title: '考生說登入碼不對',
-        notes: ['先確認准考證號沒有打錯。被鎖定的考生會出現在考試頁的「需要注意」，監考按「重設登入碼」後可以直接列印新的登入單，舊的登入碼會立刻失效。'],
-      },
-      {
-        title: '考到一半電腦當機',
-        notes: ['讓考生換一台電腦重新登入，答案和剩餘時間都會接續。如果耽誤了時間，監考可以替他補時並寫下原因。'],
-      },
-      {
-        title: '考試開始後發現題目有錯',
-        notes: ['發布時題目就固定下來，之後修改題庫不會影響這場考試。請記下問題，由負責人在匯出成績後處理。'],
-      },
-      {
-        title: '我看不到某個選單',
-        notes: ['選單依你在單位的角色顯示。需要哪個功能，請單位負責人或系統管理員替你加上角色。'],
-      },
-      {
-        title: '忘記密碼',
-        notes: ['請系統管理員在「管理」>「使用者」替你重設，會拿到一組臨時密碼，登入後再換成自己的。'],
-      },
-    ],
-  },
+  chapter('start', '開始使用', '所有人'),
+  chapter('admin', '系統管理員', '管理帳號、單位與系統的人'),
+  chapter('author', '出題老師', '有「出題」角色的人'),
+  chapter('officer', '考試承辦人', '有「負責人」或「監考」角色的人'),
+  chapter('grader', '閱卷老師', '有「評分」角色的人'),
+  chapter('candidate', '考生須知', '考生（可以列印發給考生）'),
+  chapter('faq', '常見問題', '所有人', true),
 ]
