@@ -28,6 +28,7 @@ class GradingTest extends IntegrationTestBase {
     long g2Id;
     long g3Id;
     long exam;
+    org.springframework.test.web.servlet.MvcResult codes;
     String p;
 
     private static final String QUESTIONS = """
@@ -68,7 +69,8 @@ class GradingTest extends IntegrationTestBase {
                         .formatted(p, p, p)).session(owner)).andExpect(status().isCreated());
         mvc.perform(post("/api/exams/" + exam + "/publish").with(csrf()).session(owner)).andExpect(status().isOk());
 
-        var list = mvc.perform(get("/api/exams/" + exam + "/candidates").session(owner)).andReturn();
+        var list = issueCodes(owner, exam);
+        codes = list;
         // Candidate 1: choice right, both essays written. Candidate 2: choice wrong, only e1 (blank e2 = 0, not graded)
         take(p + "1", read(list, "$[0].code"), "b", "甲的 e1 作答", "甲的 e2 作答");
         take(p + "2", read(list, "$[1].code"), "a", "乙的 e1 作答", "   ");
@@ -183,7 +185,6 @@ class GradingTest extends IntegrationTestBase {
                 .andExpect(status().isConflict());
 
         // Before publishing: candidates see no result
-        var codes = mvc.perform(get("/api/exams/" + exam + "/candidates").session(owner)).andReturn();
         candidateLogin(p + "1", read(codes, "$[0].code")).andExpect(jsonPath("$.attempt.submittedAt").isNotEmpty())
                 .andExpect(jsonPath("$.result").isEmpty());
 

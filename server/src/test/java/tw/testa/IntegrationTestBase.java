@@ -87,4 +87,11 @@ public abstract class IntegrationTestBase {
                 "{\"email\":\"%s\",\"role\":\"%s\"}".formatted(email, role)).session(by))
                 .andExpect(status().isCreated());
     }
+
+    /** Issues login codes for the whole roster, as printing slips does; `$[i].code` follows seat order. */
+    protected MvcResult issueCodes(MockHttpSession by, long examId) throws Exception {
+        java.util.List<Number> ids = read(mvc.perform(get("/api/exams/" + examId + "/candidates").session(by)).andReturn(), "$[*].id");
+        return mvc.perform(json(post("/api/exams/" + examId + "/candidates/codes"), "{\"ids\":" + ids + "}").session(by))
+                .andExpect(status().isOk()).andReturn();
+    }
 }

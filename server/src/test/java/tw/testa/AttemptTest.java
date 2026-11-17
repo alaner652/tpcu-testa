@@ -67,7 +67,7 @@ class AttemptTest extends IntegrationTestBase {
         mvc.perform(json(post("/api/exams/" + exam + "/candidates"),
                 "{\"rows\":[{\"ticket\":\"%s\",\"name\":\"王小明\",\"dept\":\"資工\"},{\"ticket\":\"%s\",\"name\":\"李宜華\"}]}"
                         .formatted(ticket, ticket2)).session(owner)).andExpect(status().isCreated());
-        var list = mvc.perform(get("/api/exams/" + exam + "/candidates").session(owner)).andReturn();
+        var list = issueCodes(owner, exam);
         code = read(list, "$[0].code");
         code2 = read(list, "$[1].code");
     }
@@ -283,9 +283,13 @@ class AttemptTest extends IntegrationTestBase {
         assertThat(jdbc.queryForObject("select count(*) from audit_log where action = 'ATTEMPT_EXTENDED' and reason = '斷電'",
                 Integer.class)).isEqualTo(2);
 
-        mvc.perform(json(post(url + "reset-code"), "{%s}".formatted(both)).session(owner)).andExpect(status().isNoContent());
-        assertThat(jdbc.queryForObject("select login_code from candidate where id = ?", String.class, id1)).isNotEqualTo(code);
-        assertThat(jdbc.queryForObject("select login_code from candidate where id = ?", String.class, id2)).isNotEqualTo(code2);
+        // New codes: only a bcrypt hash is stored, the old code stops working, the new one signs in
+        var issued = mvc.perform(json(post(url + "codes"), "{%s}".formatted(both)).session(owner)).andExpect(status().isOk())
+                .andReturn();
+        assertThat(jdbc.queryForObject("select login_code_hash from candidate where id = ?", String.class, id1)).startsWith("$2a$08$");
+        mvc.perform(json(post("/api/candidate/login"), "{\"ticket\":\"%s\",\"code\":\"%s\"}".formatted(ticket, code)))
+                .andExpect(status().isUnauthorized());
+        candidate(ticket2, read(issued, "$[1].code"));
 
         // Both have started, so neither can be removed
         mvc.perform(json(post(url + "remove"), "{%s}".formatted(both)).session(owner)).andExpect(status().isConflict());

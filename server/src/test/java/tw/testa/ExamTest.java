@@ -186,18 +186,28 @@ class ExamTest extends IntegrationTestBase {
 
         var list = mvc.perform(get("/api/exams/" + id + "/candidates").session(proctor)).andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].ticket").value("A115-0001")).andExpect(jsonPath("$[0].seat").value(1))
-                .andExpect(jsonPath("$[1].seat").value(2)).andExpect(jsonPath("$[0].status").value("IDLE")).andReturn();
-        String code = read(list, "$[0].code");
-        assertThat(code).matches("\\d{6}");
+                .andExpect(jsonPath("$[1].seat").value(2)).andExpect(jsonPath("$[0].status").value("IDLE"))
+                // Imported candidates have no code until slips are printed, and the roster never shows one
+                .andExpect(jsonPath("$[0].hasCode").value(false)).andExpect(jsonPath("$[0].code").doesNotExist()).andReturn();
         long cid = ((Number) read(list, "$[0].id")).longValue();
+        long cid2 = ((Number) read(list, "$[1].id")).longValue();
+
+        // Printing slips issues codes for the picked candidates, in seat order, once
+        var issued = mvc.perform(json(post("/api/exams/" + id + "/candidates/codes"), "{\"ids\":[%d,%d]}".formatted(cid2, cid))
+                .session(proctor)).andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].ticket").value("A115-0001")).andExpect(jsonPath("$[1].ticket").value("A115-0002"))
+                .andReturn();
+        assertThat((String) read(issued, "$[0].code")).matches("\\d{6}");
+        mvc.perform(get("/api/exams/" + id + "/candidates").session(owner)).andExpect(jsonPath("$[0].hasCode").value(true))
+                .andExpect(jsonPath("$[0].code").doesNotExist());
+        mvc.perform(get("/api/admin/audit-logs").param("action", "CANDIDATE_CODES_ISSUED").session(admin))
+                .andExpect(jsonPath("$.items[0].detail").value("2 位"));
         mvc.perform(get("/api/exams/" + id).session(owner)).andExpect(jsonPath("$.takers").value(2));
 
         // Proctors can reset login codes
         var reset = mvc.perform(post("/api/exams/" + id + "/candidates/" + cid + "/reset-code").with(csrf()).session(proctor))
                 .andExpect(status().isOk()).andReturn();
-        String next = read(reset, "$.code");
-        assertThat(next).matches("\\d{6}");
-        mvc.perform(get("/api/exams/" + id + "/candidates").session(owner)).andExpect(jsonPath("$[0].code").value(next));
+        assertThat((String) read(reset, "$.code")).matches("\\d{6}");
 
         // Removing: proctors cannot, owners can
         mvc.perform(delete("/api/exams/" + id + "/candidates/" + cid).with(csrf()).session(proctor))

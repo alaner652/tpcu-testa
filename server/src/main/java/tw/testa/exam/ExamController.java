@@ -122,10 +122,10 @@ public class ExamController {
         exams.extendTimes(id, body);
     }
 
-    @PostMapping("/{id}/candidates/reset-code")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void resetCodes(@PathVariable Long id, @Valid @RequestBody ExamDtos.CandidateIds body) {
-        exams.resetCodes(id, body.ids());
+    /** Issues new login codes for printing slips; the codes are in this response only. */
+    @PostMapping("/{id}/candidates/codes")
+    public List<ExamDtos.IssuedCode> issueCodes(@PathVariable Long id, @Valid @RequestBody ExamDtos.CandidateIds body) {
+        return exams.issueCodes(id, body.ids());
     }
 
     @PostMapping("/{id}/candidates/remove")

@@ -1,9 +1,9 @@
 package tw.testa.exam;
 
 import java.math.BigDecimal;
-import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -26,6 +26,7 @@ import tw.testa.exam.ExamDtos.CandidateDto;
 import tw.testa.exam.ExamDtos.CreateExamRequest;
 import tw.testa.exam.ExamDtos.ExamDto;
 import tw.testa.exam.ExamDtos.ImportResult;
+import tw.testa.exam.ExamDtos.IssuedCode;
 import tw.testa.exam.ExamDtos.RosterPreview;
 import tw.testa.exam.ExamDtos.RosterProblem;
 import tw.testa.exam.ExamDtos.RosterRow;
@@ -43,7 +44,6 @@ import tw.testa.unit.UnitRoleRepository;
  */
 @Service
 public class ExamService {
-    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final ExamRepository examRepo;
     private final CandidateRepository candidateRepo;
@@ -247,7 +247,7 @@ public class ExamService {
         Instant now = Instant.now();
         return candidateRepo.findByExamIdOrderBySeatAscIdAsc(examId).stream().map(c -> {
             CandidateDto d = toDto(c, now, null);
-            return new CandidateDto(d.id(), d.ticket(), d.name(), d.dept(), d.seat(), null, d.status(), d.locked(),
+            return new CandidateDto(d.id(), d.ticket(), d.name(), d.dept(), d.seat(), d.hasCode(), d.status(), d.locked(),
                     d.leaveCount(), null, 0);
         }).toList();
     }
@@ -303,7 +303,7 @@ public class ExamService {
         return new RosterPreview(fileName, rows, problems);
     }
 
-    /** Import: writes only when every row is valid, assigns seats and generates login codes. */
+    /** Import: writes only when every row is valid and assigns seats. Login codes are issued later, when slips are printed. */
     @Transactional
     public ImportResult importRows(Long examId, List<RosterRow> rows) {
         Exam e = findManaged(examId);
@@ -316,8 +316,7 @@ public class ExamService {
             if (!taken.add(ticket)) {
                 throw ApiException.conflict("duplicate_ticket", "准考證號 " + ticket + " 重複了，名單沒有匯入。請重新上傳檢查。");
             }
-            created.add(new Candidate(e, ticket, r.name().trim(), r.dept() == null ? "" : r.dept().trim(), ++seat,
-                    randomCode()));
+            created.add(new Candidate(e, ticket, r.name().trim(), r.dept() == null ? "" : r.dept().trim(), ++seat));
         }
         candidateRepo.saveAll(created);
         audit.record("CANDIDATES_IMPORTED", "exam", examId, e.getUnit().getId(), null, created.size() + " 位");
@@ -326,15 +325,40 @@ public class ExamService {
 
     @Transactional
     public String resetCode(Long examId, Long candidateId) {
+        return issueCodes(examId, List.of(candidateId)).get(0).code();
+    }
+
+    /**
+     * Issues new login codes and returns them in clear, once: only their hashes are stored.
+     * Old codes stop working at once, including slips already printed. Returned in seat order.
+     */
+    @Transactional
+    public List<IssuedCode> issueCodes(Long examId, List<Long> ids) {
         Exam e = findVisible(examId);
-        Candidate c = findCandidate(examId, candidateId);
         if (e.isArchived()) throw ApiException.conflict("archived", "這場考試已經封存，不能再更動。");
-        if (c.getStatus() == Candidate.Status.DONE) throw ApiException.conflict("done", "這位考生已經交卷了。");
-        c.setLoginCode(randomCode());
-        c.setFailedLogins(0);
-        c.setLockedUntil(null);
-        audit.record("CANDIDATE_CODE_RESET", "candidate", c.getId(), e.getUnit().getId(), null, c.getTicket());
-        return c.getLoginCode();
+        List<Candidate> picked = new ArrayList<>();
+        forEach(examId, ids, c -> {
+            if (c.getStatus() == Candidate.Status.DONE) throw ApiException.conflict("done", "這位考生已經交卷了。");
+            picked.add(c);
+        });
+        picked.sort(Comparator.comparingInt(Candidate::getSeat).thenComparing(Candidate::getId));
+        List<String> codes = picked.stream().map(c -> LoginCodes.generate()).toList();
+        List<String> hashes = LoginCodes.hashAll(codes);
+        List<IssuedCode> issued = new ArrayList<>();
+        for (int i = 0; i < picked.size(); i++) {
+            Candidate c = picked.get(i);
+            c.setLoginCodeHash(hashes.get(i));
+            c.setFailedLogins(0);
+            c.setLockedUntil(null);
+            issued.add(new IssuedCode(c.getId(), c.getTicket(), codes.get(i)));
+        }
+        if (picked.size() == 1) {
+            audit.record("CANDIDATE_CODE_RESET", "candidate", picked.get(0).getId(), e.getUnit().getId(), null,
+                    picked.get(0).getTicket());
+        } else if (!picked.isEmpty()) {
+            audit.record("CANDIDATE_CODES_ISSUED", "exam", examId, e.getUnit().getId(), null, picked.size() + " 位");
+        }
+        return issued;
     }
 
     /** Proctor extra time: moves the deadline when a candidate lost time to equipment problems. */
@@ -368,11 +392,6 @@ public class ExamService {
     public void extendTimes(Long examId, ExamDtos.BatchExtendRequest req) {
         var single = new ExamDtos.ExtendRequest(req.minutes(), req.reason());
         forEach(examId, req.ids(), c -> extendTime(examId, c.getId(), single));
-    }
-
-    @Transactional
-    public void resetCodes(Long examId, List<Long> ids) {
-        forEach(examId, ids, c -> resetCode(examId, c.getId()));
     }
 
     @Transactional
@@ -447,7 +466,7 @@ public class ExamService {
     }
 
     private static CandidateDto toDto(Candidate c, Instant now, tw.testa.attempt.Attempt a) {
-        return new CandidateDto(c.getId(), c.getTicket(), c.getName(), c.getDept(), c.getSeat(), c.getLoginCode(),
+        return new CandidateDto(c.getId(), c.getTicket(), c.getName(), c.getDept(), c.getSeat(), c.hasLoginCode(),
                 c.getStatus(), c.getLockedUntil() != null && c.getLockedUntil().isAfter(now), c.getLeaveCount(),
                 a == null || a.isSubmitted() ? null : a.getDeadlineAt(), a == null ? 0 : a.getExtraMinutes());
     }
@@ -467,10 +486,6 @@ public class ExamService {
 
     static String normalizeTicket(String ticket) {
         return ticket == null ? "" : ticket.trim().toUpperCase();
-    }
-
-    static String randomCode() {
-        return String.format("%06d", RANDOM.nextInt(1_000_000));
     }
 
     private static String cell(List<String> cells, int index) {

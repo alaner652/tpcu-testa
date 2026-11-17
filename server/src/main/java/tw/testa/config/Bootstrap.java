@@ -12,6 +12,7 @@ import tw.testa.exam.CandidateRepository;
 import tw.testa.exam.Exam;
 import tw.testa.exam.ExamRepository;
 import tw.testa.exam.ExamSnapshot;
+import tw.testa.exam.LoginCodes;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,7 +72,7 @@ public class Bootstrap implements ApplicationRunner {
 
     /** Demo exam: published and live, candidate A115-0001 / 482915 can sign in right away (demo button on the login page). */
     private void seedDemoExam() {
-        if (candidateRepo.findByTicketWithExam("A115-0001").stream().anyMatch(c -> c.getLoginCode().equals("482915"))) return;
+        if (candidateRepo.findByTicketWithExam("A115-0001").stream().anyMatch(c -> LoginCodes.matches("482915", c.getLoginCodeHash()))) return;
         Unit unit = unitRepo.findAll().stream().filter(u -> u.getName().equals("招生組")).findFirst().orElse(null);
         Staff officer = staffRepo.findByEmail("officer@testa.tw").orElse(null);
         if (unit == null || officer == null) return;
@@ -97,8 +98,8 @@ public class Bootstrap implements ApplicationRunner {
         exam.setStatus(Exam.Status.PUBLISHED);
         exam.setPublishedAt(Instant.now());
         examRepo.save(exam);
-        candidateRepo.save(new Candidate(exam, "A115-0001", "王小明", "資訊工程科", 1, "482915"));
-        candidateRepo.save(new Candidate(exam, "A115-0002", "李宜華", "電機工程科", 2, "135790"));
+        candidateRepo.save(withCode(new Candidate(exam, "A115-0001", "王小明", "資訊工程科", 1), "482915"));
+        candidateRepo.save(withCode(new Candidate(exam, "A115-0002", "李宜華", "電機工程科", 2), "135790"));
         log.info("Created demo exam: candidate A115-0001, login code 482915");
     }
 
@@ -117,5 +118,10 @@ public class Bootstrap implements ApplicationRunner {
             roleRepo.save(new UnitRole(admission, t, Role.GRADER));
         }
         log.info("Created demo data: one unit and the accounts officer@, teacher@, teacher2@ and teacher3@testa.tw");
+    }
+
+    private static Candidate withCode(Candidate c, String code) {
+        c.setLoginCodeHash(LoginCodes.hash(code));
+        return c;
     }
 }

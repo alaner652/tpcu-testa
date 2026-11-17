@@ -40,8 +40,9 @@ public class Candidate {
     @Column(nullable = false)
     private int seat;
 
-    @Column(name = "login_code", nullable = false)
-    private String loginCode;
+    /** bcrypt hash of the login code; null until a code is issued (see LoginCodes) */
+    @Column(name = "login_code_hash")
+    private String loginCodeHash;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -67,13 +68,12 @@ public class Candidate {
 
     protected Candidate() {}
 
-    public Candidate(Exam exam, String ticket, String name, String dept, int seat, String loginCode) {
+    public Candidate(Exam exam, String ticket, String name, String dept, int seat) {
         this.exam = exam;
         this.ticket = ticket;
         this.name = name;
         this.dept = dept;
         this.seat = seat;
-        this.loginCode = loginCode;
     }
 
     public int getSessionVersion() { return sessionVersion; }
@@ -86,8 +86,9 @@ public class Candidate {
     public String getName() { return name; }
     public String getDept() { return dept; }
     public int getSeat() { return seat; }
-    public String getLoginCode() { return loginCode; }
-    public void setLoginCode(String loginCode) { this.loginCode = loginCode; }
+    public String getLoginCodeHash() { return loginCodeHash; }
+    public void setLoginCodeHash(String loginCodeHash) { this.loginCodeHash = loginCodeHash; }
+    public boolean hasLoginCode() { return loginCodeHash != null; }
     public Status getStatus() { return status; }
     public void setStatus(Status status) { this.status = status; }
     public int getFailedLogins() { return failedLogins; }

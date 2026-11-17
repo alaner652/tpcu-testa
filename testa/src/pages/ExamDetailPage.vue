@@ -129,7 +129,10 @@ async function doImport() {
   try {
     const result = await store.importRows(exam.value.id, preview.value.rows)
     preview.value = null
-    toast.success(`已匯入 ${result.added} 位考生`)
+    toast.success(`已匯入 ${result.added} 位考生`, {
+      duration: 10000,
+      action: { label: '產生登入單', onClick: () => (step.value = 'tickets') },
+    })
     await Promise.all([loadList(), store.refresh(exam.value.id)])
   } catch (e) {
     fail(e)
@@ -141,16 +144,20 @@ async function doImport() {
 async function reset(candidate: Candidate) {
   if (!exam.value) return
   const ok = await confirm({
-    title: `重設 ${candidate.name} 的登入碼？`,
-    description: '舊的登入碼會立刻失效（已印出的登入單也是），請把新的登入碼交給考生。',
-    confirmLabel: '重設',
+    title: `${candidate.hasCode ? '重設' : '產生'} ${candidate.name} 的登入碼？`,
+    description: `${candidate.hasCode ? '舊的登入碼會立刻失效（已印出的登入單也是）。' : ''}新的登入碼只會顯示這一次，請交給考生或列印登入單。`,
+    confirmLabel: candidate.hasCode ? '重設' : '產生',
   })
   if (!ok) return
   try {
     const { code } = await store.resetCode(exam.value.id, candidate.id)
-    candidate.code = code
+    issued.value = new Map(issued.value).set(candidate.id, code)
+    candidate.hasCode = true
     candidate.locked = false
-    toast.success(`${candidate.name} 的新登入碼：${fmt(code)}`, { duration: 15000 })
+    toast.success(`${candidate.name} 的新登入碼：${fmt(code)}`, {
+      duration: 30000,
+      action: { label: '列印登入單', onClick: () => (step.value = 'tickets') },
+    })
   } catch (e) {
     fail(e)
   }
@@ -161,7 +168,7 @@ function rowActions(c: Candidate): MoreAction[] {
   if (!e || e.archivedAt || e.status === 'ended') return []
   return [
     ...(c.status === 'IN' && e.status === 'live' ? [{ label: '補時', icon: TimerReset, run: () => startExtend(c) }] : []),
-    ...(c.status !== 'DONE' && !c.locked ? [{ label: '重設登入碼', icon: KeyRound, run: () => reset(c) }] : []),
+    ...(c.status !== 'DONE' && !c.locked ? [{ label: c.hasCode ? '重設登入碼' : '產生登入碼', icon: KeyRound, run: () => reset(c) }] : []),
     ...(e.canManage && c.status === 'IDLE' ? [{ label: '從名單移除', icon: Trash2, run: () => removeCandidate(c), danger: true }] : []),
   ]
 }
@@ -251,28 +258,43 @@ async function bulkExtend() {
   await bulk(() => store.extendTimes(e.id, ids, extendMinutes.value, extendReason.value.trim()), `已替 ${ids.length} 位考生補時 ${extendMinutes.value} 分鐘`)
 }
 
-/** Printing again: the login slips tab then shows only the candidates just reset */
-const ticketIds = ref<Set<number> | null>(null)
-watch(examId, () => (ticketIds.value = null))
-const ticketList = computed(() => (ticketIds.value ? list.value.filter((c) => ticketIds.value!.has(c.id)) : list.value))
+// ── Login slips ──
+// The server keeps only hashes of login codes, so a code is shown once: the codes issued on this page live here
+// until the page is left. Printing again means issuing new codes, which voids slips already printed.
+const issued = ref(new Map<number, string>())
+watch(examId, () => (issued.value = new Map()))
+const slips = computed(() => list.value.filter((c) => issued.value.has(c.id)))
+const issuable = computed(() => list.value.filter((c) => c.status !== 'DONE'))
+const withoutCode = computed(() => issuable.value.filter((c) => !c.hasCode).length)
+const canIssue = computed(() => !!exam.value && !exam.value.archivedAt && exam.value.status !== 'ended')
 
-async function bulkReset() {
+/** Issues new codes and opens the slips for exactly these candidates */
+async function issue(candidates: Candidate[], extra = '') {
   const e = exam.value
-  const ids = canReset.value.map((c) => c.id)
-  if (!e || !ids.length) return
+  const ids = candidates.map((c) => c.id)
+  if (!e || !ids.length || busy.value) return
+  const old = candidates.filter((c) => c.hasCode).length
   const ok = await confirm({
-    title: `重設 ${ids.length} 位考生的登入碼？`,
-    description: `舊的登入碼會立刻失效（已印出的登入單也是）。重設後可以只列印這幾位的登入單。${skipping(ids.length)}`,
-    confirmLabel: '重設',
+    title: `產生 ${ids.length} 位考生的登入碼？`,
+    description: `${old ? `其中 ${old} 位已經有登入碼，舊的會立刻失效（已印出的登入單也是）。` : ''}登入碼只會在這一頁顯示一次，產生後請直接列印。${extra}`,
+    confirmLabel: '產生',
   })
   if (!ok) return
-  await bulk(() => store.resetCodes(e.id, ids), `已重設 ${ids.length} 位考生的登入碼`)
-  if (!list.value.some((c) => ids.includes(c.id))) return
-  toast(`要列印這 ${ids.length} 位的新登入單嗎？`, {
-    duration: 15000,
-    action: { label: '列印登入單', onClick: () => ((ticketIds.value = new Set(ids)), (step.value = 'tickets')) },
-  })
+  busy.value = true
+  try {
+    const codes = await store.issueCodes(e.id, ids)
+    issued.value = new Map(codes.map((c) => [c.id, c.code]))
+    selection.clear()
+    step.value = 'tickets'
+  } catch (err) {
+    fail(err)
+  } finally {
+    busy.value = false
+    await loadList()
+  }
 }
+
+const bulkReset = () => issue(canReset.value, skipping(canReset.value.length))
 
 async function bulkRemove() {
   const e = exam.value
@@ -335,7 +357,12 @@ const site = location.origin + location.pathname
       <div class="flex min-h-16 flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-3 sm:px-6">
         <!-- Before the exam only the head count; afterwards a count per status -->
         <p v-if="exam.status === 'draft' || exam.status === 'scheduled'" class="text-[15px] text-ink-2">
-          <strong class="font-semibold text-ink tabular-nums">{{ list.length }}</strong> 位考生
+          <strong class="font-semibold text-ink tabular-nums">{{ list.length }}</strong> 位考生<template v-if="withoutCode">，<button
+              type="button"
+              class="rounded-sm font-medium text-brand underline-offset-2 hover:underline"
+              @click="step = 'tickets'"
+              >{{ withoutCode }} 位還沒有登入碼</button
+            ></template>
         </p>
         <div v-else role="group" aria-label="依狀態篩選考生" class="-mx-2.5 flex flex-wrap items-center gap-x-1 gap-y-1 text-[15px] text-ink-2">
           <button
@@ -381,7 +408,7 @@ const site = location.origin + location.pathname
           </li>
         </ul>
         <p class="mt-3 text-sm text-ink-2">
-          <template v-if="preview.problems.length">有問題的資料不會匯入，修正後再上傳一次即可。</template>系統會自動排座位並產生登入碼。
+          <template v-if="preview.problems.length">有問題的資料不會匯入，修正後再上傳一次即可。</template>系統會自動排座位，登入碼在列印登入單時產生。
         </p>
         <div class="mt-4 flex flex-wrap justify-end gap-2">
           <Button size="md" @click="preview = null"><X />取消</Button>
@@ -420,6 +447,7 @@ const site = location.origin + location.pathname
               <!-- Before the exam everyone is "not signed in", so rows do not repeat it -->
               <Badge v-if="exam.status === 'live' || exam.status === 'ended'" :tone="CANDIDATE_STATUS[c.status].tone">{{ CANDIDATE_STATUS[c.status].label }}</Badge>
               <Badge v-if="c.locked" tone="danger"><Lock />登入碼輸錯，已鎖定</Badge>
+              <Badge v-if="!c.hasCode && c.status !== 'DONE' && exam.status === 'live'" tone="warn"><KeyRound />還沒有登入碼</Badge>
               <Badge v-if="c.leaveCount" tone="warn"><EyeOff />離開畫面 {{ c.leaveCount }} 次</Badge>
               <Badge v-if="c.extraMinutes" tone="neutral"><TimerReset />已補時 {{ c.extraMinutes }} 分鐘</Badge>
             </p>
@@ -449,17 +477,34 @@ const site = location.origin + location.pathname
     <!-- Login slips -->
     <section v-else-if="step === 'tickets'">
       <div class="no-print card flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
-        <p v-if="ticketIds" class="min-w-0 flex-1 basis-64 text-[15px] text-ink-2">
-          只顯示剛重設登入碼的 {{ ticketList.length }} 位。<button type="button" class="rounded-sm font-medium text-brand underline-offset-2 hover:underline" @click="ticketIds = null">顯示全部</button>
-        </p>
-        <p v-else class="min-w-0 flex-1 basis-64 text-[15px] text-ink-2">每位考生一張。登入碼等同密碼，印出後請妥善保管。</p>
-        <Button variant="primary" :disabled="ticketList.length === 0" @click="print">
-          <Printer />列印 {{ ticketList.length }} 張
-        </Button>
+        <template v-if="slips.length">
+          <p class="min-w-0 flex-1 basis-64 text-[15px] text-ink-2">
+            登入碼只顯示在這一頁，離開或重新整理後就看不到了，請現在列印。登入碼等同密碼，印出後請妥善保管。<button
+              v-if="canIssue && slips.length < issuable.length"
+              type="button"
+              class="rounded-sm font-medium text-brand underline-offset-2 hover:underline"
+              @click="issue(issuable)"
+            >改為全部 {{ issuable.length }} 位重新產生</button>
+          </p>
+          <Button variant="primary" @click="print"><Printer />列印 {{ slips.length }} 張</Button>
+        </template>
+        <template v-else>
+          <p class="min-w-0 flex-1 basis-64 text-[15px] text-ink-2">
+            <template v-if="list.length === 0">先到「考生」匯入名單。</template>
+            <template v-else-if="!canIssue">考試已經結束，不能再產生登入碼。</template>
+            <template v-else>
+              每位考生一張。系統不保存登入碼原文，產生後只顯示這一次，請直接列印；之後要補印，只能重新產生，舊的登入單會失效。<template v-if="withoutCode && withoutCode < issuable.length"
+                >還有 {{ withoutCode }} 位沒有登入碼。</template
+              >
+            </template>
+          </p>
+          <Button v-if="canIssue && issuable.length" variant="primary" :disabled="busy" @click="issue(issuable)">
+            <LoaderCircle v-if="busy" class="animate-spin" /><KeyRound v-else />產生 {{ issuable.length }} 張登入單
+          </Button>
+        </template>
       </div>
-      <p v-if="list.length === 0" class="mt-3 px-5 text-[15px] text-ink-2 md:px-1">先到「考生」匯入名單。</p>
-      <ul class="mt-3 grid gap-3 px-4 sm:grid-cols-2 md:px-0 lg:grid-cols-3 print:mt-0 print:grid-cols-2 print:px-0">
-        <li v-for="c in ticketList" :key="c.id" class="ticket rounded-card border-[1.5px] border-dashed border-line-strong bg-paper p-5">
+      <ul v-if="slips.length" class="mt-3 grid gap-3 px-4 sm:grid-cols-2 md:px-0 lg:grid-cols-3 print:mt-0 print:grid-cols-2 print:px-0">
+        <li v-for="c in slips" :key="c.id" class="ticket rounded-card border-[1.5px] border-dashed border-line-strong bg-paper p-5">
           <p class="text-[13px] text-ink-2">{{ exam.name }}</p>
           <p class="mt-2 text-lg font-semibold">{{ c.name }}</p>
           <dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
@@ -468,7 +513,7 @@ const site = location.origin + location.pathname
             <dt class="text-ink-2">座位</dt>
             <dd class="font-medium tabular-nums">第 {{ c.seat }} 號</dd>
             <dt class="self-center text-ink-2">登入碼</dt>
-            <dd class="text-2xl font-bold tracking-[0.14em] tabular-nums">{{ fmt(c.code) }}</dd>
+            <dd class="text-2xl font-bold tracking-[0.14em] tabular-nums">{{ fmt(issued.get(c.id)!) }}</dd>
           </dl>
           <p class="mt-3 text-[12px] text-ink-3">
             {{ when(exam.startAt) }} 開始，作答 {{ exam.duration }} 分鐘。<br />

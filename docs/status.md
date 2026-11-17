@@ -8,9 +8,9 @@ Testa's first target is a school admission exam: a few hundred candidates in com
 | --- | --- | --- |
 | Accounts and access | Done | First-run setup, staff sign-in, database-backed sessions, CSRF, units and roles, batch account creation (pasted from a spreadsheet, optionally into a unit), joining a unit when the account is created, colleague search when adding unit members, acting on several accounts at once (add to a unit, reset passwords, disable), safe deletion of unused accounts, audit log (search by person, unit or text, time filters, entry details, CSV export), system settings in the admin pages (defaults and last change shown), an admin overview of what needs attention |
 | Question banks | Done | Four question types, math, autosave, version conflict detection, try-it mode, deleting or setting points for several questions at once |
-| Exams and rosters | Done | Create, publish (freezes the paper), end; home page cards for coming and running exams with what is still missing; roster import (.xlsx, .csv, Big5); login codes and printable slips |
+| Exams and rosters | Done | Create, publish (freezes the paper), end; home page cards for coming and running exams with what is still missing; roster import (.xlsx, .csv, Big5); login codes (stored hashed, shown once when slips are printed) and printable slips |
 | Taking the exam | Done | Candidate sign-in, single session, server-side timer, autosave, resume, submit, auto-submit, auto-grading |
-| Proctoring | Done | Live status with filters, lockout and reset, leave-window count, extra time per candidate or for several at once, reprinting only the slips whose codes were reset |
+| Proctoring | Done | Live status with filters, lockout and reset, leave-window count, extra time per candidate or for several at once, printing new slips only for the candidates whose codes were reset |
 | Grading | Done | One or more anonymous graders, averaged scores, disagreement warning, reopening with a reason |
 | Results | Done | Score sheet, publishing, Excel and CSV export, optional candidate access |
 | Data lifecycle | Done | Archiving, retention period, deletion with a reason |
@@ -53,7 +53,7 @@ Defaults agreed with the first deploying school. Those marked "System settings" 
 | Grader disagreement | Warn when graders differ by more than 20% of a question's points | Admin > System settings |
 | Sign-in lockout | Locked for 15 minutes after 5 wrong passwords or login codes | Admin > System settings |
 | Authors as graders | Allowed, no recusal rule | |
-| Login codes | Stored in plain text so slips can be reprinted; visible only to the unit's owners and proctors | |
+| Login codes | Stored only as hashes: a code is shown once, when slips are printed; printing again issues a new code. Six digits cannot resist offline guessing, so the hash keeps codes out of staff pages and backups, while the sign-in lockout stops guessing online | |
 | Candidate results | Off: publishing locks scores for export and the school announces them. When an owner turns it on for an exam, candidates see their total and subtotals, never answers or comments | Per exam, on the Results tab |
 
 ## Known limitations
@@ -85,7 +85,7 @@ Defaults agreed with the first deploying school. Those marked "System settings" 
 
 - One or more graders per exam instead of exactly three.
 - Administrators can get time-limited, owner-granted access to an exam.
-- Login codes are stored in plain text, not hashed, so slips can be reprinted.
+- Login codes are issued when slips are printed, not at import, and cannot be reprinted: printing again issues new codes.
 - Spring Boot 4.1 instead of 3, which is out of open-source support; the target is still Java 21.
 - Whether candidates can check their own published scores is a per-exam option, off by default.
 - The exam form has no delivery-mode field (lab or online); it had no effect. Where candidates sit is up to each unit: a lab, a lab whose PCs are blocked from the Internet, or online from home all work (see [Deployment](deployment.md#network-and-offline-exams)).

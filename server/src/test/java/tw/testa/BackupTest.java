@@ -241,7 +241,7 @@ class BackupTest extends IntegrationTestBase {
         long examId = ((Number) read(exam, "$.id")).longValue();
         mvc.perform(json(post("/api/exams/" + examId + "/candidates"), "{\"rows\":[{\"ticket\":\"R-0001\",\"name\":\"王小明\"}]}")
                 .session(owner)).andExpect(status().isCreated());
-        String code = read(mvc.perform(get("/api/exams/" + examId + "/candidates").session(owner)).andReturn(), "$[0].code");
+        String code = read(issueCodes(owner, examId), "$[0].code");
         mvc.perform(post("/api/exams/" + examId + "/publish").with(csrf()).session(owner)).andExpect(status().isOk());
         var candidate = new MockHttpSession();
         mvc.perform(json(post("/api/candidate/login"), "{\"ticket\":\"R-0001\",\"code\":\"%s\"}".formatted(code)).session(candidate))

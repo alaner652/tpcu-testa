@@ -121,8 +121,11 @@ def main():
     officer.call('POST', f'/exams/{exam}/candidates', {'rows': rows})
     officer.call('POST', f'/exams/{exam}/publish')
     roster = officer.call('GET', f'/exams/{exam}/candidates')
-    codes = {c['ticket']: c['code'] for c in roster}
-    step('Officer creates the exam, imports the roster, publishes')
+    assert not any(c['hasCode'] for c in roster), 'imported candidates must not have codes yet'
+    issued = officer.call('POST', f'/exams/{exam}/candidates/codes', {'ids': [c['id'] for c in roster]})
+    codes = {c['ticket']: c['code'] for c in issued}
+    assert 'code' not in officer.call('GET', f'/exams/{exam}/candidates')[0], 'the roster must not show login codes'
+    step('Officer creates the exam, imports the roster, issues login codes, publishes')
 
     def take(ticket, choice, blank, essay):
         c = Client(base)

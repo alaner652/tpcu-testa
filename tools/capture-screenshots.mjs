@@ -85,7 +85,6 @@ async function main() {
       exam = await api(page, `/exams/${exam.id}/publish`, 'POST')
     }
     const roster = await api(page, `/exams/${exam.id}/candidates`)
-    const candidate = roster[0]
 
     await viewport(page)
     await visit(page, '/', '王承辦')
@@ -99,7 +98,13 @@ async function main() {
     await capture(page, 'exam-proctor-phone.png', true)
     await viewport(page)
     await clickText(page, '登入單')
+    await clickText(page, `產生 ${roster.filter((c) => c.status !== 'DONE').length} 張登入單`)
+    await pause(500)
+    await clickText(page, '產生')
+    await pause(1000)
     await capture(page, 'exam-slips.png')
+    // Codes are shown only once, so the candidate pages sign in with a code issued through the API
+    const [candidate] = await api(page, `/exams/${exam.id}/candidates/codes`, 'POST', { ids: [roster[0].id] })
 
     await candidateLogin(page, candidate.ticket, candidate.code)
     await viewport(page)

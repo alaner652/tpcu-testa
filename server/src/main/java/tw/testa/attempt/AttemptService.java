@@ -1,8 +1,6 @@
 package tw.testa.attempt;
 
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
@@ -37,6 +35,7 @@ import tw.testa.exam.Candidate;
 import tw.testa.exam.CandidateRepository;
 import tw.testa.exam.Exam;
 import tw.testa.exam.ExamSnapshot;
+import tw.testa.exam.LoginCodes;
 import tw.testa.grading.GradingDtos.CandidateResult;
 import tw.testa.grading.GradingService;
 
@@ -100,7 +99,7 @@ public class AttemptService {
             audit.recordAs("CANDIDATE_LOGIN_FAILED", "ANONYMOUS", null, ticket, "locked");
             throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "locked", "登入碼輸錯太多次，已暫時鎖定。請洽監考人員重設登入碼。");
         }
-        Candidate match = found.stream().filter(c -> sameCode(c.getLoginCode(), code))
+        Candidate match = found.stream().filter(c -> LoginCodes.matches(code, c.getLoginCodeHash()))
                 // With several matches, prefer an exam that has not ended
                 .min((a, b) -> Boolean.compare(a.getExam().getStatus() == Exam.Status.ENDED,
                         b.getExam().getStatus() == Exam.Status.ENDED))
@@ -122,10 +121,6 @@ public class AttemptService {
         match.newSession();
         audit.recordAs("CANDIDATE_LOGIN", "CANDIDATE", match.getId(), ticket, replaced ? "replaced_session" : null);
         return match;
-    }
-
-    private static boolean sameCode(String expected, String given) {
-        return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), given.getBytes(StandardCharsets.UTF_8));
     }
 
     // ── Answering ────────────────────────────────────────

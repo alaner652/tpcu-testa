@@ -32,6 +32,11 @@ export interface Exam {
   /** How long data is kept; an archived exam can be deleted after it (set once the exam ends) */
   retainUntil: string | null
 }
+export interface IssuedCode {
+  id: number
+  ticket: string
+  code: string
+}
 export type CandidateStatus = 'IDLE' | 'IN' | 'DONE'
 export interface Candidate {
   id: number
@@ -39,7 +44,8 @@ export interface Candidate {
   name: string
   dept: string
   seat: number
-  code: string
+  /** Whether a login code has been issued; the code itself is shown only once, when issued */
+  hasCode: boolean
   status: CandidateStatus
   /** Temporarily locked after too many wrong login codes */
   locked: boolean
@@ -171,7 +177,9 @@ export function useExams() {
     // Several candidates at once: all succeed or none do
     extendTimes: (examId: number, ids: number[], minutes: number, reason: string) =>
       api(`/exams/${examId}/candidates/extend`, { method: 'POST', body: { ids, minutes, reason } }),
-    resetCodes: (examId: number, ids: number[]) => api(`/exams/${examId}/candidates/reset-code`, { method: 'POST', body: { ids } }),
+    /** New login codes for printing slips: the response is the only place they appear */
+    issueCodes: (examId: number, ids: number[]) =>
+      api<IssuedCode[]>(`/exams/${examId}/candidates/codes`, { method: 'POST', body: { ids } }),
     removeCandidates: (examId: number, ids: number[]) => api(`/exams/${examId}/candidates/remove`, { method: 'POST', body: { ids } }),
   }
 }

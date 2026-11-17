@@ -37,7 +37,7 @@ public final class ExamDtos {
             @Min(value = 1, message = "作答時間至少 1 分鐘。") @Max(value = 600, message = "作答時間最多 600 分鐘。") Integer duration,
             Exam.Mode mode) {}
 
-    public record CandidateDto(Long id, String ticket, String name, String dept, int seat, String code,
+    public record CandidateDto(Long id, String ticket, String name, String dept, int seat, boolean hasCode,
             Candidate.Status status, boolean locked, int leaveCount, Instant deadlineAt, int extraMinutes) {}
 
     public record ExtendRequest(
@@ -59,6 +59,9 @@ public final class ExamDtos {
     public record ImportResult(int added, long total) {}
 
     public record CodeDto(String code) {}
+
+    /** A code just issued: shown once, never stored in clear. */
+    public record IssuedCode(Long id, String ticket, String code) {}
 
     /** Several candidates at once. All succeed or none do. */
     public record CandidateIds(

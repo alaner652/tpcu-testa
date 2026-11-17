@@ -61,7 +61,9 @@ async function liveExam(page, label, rows) {
   })
   await api(page, `/exams/${exam.id}/candidates`, 'POST', { rows })
   await api(page, `/exams/${exam.id}/publish`, 'POST')
-  return { exam, roster: await api(page, `/exams/${exam.id}/candidates`) }
+  const roster = await api(page, `/exams/${exam.id}/candidates`)
+  const issued = await api(page, `/exams/${exam.id}/candidates/codes`, 'POST', { ids: roster.map((c) => c.id) })
+  return { exam, roster: roster.map((c) => ({ ...c, code: issued.find((i) => i.id === c.id).code })) }
 }
 
 const people = (prefix, names) =>
@@ -146,7 +148,9 @@ const clips = {
     await rec.click({ css: 'a', text: name }, { after: 1500 })
     await rec.upload('匯入名單', roster)
     await rec.click({ css: 'button', text: '位考生' }, { after: 2000 })
-    await rec.click('登入單', { after: 2000 })
+    await rec.click('登入單', { after: 1500 })
+    await rec.click({ css: 'button', text: '張登入單' }, { after: 1200 })
+    await rec.click({ css: '[role=alertdialog] button', text: '產生' }, { after: 2500 })
     await rec.click('考試', { after: 1500 })
     await rec.click({ text: '發布', in: name }, { after: 1200 })
     await rec.click({ css: '[role=alertdialog] button', text: '發布' }, { after: 2000 })

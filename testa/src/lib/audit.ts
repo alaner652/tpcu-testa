@@ -66,6 +66,7 @@ export const ACTION_GROUPS: { label: string; actions: Record<string, string> }[]
       CANDIDATES_IMPORTED: '匯入考生名單',
       CANDIDATE_REMOVED: '移除考生',
       CANDIDATE_CODE_RESET: '重設登入碼',
+      CANDIDATE_CODES_ISSUED: '產生登入碼',
       CANDIDATE_LOGIN: '考生登入',
       CANDIDATE_LOGIN_FAILED: '考生登入失敗',
       CANDIDATE_LOGOUT: '考生登出',

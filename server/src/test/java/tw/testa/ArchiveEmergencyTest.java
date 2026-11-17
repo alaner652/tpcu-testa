@@ -59,7 +59,7 @@ class ArchiveEmergencyTest extends IntegrationTestBase {
                 "{\"rows\":[{\"ticket\":\"%s\",\"name\":\"王小明\"}]}".formatted(ticket)).session(owner))
                 .andExpect(status().isCreated());
         mvc.perform(post("/api/exams/" + exam + "/publish").with(csrf()).session(owner)).andExpect(status().isOk());
-        code = read(mvc.perform(get("/api/exams/" + exam + "/candidates").session(owner)).andReturn(), "$[0].code");
+        code = read(issueCodes(owner, exam), "$[0].code");
 
         MockHttpSession s = new MockHttpSession();
         mvc.perform(json(post("/api/candidate/login"), "{\"ticket\":\"%s\",\"code\":\"%s\"}".formatted(ticket, code)).session(s))

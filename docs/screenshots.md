@@ -43,7 +43,7 @@ Proctoring refreshes every 10 seconds. Clicking a count shows only those candida
 
 ![Login slips](images/exam-slips.png)
 
-One slip per candidate, printed from the browser.
+One slip per candidate, printed from the browser. Codes are shown only here, right after they are issued.
 
 ## Candidates
 
