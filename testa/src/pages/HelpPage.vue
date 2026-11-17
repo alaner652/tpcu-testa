@@ -1,19 +1,18 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { ArrowLeft, Printer } from 'lucide-vue-next'
-import Logo from '@/components/app/Logo.vue'
+import { Info, Printer } from 'lucide-vue-next'
+import PublicHeader from '@/components/app/PublicHeader.vue'
 import Button from '@/components/ui/Button.vue'
 import { useAuth } from '@/composables/useAuth'
 import { CHAPTERS } from '@/data/manual'
 
 /** The operation manual: one chapter per role, each section a short silent clip with numbered steps. Open to everyone. */
-const { user, isStudent } = useAuth()
+const { isStudent } = useAuth()
 const route = useRoute()
 const chapter = computed(
   () => CHAPTERS.find((c) => c.id === route.params.chapter) ?? CHAPTERS.find((c) => c.id === (isStudent.value ? 'candidate' : 'start'))!,
 )
-const back = computed(() => (!user.value ? { label: '回到登入', to: '/login' } : { label: '回到 Testa', to: isStudent.value ? '/student' : '/' }))
 const videoSrc = (name: string) => `${import.meta.env.BASE_URL}manual/${name}.mp4#t=0.1`
 
 const content = ref<HTMLElement>()
@@ -23,15 +22,7 @@ const print = () => window.print()
 
 <template>
   <div class="flex h-dvh flex-col">
-    <header class="relative z-20 shrink-0 bg-paper shadow-card">
-      <div class="mx-auto flex h-14 max-w-[1080px] items-center gap-3 px-4 md:px-6">
-        <Logo />
-        <span class="text-[15px] text-ink-2">操作手冊</span>
-        <RouterLink :to="back.to" class="ml-auto inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium text-ink-2 hover:bg-ink/[0.06] hover:text-ink">
-          <ArrowLeft class="size-4" />{{ back.label }}
-        </RouterLink>
-      </div>
-    </header>
+    <PublicHeader title="操作手冊" />
 
     <main ref="content" class="thin-scroll min-h-0 flex-1 overflow-y-auto">
       <div class="mx-auto flex max-w-[1080px] gap-8 py-4 md:px-6 md:py-8">
@@ -46,6 +37,11 @@ const print = () => window.print()
                 :aria-current="c.id === chapter.id ? 'page' : undefined"
               >
                 {{ c.title }}
+              </RouterLink>
+            </li>
+            <li class="mt-3 border-t border-line pt-3">
+              <RouterLink to="/about" class="flex items-center gap-2 rounded-control px-3 py-2 text-[15px] text-ink-2 hover:bg-ink/[0.06] hover:text-ink">
+                <Info class="size-4" />關於 Testa
               </RouterLink>
             </li>
           </ul>

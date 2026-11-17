@@ -17,6 +17,7 @@ export const router = createRouter({
     { path: '/setup', name: 'setup', component: () => import('@/pages/SetupPage.vue'), meta: { public: true } },
     // The manual is open to everyone, signed in or not
     { path: '/help/:chapter?', name: 'help', component: () => import('@/pages/HelpPage.vue'), meta: { public: true } },
+    { path: '/about', name: 'about', component: () => import('@/pages/AboutPage.vue'), meta: { public: true } },
     { path: '/password', name: 'password', component: () => import('@/pages/PasswordPage.vue') },
     {
       path: '/',

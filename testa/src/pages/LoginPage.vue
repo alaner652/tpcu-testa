@@ -145,6 +145,8 @@ function switchTo(next: 'candidate' | 'staff') {
         <RouterLink :to="who === 'candidate' ? '/help/candidate' : '/help/start'" class="font-medium text-brand underline-offset-2 hover:underline">
           看操作手冊
         </RouterLink>
+        <span class="mx-1.5 text-ink-3">·</span>
+        <RouterLink to="/about" class="hover:text-ink">關於 Testa</RouterLink>
       </p>
 
       <div v-if="showDemo" class="mt-4 rounded-card border-[1.5px] border-dashed border-line-strong p-4">
