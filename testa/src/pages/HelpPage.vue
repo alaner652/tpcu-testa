@@ -94,9 +94,13 @@ const print = () => window.print()
                   <span>{{ step }}</span>
                 </li>
               </ol>
-              <ul v-if="s.notes" class="mt-3 space-y-1.5 text-[15px] leading-relaxed text-ink-2">
-                <li v-for="note in s.notes" :key="note" class="border-l-2 border-line pl-3">{{ note }}</li>
-              </ul>
+              <!-- After steps the notes get their own heading; a section of notes only (FAQ, tips) reads as plain text under its title -->
+              <template v-if="s.notes">
+                <h3 v-if="s.steps" class="mt-4 text-[13px] font-semibold text-ink-3">注意</h3>
+                <ul class="space-y-1.5 text-[15px] leading-relaxed text-ink-2" :class="s.steps ? 'mt-1.5 list-disc pl-5' : 'mt-2'">
+                  <li v-for="note in s.notes" :key="note">{{ note }}</li>
+                </ul>
+              </template>
             </section>
           </div>
         </article>
