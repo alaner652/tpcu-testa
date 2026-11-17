@@ -6,9 +6,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -103,6 +105,19 @@ public class StaffAdminController {
 
     public record DeletionImpact(boolean deletable, long banks, long exams, long graderAssignments,
             long gradings, long emergencyAccesses) {}
+
+    /** Several accounts at once. All succeed or none do. */
+    public record StaffIds(
+            @NotEmpty(message = "請至少選擇一個帳號。") @Size(max = 500, message = "一次最多處理 500 個帳號。") List<@NotNull Long> ids) {}
+
+    public record BatchActiveRequest(
+            @NotEmpty(message = "請至少選擇一個帳號。") @Size(max = 500, message = "一次最多處理 500 個帳號。") List<@NotNull Long> ids,
+            @NotNull Boolean active) {}
+
+    public record BatchMembershipRequest(
+            @NotEmpty(message = "請至少選擇一個帳號。") @Size(max = 500, message = "一次最多處理 500 個帳號。") List<@NotNull Long> ids,
+            @NotNull(message = "請選擇單位。") Long unitId,
+            @NotEmpty(message = "請選擇角色。") List<@NotNull Role> roles) {}
 
     public record UpdateRequest(@Size(min = 1, max = 100, message = "請輸入姓名。") String name, Boolean active,
             Boolean systemAdmin) {}
@@ -213,6 +228,42 @@ public class StaffAdminController {
         s.invalidateSessions();
         audit.record("PASSWORD_RESET", "staff", s.getId());
         return new CreatedDto(toDto(s, List.of()), password);
+    }
+
+    @PostMapping("/batch/active")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    public void setActive(@Valid @RequestBody BatchActiveRequest body) {
+        UpdateRequest change = new UpdateRequest(null, body.active(), null);
+        forEach(body.ids(), s -> update(s.getId(), change));
+    }
+
+    @PostMapping("/batch/reset-password")
+    @Transactional
+    public List<CreatedDto> resetPasswords(@Valid @RequestBody StaffIds body) {
+        List<CreatedDto> issued = new ArrayList<>();
+        forEach(body.ids(), s -> issued.add(resetPassword(s.getId())));
+        return issued;
+    }
+
+    @PostMapping("/batch/memberships")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    public void addToUnit(@Valid @RequestBody BatchMembershipRequest body) {
+        Unit unit = unitRepo.findById(body.unitId()).orElseThrow(() -> ApiException.notFound("找不到這個單位。"));
+        forEach(body.ids(), s -> memberships.grant(unit, s, body.roles()));
+    }
+
+    /** Runs the single-account action for each id; an error names the account it stopped at. */
+    private void forEach(List<Long> ids, Consumer<Staff> action) {
+        for (Long id : new LinkedHashSet<>(ids)) {
+            Staff s = find(id);
+            try {
+                action.accept(s);
+            } catch (ApiException e) {
+                throw new ApiException(e.status(), e.code(), s.getName() + "：" + e.getMessage() + " 這次的操作都沒有生效。");
+            }
+        }
     }
 
     /** Only unused, already-disabled accounts can be permanently deleted; historical work must keep its author. */

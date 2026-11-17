@@ -6,10 +6,14 @@ import { toast } from 'vue-sonner'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import MoreMenu, { type MoreAction } from '@/components/ui/MoreMenu.vue'
+import SelectionBar, { barButton } from '@/components/ui/SelectionBar.vue'
+import SelectMark from '@/components/ui/SelectMark.vue'
 import EmergencyAccess from '@/components/app/EmergencyAccess.vue'
 import ExamScoring from '@/components/app/ExamScoring.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { CANDIDATE_STATUS, EXAM_STATUS, retainLabel, useExams, when, type Candidate, type RosterPreview } from '@/composables/useExams'
+import { useSelection } from '@/composables/useSelection'
+import { useShortcuts } from '@/composables/useShortcuts'
 
 /**
  * Everything for one exam on one page: candidates (roster and proctoring), login slips, grading, results.
@@ -203,6 +207,83 @@ async function removeCandidate(candidate: Candidate) {
   }
 }
 
+// ── Several candidates at once (long press or Ctrl click a row) ──
+/** Rows can be picked only while something can still be done to them */
+const selectable = computed(() => step.value === 'roster' && !!exam.value && !exam.value.archivedAt && exam.value.status !== 'ended')
+const selection = useSelection(() => (selectable.value ? shown.value : []), (c) => c.id)
+useShortcuts('考生名單', () => selection.shortcuts(() => selectable.value))
+const canExtend = computed(() => selection.selected.value.filter((c) => c.status === 'IN' && exam.value?.status === 'live'))
+const canReset = computed(() => selection.selected.value.filter((c) => c.status !== 'DONE'))
+const canRemove = computed(() => (exam.value?.canManage ? selection.selected.value.filter((c) => c.status === 'IDLE') : []))
+/** "3 位（另外 2 位不適用，會略過）" */
+const skipping = (n: number) => (n < selection.count.value ? `另外 ${selection.count.value - n} 位不適用，會略過。` : '')
+const bulkExtending = ref(false)
+watch(selection.active, (on) => !on && (bulkExtending.value = false))
+
+function startBulkExtend() {
+  extendMinutes.value = 5
+  extendReason.value = ''
+  bulkExtending.value = true
+}
+
+async function bulk(run: () => Promise<unknown>, done: string) {
+  busy.value = true
+  try {
+    await run()
+    toast.success(done)
+    selection.clear()
+  } catch (e) {
+    fail(e)
+  } finally {
+    busy.value = false
+    await loadList()
+    if (exam.value) store.refresh(exam.value.id).catch(() => {})
+  }
+}
+
+async function bulkExtend() {
+  const e = exam.value
+  const ids = canExtend.value.map((c) => c.id)
+  if (!e || !ids.length || !extendReason.value.trim() || busy.value) return
+  await bulk(() => store.extendTimes(e.id, ids, extendMinutes.value, extendReason.value.trim()), `已替 ${ids.length} 位考生補時 ${extendMinutes.value} 分鐘`)
+}
+
+/** Printing again: the login slips tab then shows only the candidates just reset */
+const ticketIds = ref<Set<number> | null>(null)
+watch(examId, () => (ticketIds.value = null))
+const ticketList = computed(() => (ticketIds.value ? list.value.filter((c) => ticketIds.value!.has(c.id)) : list.value))
+
+async function bulkReset() {
+  const e = exam.value
+  const ids = canReset.value.map((c) => c.id)
+  if (!e || !ids.length) return
+  const ok = await confirm({
+    title: `重設 ${ids.length} 位考生的登入碼？`,
+    description: `舊的登入碼會立刻失效（已印出的登入單也是）。重設後可以只列印這幾位的登入單。${skipping(ids.length)}`,
+    confirmLabel: '重設',
+  })
+  if (!ok) return
+  await bulk(() => store.resetCodes(e.id, ids), `已重設 ${ids.length} 位考生的登入碼`)
+  if (!list.value.some((c) => ids.includes(c.id))) return
+  toast(`要列印這 ${ids.length} 位的新登入單嗎？`, {
+    duration: 15000,
+    action: { label: '列印登入單', onClick: () => ((ticketIds.value = new Set(ids)), (step.value = 'tickets')) },
+  })
+}
+
+async function bulkRemove() {
+  const e = exam.value
+  const ids = canRemove.value.map((c) => c.id)
+  if (!e || !ids.length) return
+  const ok = await confirm({
+    title: `把 ${ids.length} 位考生從名單移除？`,
+    description: `移除後這些考生無法登入這場考試。之後可以再匯入。${skipping(ids.length)}`,
+    confirmLabel: '移除',
+    tone: 'danger',
+  })
+  if (ok) await bulk(() => store.removeCandidates(e.id, ids), `已移除 ${ids.length} 位考生`)
+}
+
 const print = () => window.print()
 const fmt = (code: string) => `${code.slice(0, 3)} ${code.slice(3)}`
 const site = location.origin + location.pathname
@@ -329,8 +410,23 @@ const site = location.origin + location.pathname
       </div>
 
       <ul v-else-if="list.length" class="divide-y divide-line border-t border-line">
-        <li v-for="c in shown" :key="c.id" class="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-5 py-3 sm:px-6">
-          <span class="w-8 text-sm text-ink-3 tabular-nums" title="座位">{{ c.seat }}</span>
+        <li
+          v-for="c in shown"
+          :key="c.id"
+          v-bind="selectable ? selection.row(c) : {}"
+          class="group/row flex flex-wrap items-center gap-x-3 gap-y-1.5 py-3 pr-5 pl-3 outline-none focus-visible:bg-sunken sm:pr-6 sm:pl-4 pointer-coarse:select-none"
+          :class="selectable && selection.has(c) && 'bg-brand-soft/50 focus-visible:bg-brand-soft'"
+        >
+          <SelectMark
+            v-if="selectable"
+            :checked="selection.has(c)"
+            :picking="selection.active.value"
+            :label="`選取 ${c.name}`"
+            @toggle="(e) => selection.mark(c, e)"
+          >
+            <span class="text-sm text-ink-3 tabular-nums" title="座位">{{ c.seat }}</span>
+          </SelectMark>
+          <span v-else class="w-10 text-center text-sm text-ink-3 tabular-nums" title="座位">{{ c.seat }}</span>
           <div class="min-w-0 flex-1 basis-48">
             <p class="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span class="mr-0.5 text-base font-medium">{{ c.name }}</span>
@@ -366,14 +462,17 @@ const site = location.origin + location.pathname
     <!-- Login slips -->
     <section v-else-if="step === 'tickets'">
       <div class="no-print card flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
-        <p class="min-w-0 flex-1 basis-64 text-[15px] text-ink-2">每位考生一張。登入碼等同密碼，印出後請妥善保管。</p>
-        <Button variant="primary" :disabled="list.length === 0" @click="print">
-          <Printer />列印 {{ list.length }} 張
+        <p v-if="ticketIds" class="min-w-0 flex-1 basis-64 text-[15px] text-ink-2">
+          只顯示剛重設登入碼的 {{ ticketList.length }} 位。<button type="button" class="rounded-sm font-medium text-brand underline-offset-2 hover:underline" @click="ticketIds = null">顯示全部</button>
+        </p>
+        <p v-else class="min-w-0 flex-1 basis-64 text-[15px] text-ink-2">每位考生一張。登入碼等同密碼，印出後請妥善保管。</p>
+        <Button variant="primary" :disabled="ticketList.length === 0" @click="print">
+          <Printer />列印 {{ ticketList.length }} 張
         </Button>
       </div>
       <p v-if="list.length === 0" class="mt-3 px-5 text-[15px] text-ink-2 md:px-1">先到「考生」匯入名單。</p>
       <ul class="mt-3 grid gap-3 px-4 sm:grid-cols-2 md:px-0 lg:grid-cols-3 print:mt-0 print:grid-cols-2 print:px-0">
-        <li v-for="c in list" :key="c.id" class="ticket rounded-card border-[1.5px] border-dashed border-line-strong bg-paper p-5">
+        <li v-for="c in ticketList" :key="c.id" class="ticket rounded-card border-[1.5px] border-dashed border-line-strong bg-paper p-5">
           <p class="text-[13px] text-ink-2">{{ exam.name }}</p>
           <p class="mt-2 text-lg font-semibold">{{ c.name }}</p>
           <dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
@@ -395,5 +494,24 @@ const site = location.origin + location.pathname
     <!-- Grading, results -->
     <EmergencyAccess v-else-if="step === 'access'" :exam="exam" />
     <ExamScoring v-else :key="`${exam.id}-${step}`" :exam="exam" :view="step" />
+
+    <SelectionBar :count="selection.count.value" :total="shown.length" unit="位" @all="selection.all" @clear="selection.clear">
+      <form v-if="bulkExtending" class="flex flex-wrap items-center gap-1.5" @submit.prevent="bulkExtend">
+        <select v-model.number="extendMinutes" class="field h-9 w-28 bg-paper text-ink" aria-label="補幾分鐘">
+          <option v-for="m in EXTEND_OPTIONS" :key="m" :value="m">補 {{ m }} 分鐘</option>
+        </select>
+        <input v-model="extendReason" class="field h-9 w-56 bg-paper text-ink max-sm:w-full" maxlength="200" placeholder="原因（必填）" aria-label="補時的原因" />
+        <button type="button" :class="barButton" @click="bulkExtending = false">取消</button>
+        <button type="submit" :class="[barButton, 'bg-brand text-brand-fg hover:bg-brand-strong']" :disabled="!extendReason.trim() || busy">
+          <TimerReset />替 {{ canExtend.length }} 位補時
+        </button>
+      </form>
+      <template v-else>
+        <button v-if="canExtend.length" type="button" :class="barButton" @click="startBulkExtend"><TimerReset />補時</button>
+        <button v-if="canReset.length" type="button" :class="barButton" :disabled="busy" @click="bulkReset"><KeyRound />重設登入碼</button>
+        <button v-if="canRemove.length" type="button" :class="barButton" :disabled="busy" @click="bulkRemove"><Trash2 />移除</button>
+        <span v-if="!canExtend.length && !canReset.length && !canRemove.length" class="px-2 text-sm text-paper/70">這些考生沒有可以一起做的動作</span>
+      </template>
+    </SelectionBar>
   </div>
 </template>

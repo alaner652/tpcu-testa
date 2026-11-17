@@ -11,8 +11,12 @@ import UnitMembers from '@/components/app/UnitMembers.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import MoreMenu from '@/components/ui/MoreMenu.vue'
+import SelectionBar, { barButton } from '@/components/ui/SelectionBar.vue'
+import SelectMark from '@/components/ui/SelectMark.vue'
 import { ROLE_CHOICES, UNIT_ROLE_LABEL, rolesOf, useAuth, type UnitRole } from '@/composables/useAuth'
 import { useConfirm } from '@/composables/useConfirm'
+import { useSelection } from '@/composables/useSelection'
+import { useShortcuts } from '@/composables/useShortcuts'
 import { api, apiBlob } from '@/lib/api'
 
 /**
@@ -200,6 +204,91 @@ function batchDone(items: IssuedPassword[]) {
   toast.success(`已建立 ${items.length} 個帳號`)
   loadStaff()
 }
+
+// ── Several accounts at once (long press or Ctrl click a row) ──
+const selection = useSelection(() => (tab.value === 'staff' ? shownStaff.value : []), (s) => s.id)
+/** Your own account is never part of a batch: you cannot disable yourself or reset your password here */
+const others = computed(() => selection.selected.value.filter((s) => s.email !== user.value?.email))
+const toDisable = computed(() => others.value.filter((s) => s.active))
+const toEnable = computed(() => others.value.filter((s) => !s.active))
+const bulkJoin = reactive({ open: false, unitId: null as number | null, choice: 'teacher' })
+const bulkBusy = ref(false)
+watch(selection.active, (on) => !on && (bulkJoin.open = false))
+const skipSelf = () => (others.value.length < selection.count.value ? '你自己的帳號不包含在內。' : '')
+
+async function bulk(run: () => Promise<unknown>, done: string) {
+  bulkBusy.value = true
+  try {
+    await run()
+    toast.success(done)
+    selection.clear()
+  } catch (e) {
+    fail(e)
+  } finally {
+    bulkBusy.value = false
+    await loadStaff()
+  }
+}
+
+function startBulkJoin() {
+  bulkJoin.unitId = units.value.find((u) => u.active)?.id ?? null
+  bulkJoin.open = true
+}
+
+async function bulkAddToUnit() {
+  const ids = selection.selected.value.map((s) => s.id)
+  const unit = units.value.find((u) => u.id === bulkJoin.unitId)
+  if (!unit || !ids.length) return
+  await bulk(
+    () => api('/admin/staff/batch/memberships', { method: 'POST', body: { ids, unitId: unit.id, roles: rolesOf(bulkJoin.choice) } }),
+    `已把 ${ids.length} 人加入「${unit.name}」`,
+  )
+}
+
+async function bulkActive(active: boolean) {
+  const list = active ? toEnable.value : toDisable.value
+  if (!list.length) return
+  if (!active) {
+    const ok = await confirm({
+      title: `停用 ${list.length} 個帳號？`,
+      description: `停用後這些人會立刻被登出，也無法再登入。題庫與考試紀錄會保留，之後可以重新啟用。${skipSelf()}`,
+      confirmLabel: '停用',
+      tone: 'danger',
+    })
+    if (!ok) return
+  }
+  await bulk(
+    () => api('/admin/staff/batch/active', { method: 'POST', body: { ids: list.map((s) => s.id), active } }),
+    `已${active ? '啟用' : '停用'} ${list.length} 個帳號`,
+  )
+}
+
+async function bulkResetPasswords() {
+  const list = others.value
+  if (!list.length) return
+  const ok = await confirm({
+    title: `重設 ${list.length} 人的密碼？`,
+    description: `系統會為每個人產生臨時密碼。他們會立刻被登出，下次登入後必須換成自己的密碼。${skipSelf()}`,
+    confirmLabel: '重設密碼',
+    tone: 'danger',
+  })
+  if (!ok) return
+  await bulk(async () => {
+    const res = await api<{ staff: Staff; temporaryPassword: string }[]>('/admin/staff/batch/reset-password', {
+      method: 'POST',
+      body: { ids: list.map((s) => s.id) },
+    })
+    issued.value = res.map((r) => ({ name: r.staff.name, email: r.staff.email, password: r.temporaryPassword }))
+  }, `已重設 ${list.length} 人的密碼`)
+}
+
+const searchInput = ref<HTMLInputElement | null>(null)
+useShortcuts('使用者', () => [
+  { combo: 'n', label: '新增帳號', run: () => (creating.value = true), when: () => tab.value === 'staff' && !creating.value && !batching.value },
+  { combo: '/', label: '搜尋', run: () => searchInput.value?.focus(), when: () => tab.value === 'staff' && !!searchInput.value },
+  { combo: '', label: '展開這個人的單位與角色', keys: 'Enter', when: () => tab.value === 'staff' },
+  ...selection.shortcuts(() => tab.value === 'staff'),
+])
 
 const rolesText = (s: Staff) => {
   const byUnit = new Map<string, string[]>()
@@ -553,7 +642,7 @@ watch(tab, load)
         <p class="text-[15px] text-ink-2">{{ staff.length }} 位教職員</p>
         <label v-if="staff.length > 8" class="relative ml-auto w-full max-w-64 max-sm:order-last max-sm:max-w-none">
           <Search class="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-ink-3" aria-hidden="true" />
-          <input v-model="staffQuery" type="search" class="field h-10 pl-10" placeholder="搜尋姓名、Email 或單位" aria-label="搜尋教職員" />
+          <input ref="searchInput" v-model="staffQuery" type="search" class="field h-10 pl-10" placeholder="搜尋姓名、Email 或單位" aria-label="搜尋教職員" />
         </label>
         <div v-if="!creating && !batching" class="flex gap-2">
           <Button variant="outline" @click="batching = true"><Users />批次建立</Button>
@@ -591,12 +680,23 @@ watch(tab, load)
       </form>
 
       <ul class="divide-y divide-line border-t border-line">
-        <li v-for="s in shownStaff" :key="s.id">
-          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5 sm:px-6" :class="!s.active && 'opacity-60'">
-            <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[15px] font-semibold text-brand-strong">
-              {{ s.name.slice(0, 1).toUpperCase() }}
-            </span>
-            <div class="min-w-0 flex-1 basis-56">
+        <li
+          v-for="s in shownStaff"
+          :key="s.id"
+          v-bind="selection.row(s, () => (openStaff = openStaff === s.id ? null : s.id))"
+          class="group/row outline-none focus-visible:bg-sunken pointer-coarse:select-none"
+          :class="selection.has(s) && 'bg-brand-soft/50 focus-visible:bg-brand-soft'"
+        >
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5 sm:px-6">
+            <SelectMark :checked="selection.has(s)" :picking="selection.active.value" :label="`選取 ${s.name}`" @toggle="(e) => selection.mark(s, e)">
+              <span
+                class="flex size-10 items-center justify-center rounded-full bg-brand-soft text-[15px] font-semibold text-brand-strong"
+                :class="!s.active && 'opacity-60'"
+              >
+                {{ s.name.slice(0, 1).toUpperCase() }}
+              </span>
+            </SelectMark>
+            <div class="min-w-0 flex-1 basis-56" :class="!s.active && 'opacity-60'">
               <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-medium">
                 <span class="truncate">{{ s.name }}</span>
                 <Badge v-if="s.systemAdmin" tone="done"><Shield />系統管理員</Badge>
@@ -622,7 +722,7 @@ watch(tab, load)
               ]"
             />
           </div>
-          <div v-if="openStaff === s.id" class="border-t border-line bg-sunken/60 px-5 py-4 sm:px-6">
+          <div v-if="openStaff === s.id" class="cursor-auto border-t border-line bg-sunken/60 px-5 py-4 select-text sm:px-6" @pointerdown.stop @click.stop @keydown.stop>
             <StaffUnits :staff="s" :units="units" @changed="loadStaff" />
           </div>
         </li>
@@ -760,5 +860,26 @@ watch(tab, load)
     <EmergencyView v-else-if="tab === 'emergency'" />
 
     <SystemSettings v-else />
+
+    <SelectionBar :count="selection.count.value" :total="shownStaff.length" unit="人" @all="selection.all" @clear="selection.clear">
+      <form v-if="bulkJoin.open" class="flex flex-wrap items-center gap-1.5" @submit.prevent="bulkAddToUnit">
+        <select v-model="bulkJoin.unitId" class="field h-9 w-44 bg-paper text-ink" aria-label="加入哪個單位">
+          <option v-for="u in units.filter((x) => x.active)" :key="u.id" :value="u.id">{{ u.name }}</option>
+        </select>
+        <select v-model="bulkJoin.choice" class="field h-9 w-40 bg-paper text-ink" aria-label="角色">
+          <option v-for="c in ROLE_CHOICES" :key="c.value" :value="c.value">{{ c.label }}</option>
+        </select>
+        <button type="button" :class="barButton" @click="bulkJoin.open = false">取消</button>
+        <button type="submit" :class="[barButton, 'bg-brand text-brand-fg hover:bg-brand-strong']" :disabled="bulkJoin.unitId === null || bulkBusy">
+          <Building2 />加入
+        </button>
+      </form>
+      <template v-else>
+        <button v-if="units.some((u) => u.active)" type="button" :class="barButton" @click="startBulkJoin"><Building2 />加入單位</button>
+        <button v-if="others.length" type="button" :class="barButton" :disabled="bulkBusy" @click="bulkResetPasswords"><KeyRound />重設密碼</button>
+        <button v-if="toEnable.length" type="button" :class="barButton" :disabled="bulkBusy" @click="bulkActive(true)"><RotateCw />啟用</button>
+        <button v-if="toDisable.length" type="button" :class="barButton" :disabled="bulkBusy" @click="bulkActive(false)"><Ban />停用</button>
+      </template>
+    </SelectionBar>
   </div>
 </template>

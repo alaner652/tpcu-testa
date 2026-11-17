@@ -10,6 +10,7 @@ import SidePanel from '@/components/ui/SidePanel.vue'
 import { useAuth } from '@/composables/useAuth'
 import { useBanks } from '@/composables/useBanks'
 import { useConfirm } from '@/composables/useConfirm'
+import { useShortcuts } from '@/composables/useShortcuts'
 import { canPurge, EXAM_STATUS, retainLabel, toLocalInput, useExams, when, type Exam, type ExamMode } from '@/composables/useExams'
 
 const { exams, loading, loadError, load, create, update, publish, withdraw, end, remove, archive, unarchive } = useExams()
@@ -28,6 +29,8 @@ const editing = ref<Exam | null>(null)
 const form = reactive({ name: '', bankId: '', start: '', duration: 60, mode: 'CLASSROOM' as ExamMode })
 const formError = ref('')
 const saving = ref(false)
+
+useShortcuts('考試', () => [{ combo: 'n', label: '建立考試', run: () => openForm(), when: () => ownedUnits.value.length > 0 && !formOpen.value }])
 
 function openForm(exam?: Exam) {
   editing.value = exam ?? null

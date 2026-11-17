@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -58,6 +59,15 @@ public final class ExamDtos {
     public record ImportResult(int added, long total) {}
 
     public record CodeDto(String code) {}
+
+    /** Several candidates at once. All succeed or none do. */
+    public record CandidateIds(
+            @NotEmpty(message = "請至少選擇一位考生。") @Size(max = 1000, message = "一次最多處理 1000 位考生。") List<@NotNull Long> ids) {}
+
+    public record BatchExtendRequest(
+            @NotEmpty(message = "請至少選擇一位考生。") @Size(max = 1000, message = "一次最多處理 1000 位考生。") List<@NotNull Long> ids,
+            @NotNull(message = "請輸入要補幾分鐘。") @Min(value = 1, message = "至少補 1 分鐘。") @Max(value = 60, message = "一次最多補 60 分鐘。") Integer minutes,
+            @NotBlank(message = "請填寫補時的原因。") @Size(max = 200, message = "原因太長了。") String reason) {}
 
     public record DeleteRequest(@Size(max = 500) String reason) {}
 }

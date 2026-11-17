@@ -6,9 +6,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -358,6 +360,38 @@ public class ExamService {
         audit.record("CANDIDATE_REMOVED", "candidate", c.getId(), e.getUnit().getId(), null,
                 c.getTicket() + " " + c.getName());
         candidateRepo.delete(c);
+    }
+
+    // ── Several candidates at once (one transaction: any failure undoes the whole batch) ──
+
+    @Transactional
+    public void extendTimes(Long examId, ExamDtos.BatchExtendRequest req) {
+        var single = new ExamDtos.ExtendRequest(req.minutes(), req.reason());
+        forEach(examId, req.ids(), c -> extendTime(examId, c.getId(), single));
+    }
+
+    @Transactional
+    public void resetCodes(Long examId, List<Long> ids) {
+        forEach(examId, ids, c -> resetCode(examId, c.getId()));
+    }
+
+    @Transactional
+    public void removeCandidates(Long examId, List<Long> ids) {
+        forEach(examId, ids, c -> removeCandidate(examId, c.getId()));
+    }
+
+    /** Runs the single-candidate action for each id; an error names the candidate it stopped at. */
+    private void forEach(Long examId, List<Long> ids, Consumer<Candidate> action) {
+        findVisible(examId);
+        for (Long id : new LinkedHashSet<>(ids)) {
+            Candidate c = findCandidate(examId, id);
+            try {
+                action.accept(c);
+            } catch (ApiException e) {
+                throw new ApiException(e.status(), e.code(), c.getName() + "（" + c.getTicket() + "）：" + e.getMessage()
+                        + " 這次的操作都沒有生效。");
+            }
+        }
     }
 
     // ── Internal ─────────────────────────────────────────

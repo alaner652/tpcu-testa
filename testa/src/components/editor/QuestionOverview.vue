@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
-import { Search, X } from 'lucide-vue-next'
+import { ListChecks, Search, X } from 'lucide-vue-next'
 import Skeleton from '@/components/ui/Skeleton.vue'
 import { useBanks } from '@/composables/useBanks'
+import type { useSelection } from '@/composables/useSelection'
 import { oneLine } from '@/lib/math'
 import { issuesOf, typeMeta } from '@/lib/question'
 import type { Question } from '@/types/question'
@@ -13,6 +14,7 @@ import MathText from './MathText.vue'
  * Question map: one bubble per question, like an answer sheet, instead of a text outline.
  * Filled = done, red ring = incomplete, yellow = AI import to review.
  */
+const props = defineProps<{ selection: ReturnType<typeof useSelection<Question>> }>()
 const emit = defineEmits<{ navigate: [] }>()
 const { questions, activeId, loading, select } = useBanks()
 /** The legend is needed only when there are incomplete or to-review questions */
@@ -42,12 +44,39 @@ function go(id: string) {
   select(id)
   emit('navigate')
 }
+
+/** Picking: Ctrl or Shift click a bubble, or turn on "選取" (for touch, where holding a bubble drags it) */
+const picking = ref(false)
+const on = computed(() => picking.value || props.selection.active.value)
+function onBubble(question: Question, event: MouseEvent) {
+  if (props.selection.click(question, event)) return
+  if (picking.value) props.selection.toggle(question)
+  else go(question.id)
+}
+function togglePicking() {
+  if (on.value) {
+    picking.value = false
+    props.selection.clear()
+  } else picking.value = true
+}
 </script>
 
 <template>
   <div class="flex min-h-0 flex-col">
     <!-- Question count and total points are under the paper title already -->
-    <h2 class="px-1 text-[15px] font-semibold">題號卡</h2>
+    <div class="flex items-center justify-between gap-2">
+      <h2 class="px-1 text-[15px] font-semibold">題號卡</h2>
+      <button
+        v-if="questions.length > 1"
+        type="button"
+        class="-my-1 inline-flex h-8 items-center gap-1 rounded-full px-2.5 text-sm transition-colors"
+        :class="on ? 'bg-brand text-brand-fg' : 'text-ink-2 hover:bg-ink/[0.06] hover:text-ink'"
+        :aria-pressed="on"
+        @click="togglePicking"
+      >
+        <ListChecks class="size-4" />{{ on ? '完成' : '選取' }}
+      </button>
+    </div>
 
     <label
       class="mt-3 flex h-9 items-center gap-2 rounded-full bg-paper px-3 shadow-card transition-shadow focus-within:shadow-[0_0_0_2px_var(--brand)] max-md:h-10"
@@ -102,20 +131,23 @@ function go(id: string) {
         :delay="180"
         :delay-on-touch-only="true"
         ghost-class="opacity-30"
+        :disabled="on"
         class="grid grid-cols-5 gap-2"
       >
         <li v-for="(question, index) in questions" :key="question.id">
           <button
             type="button"
             class="flex aspect-square w-full items-center justify-center rounded-full text-sm font-medium tabular-nums transition-all duration-100"
-            :class="[
-              STATUS_CLASS[statusOf(question)],
-              question.id === activeId && 'ring-2 ring-brand ring-offset-2 ring-offset-desk',
-            ]"
+            :class="
+              selection.has(question)
+                ? 'bg-ink text-paper'
+                : [STATUS_CLASS[statusOf(question)], !on && question.id === activeId && 'ring-2 ring-brand ring-offset-2 ring-offset-desk']
+            "
             :aria-current="question.id === activeId ? 'true' : undefined"
+            :aria-pressed="on ? selection.has(question) : undefined"
             :aria-label="`第 ${index + 1} 題，${typeMeta(question.type).label}，${STATUS_LABEL[statusOf(question)]}`"
             :title="`${typeMeta(question.type).label}題，${question.points} 分，${STATUS_LABEL[statusOf(question)]}`"
-            @click="go(question.id)"
+            @click="onBubble(question, $event)"
           >
             {{ index + 1 }}
           </button>
@@ -128,6 +160,8 @@ function go(id: string) {
       <li class="flex items-center gap-2"><span class="size-3 rounded-full shadow-[inset_0_0_0_1.5px_var(--grade)]" />未完成</li>
       <li v-if="hasReview" class="flex items-center gap-2"><span class="size-3 rounded-full bg-marker shadow-[inset_0_0_0_1px_var(--marker-ink)]" />AI 匯入待確認</li>
     </ul>
-    <p v-if="!loading && questions.length > 1 && !keyword" class="mt-3 px-1 text-[13px] text-ink-3">拖曳圓圈可以調整順序。</p>
+    <p v-if="!loading && questions.length > 1 && !keyword" class="mt-3 px-1 text-[13px] text-ink-3">
+      {{ on ? '點圓圈選取題目，可以一起刪除或設定配分。' : '拖曳圓圈可以調整順序。' }}
+    </p>
   </div>
 </template>

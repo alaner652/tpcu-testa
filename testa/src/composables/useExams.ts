@@ -168,5 +168,10 @@ export function useExams() {
       api<Candidate>(`/exams/${examId}/candidates/${candidateId}/extend`, { method: 'POST', body: { minutes, reason } }),
     removeCandidate: (examId: number, candidateId: number) =>
       api(`/exams/${examId}/candidates/${candidateId}`, { method: 'DELETE' }),
+    // Several candidates at once: all succeed or none do
+    extendTimes: (examId: number, ids: number[], minutes: number, reason: string) =>
+      api(`/exams/${examId}/candidates/extend`, { method: 'POST', body: { ids, minutes, reason } }),
+    resetCodes: (examId: number, ids: number[]) => api(`/exams/${examId}/candidates/reset-code`, { method: 'POST', body: { ids } }),
+    removeCandidates: (examId: number, ids: number[]) => api(`/exams/${examId}/candidates/remove`, { method: 'POST', body: { ids } }),
   }
 }

@@ -38,6 +38,30 @@ export function useQuestionActions() {
     })
   }
 
+  /** Several questions picked on the question map; one undo brings them all back. */
+  async function removeMany(ids: string[]) {
+    if (!ids.length) return false
+    const ok = await confirm({
+      title: `刪除 ${ids.length} 題？`,
+      description: '題目、選項與答案設定會一併刪除。刪除後可以從提示訊息復原。',
+      confirmLabel: '刪除',
+      tone: 'danger',
+    })
+    if (!ok) return false
+    const removed = ids.map((id) => store.remove(id)).filter((r) => r !== null)
+    toast.success(`已刪除 ${removed.length} 題`, {
+      action: {
+        label: '復原',
+        onClick: () => {
+          // Put back in reverse order so each lands where it was
+          for (const r of [...removed].reverse()) r.restore()
+          toast.success('已復原題目')
+        },
+      },
+    })
+    return true
+  }
+
   function duplicate(id: string) {
     store.duplicate(id)
     toast.success('已複製題目')
@@ -71,5 +95,5 @@ export function useQuestionActions() {
     }
   }
 
-  return { add, remove, duplicate, save, importDemo, createBank }
+  return { add, remove, removeMany, duplicate, save, importDemo, createBank }
 }

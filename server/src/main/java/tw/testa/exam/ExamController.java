@@ -116,6 +116,24 @@ public class ExamController {
         return exams.extendTime(id, candidateId, body);
     }
 
+    @PostMapping("/{id}/candidates/extend")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void extendTimes(@PathVariable Long id, @Valid @RequestBody ExamDtos.BatchExtendRequest body) {
+        exams.extendTimes(id, body);
+    }
+
+    @PostMapping("/{id}/candidates/reset-code")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resetCodes(@PathVariable Long id, @Valid @RequestBody ExamDtos.CandidateIds body) {
+        exams.resetCodes(id, body.ids());
+    }
+
+    @PostMapping("/{id}/candidates/remove")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeCandidates(@PathVariable Long id, @Valid @RequestBody ExamDtos.CandidateIds body) {
+        exams.removeCandidates(id, body.ids());
+    }
+
     @DeleteMapping("/{id}/candidates/{candidateId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void removeCandidate(@PathVariable Long id, @PathVariable Long candidateId) {

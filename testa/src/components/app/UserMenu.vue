@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { DropdownMenuRoot, DropdownMenuSeparator, DropdownMenuTrigger } from 'reka-ui'
-import { KeyRound, LogOut, Moon, Sun, Users } from 'lucide-vue-next'
+import { Keyboard, KeyRound, LogOut, Moon, Sun, Users } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import MenuContent from '@/components/ui/MenuContent.vue'
 import MenuItem from '@/components/ui/MenuItem.vue'
 import { ROLE_LABEL, useAuth } from '@/composables/useAuth'
 import { useConfirm } from '@/composables/useConfirm'
+import { helpOpen } from '@/composables/useShortcuts'
 import { useTheme } from '@/composables/useTheme'
 
 const { user, logout } = useAuth()
@@ -52,6 +53,12 @@ async function signOut() {
       <MenuItem v-if="user.role !== 'student'" class="h-10" @select="router.push({ name: 'password' })">
         <KeyRound />
         變更密碼
+      </MenuItem>
+      <!-- Phones have no keyboard -->
+      <MenuItem v-if="user.role !== 'student'" class="h-10 max-md:hidden" @select="helpOpen = true">
+        <Keyboard />
+        鍵盤快捷鍵
+        <kbd class="ml-auto font-sans text-xs text-ink-3">?</kbd>
       </MenuItem>
       <MenuItem class="h-10" @select="signOut">
         <LogOut />

@@ -261,6 +261,39 @@ class AttemptTest extends IntegrationTestBase {
     }
 
     @Test
+    void severalCandidatesAtOnce_allOrNothing() throws Exception {
+        publish();
+        String url = "/api/exams/" + exam + "/candidates/";
+        long id1 = jdbc.queryForObject("select id from candidate where ticket = ?", Long.class, ticket);
+        long id2 = jdbc.queryForObject("select id from candidate where ticket = ?", Long.class, ticket2);
+        String both = "\"ids\":[%d,%d]".formatted(id1, id2);
+        mvc.perform(post("/api/candidate/start").with(csrf()).session(candidate(ticket, code))).andExpect(status().isOk());
+
+        // The second has not started: nothing is extended, the error names who
+        mvc.perform(json(post(url + "extend"), "{%s,\"minutes\":5,\"reason\":\"斷電\"}".formatted(both)).session(owner))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("not_started"))
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.startsWith("李宜華（" + ticket2 + "）")));
+        mvc.perform(get("/api/exams/" + exam + "/candidates").session(owner)).andExpect(jsonPath("$[0].extraMinutes").value(0));
+
+        mvc.perform(post("/api/candidate/start").with(csrf()).session(candidate(ticket2, code2))).andExpect(status().isOk());
+        mvc.perform(json(post(url + "extend"), "{%s,\"minutes\":5,\"reason\":\"斷電\"}".formatted(both)).session(owner))
+                .andExpect(status().isNoContent());
+        mvc.perform(get("/api/exams/" + exam + "/candidates").session(owner)).andExpect(jsonPath("$[0].extraMinutes").value(5))
+                .andExpect(jsonPath("$[1].extraMinutes").value(5));
+        assertThat(jdbc.queryForObject("select count(*) from audit_log where action = 'ATTEMPT_EXTENDED' and reason = '斷電'",
+                Integer.class)).isEqualTo(2);
+
+        mvc.perform(json(post(url + "reset-code"), "{%s}".formatted(both)).session(owner)).andExpect(status().isNoContent());
+        assertThat(jdbc.queryForObject("select login_code from candidate where id = ?", String.class, id1)).isNotEqualTo(code);
+        assertThat(jdbc.queryForObject("select login_code from candidate where id = ?", String.class, id2)).isNotEqualTo(code2);
+
+        // Both have started, so neither can be removed
+        mvc.perform(json(post(url + "remove"), "{%s}".formatted(both)).session(owner)).andExpect(status().isConflict());
+        mvc.perform(json(post(url + "remove"), "{\"ids\":[]}").session(owner)).andExpect(status().isBadRequest());
+        mvc.perform(get("/api/exams/" + exam + "/candidates").session(owner)).andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @Test
     void serverRefusesAfterDeadlineAndAutoSubmits() throws Exception {
         publish();
         MockHttpSession c = candidate(ticket, code);

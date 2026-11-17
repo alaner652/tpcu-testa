@@ -12,6 +12,7 @@ import Switch from '@/components/ui/Switch.vue'
 import Tip from '@/components/ui/Tip.vue'
 import { useBanks } from '@/composables/useBanks'
 import { useQuestionActions } from '@/composables/useQuestionActions'
+import { keyLabel } from '@/lib/keys'
 import { issuesOf, QUESTION_TYPES, typeMeta } from '@/lib/question'
 import BlankEditor from './BlankEditor.vue'
 import ChoiceEditor from './ChoiceEditor.vue'
@@ -147,17 +148,17 @@ watch(
           {{ issues.join('、') }}
         </p>
         <div class="ml-auto flex items-center gap-0.5">
-          <Tip label="上移" shortcut="Alt ↑">
+          <Tip label="上移" :shortcut="keyLabel('alt+arrowup')">
             <Button size="icon" aria-label="上移" :disabled="index === 0" @click="store.move(question.id, -1)">
               <ArrowUp />
             </Button>
           </Tip>
-          <Tip label="下移" shortcut="Alt ↓">
+          <Tip label="下移" :shortcut="keyLabel('alt+arrowdown')">
             <Button size="icon" aria-label="下移" :disabled="index === total - 1" @click="store.move(question.id, 1)">
               <ArrowDown />
             </Button>
           </Tip>
-          <Tip label="複製" shortcut="Ctrl D">
+          <Tip label="複製" :shortcut="keyLabel('mod+d')">
             <Button size="icon" aria-label="複製題目" @click="duplicate(question.id)"><Copy /></Button>
           </Tip>
           <Tip label="刪除">

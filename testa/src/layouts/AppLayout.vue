@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { ClipboardPenLine, FileText, House, LibraryBig, Settings } from 'lucide-vue-next'
 import Logo from '@/components/app/Logo.vue'
+import ShortcutHelp from '@/components/app/ShortcutHelp.vue'
 import UserMenu from '@/components/app/UserMenu.vue'
 import { useAuth, type UnitRole } from '@/composables/useAuth'
 import { useGrading } from '@/composables/useGrading'
@@ -92,5 +93,6 @@ const staffLinks = computed(() => [
         </a>
       </RouterLink>
     </nav>
+    <ShortcutHelp v-if="!isStudent" />
   </div>
 </template>

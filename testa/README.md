@@ -95,6 +95,16 @@ One sans-serif stack for the whole site; question content uses `.exam-text`, sha
 - Whole cards are clickable; a one-line hint next to the status says what to do next.
 - Keep explanatory text to what is needed.
 
+### Picking several rows and keyboard shortcuts
+
+Both only speed things up; every action still has a button.
+
+- Lists where one action often applies to many rows (exam roster, admin accounts) use `useSelection`: long press, Ctrl or ⌘ click, or the row's check box (`SelectMark`, it replaces the avatar or seat number on hover) starts picking; Shift click picks a range.
+  `SelectionBar` then floats at the bottom with the count and the batch actions. Batch actions call one backend endpoint that succeeds or fails as a whole.
+- The question map has a "選取" button instead of long press, because holding a bubble drags it.
+- Shortcuts are registered per page with `useShortcuts` and listed by `?` (`ShortcutHelp`, also in the account menu). Single keys never fire while typing or while an input method is composing.
+  Keep them few and conventional: `/` search, `N` new, `Esc`, `Ctrl A`. The candidate exam page has none.
+
 ### Buttons (`components/ui/Button.vue`)
 
 | Size | Where |

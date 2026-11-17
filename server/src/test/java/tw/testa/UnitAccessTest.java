@@ -214,4 +214,34 @@ class UnitAccessTest extends IntegrationTestBase {
                 "{\"email\":\"search-teacher@test.tw\"}").session(ownerS))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    void adminsActOnSeveralAccountsAtOnce() throws Exception {
+        MockHttpSession admin = adminSession();
+        long unit = createUnit(admin, "批次操作單位");
+        long a = ((Number) createStaff(admin, "bulk-a@test.tw", "甲")[0]).longValue();
+        long b = ((Number) createStaff(admin, "bulk-b@test.tw", "乙")[0]).longValue();
+        String ids = "\"ids\":[%d,%d]".formatted(a, b);
+
+        mvc.perform(json(post("/api/admin/staff/batch/memberships"), "{%s,\"unitId\":%d,\"roles\":[\"AUTHOR\",\"PROCTOR\"]}"
+                .formatted(ids, unit)).session(admin)).andExpect(status().isNoContent());
+        mvc.perform(get("/api/units/" + unit + "/members").session(admin)).andExpect(jsonPath("$.length()").value(4));
+
+        var issued = mvc.perform(json(post("/api/admin/staff/batch/reset-password"), "{%s}".formatted(ids)).session(admin))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2)).andReturn();
+        login("bulk-b@test.tw", read(issued, "$[1].temporaryPassword"));
+
+        // Including yourself undoes the whole batch
+        var me = mvc.perform(get("/api/auth/me").session(admin)).andReturn();
+        long self = ((Number) read(me, "$.id")).longValue();
+        mvc.perform(json(post("/api/admin/staff/batch/active"), "{\"ids\":[%d,%d],\"active\":false}".formatted(a, self))
+                .session(admin)).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("self"));
+        mvc.perform(get("/api/admin/staff").session(admin)).andExpect(jsonPath("$[?(@.id == %d)].active".formatted(a)).value(true));
+
+        mvc.perform(json(post("/api/admin/staff/batch/active"), "{%s,\"active\":false}".formatted(ids)).session(admin))
+                .andExpect(status().isNoContent());
+        mvc.perform(get("/api/admin/staff").session(admin))
+                .andExpect(jsonPath("$[?(@.id == %d)].active".formatted(a)).value(false))
+                .andExpect(jsonPath("$[?(@.id == %d)].active".formatted(b)).value(false));
+    }
 }

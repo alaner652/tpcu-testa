@@ -6,11 +6,11 @@ Testa's first target is a school admission exam: a few hundred candidates in com
 
 | Area | Status | Scope |
 | --- | --- | --- |
-| Accounts and access | Done | First-run setup, staff sign-in, database-backed sessions, CSRF, units and roles, batch account creation (pasted from a spreadsheet, optionally into a unit), joining a unit when the account is created, colleague search when adding unit members, safe deletion of unused accounts, audit log, system settings in the admin pages |
-| Question banks | Done | Four question types, math, autosave, version conflict detection, try-it mode |
+| Accounts and access | Done | First-run setup, staff sign-in, database-backed sessions, CSRF, units and roles, batch account creation (pasted from a spreadsheet, optionally into a unit), joining a unit when the account is created, colleague search when adding unit members, acting on several accounts at once (add to a unit, reset passwords, disable), safe deletion of unused accounts, audit log, system settings in the admin pages |
+| Question banks | Done | Four question types, math, autosave, version conflict detection, try-it mode, deleting or setting points for several questions at once |
 | Exams and rosters | Done | Create, publish (freezes the paper), end; roster import (.xlsx, .csv, Big5); login codes and printable slips |
 | Taking the exam | Done | Candidate sign-in, single session, server-side timer, autosave, resume, submit, auto-submit, auto-grading |
-| Proctoring | Done | Live status with filters, lockout and reset, leave-window count, per-candidate extra time |
+| Proctoring | Done | Live status with filters, lockout and reset, leave-window count, extra time per candidate or for several at once, reprinting only the slips whose codes were reset |
 | Grading | Done | One or more anonymous graders, averaged scores, disagreement warning, reopening with a reason |
 | Results | Done | Score sheet, publishing, Excel and CSV export, optional candidate access |
 | Data lifecycle | Done | Archiving, retention period, deletion with a reason |
@@ -31,7 +31,7 @@ Testa's first target is a school admission exam: a few hundred candidates in com
 | HTTPS | Both TLS at a reverse proxy (with real client IPs and forged `X-Forwarded-For` ignored) and TLS on the VM (`deploy/https.yml`) |
 | Backup | Daily dump restored into an emptied database |
 | Browser | Every page in Chromium at 1440 px and 390 px (candidate pages also at 320 px); see [Screenshots](screenshots.md) |
-| Automated tests | 57 backend integration tests against real PostgreSQL (Testcontainers) and 19 frontend unit tests, run by GitHub Actions on every push |
+| Automated tests | 59 backend integration tests against real PostgreSQL (Testcontainers) and 23 frontend unit tests, run by GitHub Actions on every push |
 
 ## Before production
 

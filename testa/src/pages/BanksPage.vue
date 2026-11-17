@@ -8,6 +8,7 @@ import Skeleton from '@/components/ui/Skeleton.vue'
 import { useBanks } from '@/composables/useBanks'
 import { useQuestionActions } from '@/composables/useQuestionActions'
 import { useConfirm } from '@/composables/useConfirm'
+import { useShortcuts } from '@/composables/useShortcuts'
 import { issuesOf } from '@/lib/question'
 import type { Bank } from '@/types/question'
 
@@ -21,6 +22,8 @@ async function create() {
   const created = await createBank()
   if (created) router.push(`/banks/${created.id}`)
 }
+
+useShortcuts('題庫', () => [{ combo: 'n', label: '新增題庫', run: create, when: () => authorUnits.value.length > 0 }])
 
 async function remove(bank: Bank) {
   const ok = await confirm({

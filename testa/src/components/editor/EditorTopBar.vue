@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { DropdownMenuLabel, DropdownMenuRoot, DropdownMenuSeparator, DropdownMenuTrigger } from 'reka-ui'
-import { ArrowLeft, Ellipsis, LayoutGrid, Moon, RotateCcw, Sparkles, Sun } from 'lucide-vue-next'
+import { DropdownMenuRoot, DropdownMenuTrigger } from 'reka-ui'
+import { ArrowLeft, Ellipsis, Keyboard, LayoutGrid, Moon, RotateCcw, Sparkles, Sun } from 'lucide-vue-next'
 import Button from '@/components/ui/Button.vue'
 import MenuContent from '@/components/ui/MenuContent.vue'
 import MenuItem from '@/components/ui/MenuItem.vue'
 import Tip from '@/components/ui/Tip.vue'
 import { useAi } from '@/composables/useAi'
 import { useQuestionActions } from '@/composables/useQuestionActions'
+import { helpOpen } from '@/composables/useShortcuts'
 import { useTheme } from '@/composables/useTheme'
 import BankSwitcher from './BankSwitcher.vue'
 import SaveIndicator from './SaveIndicator.vue'
@@ -23,13 +24,6 @@ const MODES = [
   { value: 'edit', label: '編輯' },
   { value: 'preview', label: '模擬作答' },
 ] as const
-
-const SHORTCUTS = [
-  ['儲存', 'Ctrl S'],
-  ['複製題目', 'Ctrl D'],
-  ['在下方新增題目', 'Ctrl Enter'],
-  ['上移、下移', 'Alt ↑ ↓'],
-]
 </script>
 
 <template>
@@ -89,16 +83,11 @@ const SHORTCUTS = [
               <RotateCcw />
               匯入示範題庫（開發用）
             </MenuItem>
-            <DropdownMenuSeparator class="my-1 h-px bg-line max-md:hidden" />
-            <DropdownMenuLabel class="px-2 pt-1.5 pb-1 text-xs text-ink-3 max-md:hidden">鍵盤快捷鍵</DropdownMenuLabel>
-            <div
-              v-for="[name, keys] in SHORTCUTS"
-              :key="name"
-              class="flex items-center justify-between px-2 py-1 text-sm text-ink-2 max-md:hidden"
-            >
-              {{ name }}
-              <kbd class="font-sans text-xs text-ink-3">{{ keys }}</kbd>
-            </div>
+            <MenuItem class="max-md:hidden" @select="helpOpen = true">
+              <Keyboard />
+              鍵盤快捷鍵
+              <kbd class="ml-auto font-sans text-xs text-ink-3">?</kbd>
+            </MenuItem>
           </MenuContent>
         </DropdownMenuRoot>
       </div>
