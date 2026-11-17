@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
-import { LoaderCircle, PlugZap, Save, TriangleAlert, Wifi } from 'lucide-vue-next'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
+import { History, LoaderCircle, PlugZap, RotateCcw, Save, TriangleAlert, Undo2, Wifi } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import Button from '@/components/ui/Button.vue'
 import Switch from '@/components/ui/Switch.vue'
@@ -17,13 +18,18 @@ interface Settings {
   loginMaxFailures: number
   loginLockMinutes: number
   backupKeepDays: number
+  defaults: Record<NumberKey, number>
+  lastChange: { at: string; by: string | null; detail: string | null } | null
 }
+type NumberKey = 'flagPercent' | 'retentionYears' | 'loginMaxFailures' | 'loginLockMinutes' | 'backupKeepDays'
 interface Probe {
   ok: boolean
   message: string
   models: string[]
 }
 
+/** Whether there are unsaved changes, so the admin page can ask before switching tabs */
+const unsaved = defineModel<boolean>('dirty', { default: false })
 const saved = ref<Settings | null>(null)
 const form = reactive({
   aiEnabled: false,
@@ -84,6 +90,25 @@ const dirty = computed(() => {
   )
 })
 
+watch(dirty, (d) => (unsaved.value = d), { immediate: true })
+
+/** A number that differs from its default gets a way back */
+const changedFromDefault = (key: NumberKey) => !!saved.value && form[key] !== saved.value.defaults[key]
+const resetToDefault = (key: NumberKey) => saved.value && (form[key] = saved.value.defaults[key])
+const discard = () => saved.value && fill(saved.value)
+
+// Leaving with unsaved changes: ask first (other pages, reload, closing the tab)
+const LEAVE = '設定還沒儲存，確定要離開嗎？'
+onBeforeRouteLeave(() => !dirty.value || window.confirm(LEAVE))
+const beforeUnload = (e: BeforeUnloadEvent) => {
+  if (dirty.value) e.preventDefault()
+}
+onMounted(() => window.addEventListener('beforeunload', beforeUnload))
+onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
+
+const changedAt = (iso: string) =>
+  new Date(iso).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
+
 /** Models to offer: what the last test found, plus the one in use. */
 const models = computed(() => {
   const list = [...(probe.value?.models ?? [])]
@@ -141,6 +166,14 @@ async function save() {
   <p v-else-if="!saved" class="card px-5 py-8 text-center text-ink-2 sm:px-6">載入中…</p>
 
   <form v-else class="space-y-4" @submit.prevent>
+    <p v-if="saved.lastChange" class="flex items-start gap-2 px-5 text-sm text-ink-2 sm:px-0">
+      <History class="mt-0.5 size-4 shrink-0 text-ink-3" />
+      <span>
+        上次修改：{{ saved.lastChange.by ?? '系統' }}，<span class="tabular-nums">{{ changedAt(saved.lastChange.at) }}</span>
+        <span v-if="saved.lastChange.detail" class="block text-ink-3">{{ saved.lastChange.detail }}</span>
+      </span>
+    </p>
+
     <!-- AI question import -->
     <section class="card divide-y divide-line">
       <label class="flex items-center gap-4 px-5 py-5 sm:px-6">
@@ -226,6 +259,12 @@ async function save() {
           <input id="flag" v-model.number="form.flagPercent" type="number" min="5" max="100" required class="field w-24 text-right tabular-nums" />
           <span class="text-ink-2">%</span>
         </span>
+        <span class="flex w-full items-center justify-end gap-2 text-[13px] text-ink-3 sm:w-auto">
+          預設 {{ saved.defaults.flagPercent }}%
+          <button v-if="changedFromDefault('flagPercent')" type="button" class="inline-flex items-center gap-1 font-medium text-brand hover:underline" @click="resetToDefault('flagPercent')">
+            <RotateCcw class="size-3.5" />恢復預設
+          </button>
+        </span>
       </div>
 
       <div class="flex flex-wrap items-center gap-x-6 gap-y-3 px-5 py-5 sm:px-6">
@@ -239,6 +278,12 @@ async function save() {
           <input id="backup-days" v-model.number="form.backupKeepDays" type="number" min="1" max="365" required class="field w-24 text-right tabular-nums" />
           <span class="text-ink-2">天</span>
         </span>
+        <span class="flex w-full items-center justify-end gap-2 text-[13px] text-ink-3 sm:w-auto">
+          預設 {{ saved.defaults.backupKeepDays }} 天
+          <button v-if="changedFromDefault('backupKeepDays')" type="button" class="inline-flex items-center gap-1 font-medium text-brand hover:underline" @click="resetToDefault('backupKeepDays')">
+            <RotateCcw class="size-3.5" />恢復預設
+          </button>
+        </span>
       </div>
 
       <div class="flex flex-wrap items-center gap-x-6 gap-y-3 px-5 py-5 sm:px-6">
@@ -251,6 +296,12 @@ async function save() {
         <span class="flex items-center gap-2">
           <input id="years" v-model.number="form.retentionYears" type="number" min="1" max="10" required class="field w-24 text-right tabular-nums" />
           <span class="text-ink-2">年</span>
+        </span>
+        <span class="flex w-full items-center justify-end gap-2 text-[13px] text-ink-3 sm:w-auto">
+          預設 {{ saved.defaults.retentionYears }} 年
+          <button v-if="changedFromDefault('retentionYears')" type="button" class="inline-flex items-center gap-1 font-medium text-brand hover:underline" @click="resetToDefault('retentionYears')">
+            <RotateCcw class="size-3.5" />恢復預設
+          </button>
         </span>
       </div>
 
@@ -268,12 +319,30 @@ async function save() {
           <input v-model.number="form.loginLockMinutes" type="number" min="1" max="1440" required aria-label="鎖定幾分鐘" class="field w-24 text-right tabular-nums" />
           分鐘
         </span>
+        <span class="flex w-full items-center justify-end gap-2 text-[13px] text-ink-3 sm:w-auto">
+          預設輸錯 {{ saved.defaults.loginMaxFailures }} 次，鎖定 {{ saved.defaults.loginLockMinutes }} 分鐘
+          <button
+            v-if="changedFromDefault('loginMaxFailures') || changedFromDefault('loginLockMinutes')"
+            type="button"
+            class="inline-flex items-center gap-1 font-medium text-brand hover:underline"
+            @click="(resetToDefault('loginMaxFailures'), resetToDefault('loginLockMinutes'))"
+          >
+            <RotateCcw class="size-3.5" />恢復預設
+          </button>
+        </span>
       </div>
     </section>
 
-    <div class="flex items-center justify-end gap-3 px-5 sm:px-0">
-      <span v-if="dirty" class="text-sm text-ink-2">有還沒儲存的變更</span>
-      <Button variant="primary" size="md" :disabled="!dirty || saving" @click="save"><Save />儲存設定</Button>
+    <!-- While there are changes, the save bar stays in view at the bottom -->
+    <div
+      class="z-20 flex items-center justify-end gap-2 px-4 sm:px-0"
+      :class="dirty && 'sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] md:bottom-5'"
+    >
+      <div class="flex items-center gap-2" :class="dirty && 'rounded-full bg-paper py-1.5 pr-1.5 pl-4 shadow-lift'">
+        <span v-if="dirty" class="text-sm font-medium">有還沒儲存的變更</span>
+        <Button v-if="dirty" size="md" :disabled="saving" @click="discard"><Undo2 />放棄</Button>
+        <Button variant="primary" size="md" :disabled="!dirty || saving" @click="save"><Save />儲存設定</Button>
+      </div>
     </div>
   </form>
 </template>

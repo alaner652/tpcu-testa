@@ -26,6 +26,12 @@ write_status() {
   mv "$control/status.tmp" "$control/status"
 }
 
+# One line per finished operation for the admin page: epoch, kind (auto/manual/delete/restore), ok|error, file name
+record() {
+  printf '%s\t%s\t%s\t%s\n' "$(date +%s)" "$1" "$2" "${3:-}" >> "$control/history"
+  tail -n 100 "$control/history" > "$control/history.tmp" && mv "$control/history.tmp" "$control/history"
+}
+
 valid_name() {
   printf '%s\n' "$1" | grep -Eq '^testa-[0-9]{8}-[0-9]{6}\.sql\.gz$'
 }
@@ -66,8 +72,10 @@ run_backup() {
   if create_backup; then
     cleanup_backups
     write_status ok
+    record "$1" ok "$(basename "$file")"
   else
     write_status error
+    record "$1" error
   fi
 }
 
@@ -77,10 +85,12 @@ run_delete() {
   if valid_name "$name" && [ -f "/backups/$name" ] && rm -f "/backups/$name"; then
     rm -f "$control/delete-request"
     write_status ok
+    record delete ok "$name"
     echo "Backup deleted: $name"
   else
     rm -f "$control/delete-request"
     write_status error
+    record delete error "$name"
     echo "Backup delete failed: $name" >&2
   fi
 }
@@ -94,6 +104,7 @@ run_restore() {
   if ! valid_name "$name" || [ ! -f "/backups/$name" ] || ! gzip -t "/backups/$name"; then
     rm -f "$control/restore-request" "$control/maintenance"
     write_status error
+    record restore error "$name"
     echo "Backup restore validation failed: $name" >&2
     return
   fi
@@ -104,6 +115,7 @@ run_restore() {
   if [ "$dump_migrations" != "$live_migrations" ]; then
     rm -f "$control/restore-request" "$control/maintenance"
     write_status version-mismatch
+    record restore error "$name"
     echo "Backup has $dump_migrations migrations, database has $live_migrations; restore it on the host" >&2
     return
   fi
@@ -111,6 +123,7 @@ run_restore() {
   if ! create_backup; then
     rm -f "$control/restore-request" "$control/maintenance"
     write_status error
+    record restore error "$name"
     echo "Pre-restore backup failed; restore cancelled" >&2
     return
   fi
@@ -118,10 +131,12 @@ run_restore() {
     mv "$control/restore-request" "$control/restore-completed"
     cleanup_backups
     write_status ok
+    record restore ok "$name"
     echo "Backup restored: $name"
   else
     rm -f "$control/restore-request"
     write_status error
+    record restore error "$name"
     echo "Backup restore failed: $name" >&2
   fi
   rm -f "$control/maintenance"
@@ -141,9 +156,12 @@ while true; do
   elif [ -f "$control/delete-request" ]; then
     run_delete
   elif [ "$next_run" -eq 0 ] || [ -f "$control/request" ] || [ "$now" -ge "$next_run" ]; then
+    kind=auto
+    if [ -f "$control/request" ]; then kind=manual; fi
     rm -f "$control/request"
-    run_backup
+    run_backup "$kind"
     next_run=$((now + 86400))
+    printf '%s\n' "$next_run" > "$control/next-run"
   fi
   sleep 2
 done

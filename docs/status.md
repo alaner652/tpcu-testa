@@ -6,9 +6,9 @@ Testa's first target is a school admission exam: a few hundred candidates in com
 
 | Area | Status | Scope |
 | --- | --- | --- |
-| Accounts and access | Done | First-run setup, staff sign-in, database-backed sessions, CSRF, units and roles, batch account creation (pasted from a spreadsheet, optionally into a unit), joining a unit when the account is created, colleague search when adding unit members, acting on several accounts at once (add to a unit, reset passwords, disable), safe deletion of unused accounts, audit log, system settings in the admin pages |
+| Accounts and access | Done | First-run setup, staff sign-in, database-backed sessions, CSRF, units and roles, batch account creation (pasted from a spreadsheet, optionally into a unit), joining a unit when the account is created, colleague search when adding unit members, acting on several accounts at once (add to a unit, reset passwords, disable), safe deletion of unused accounts, audit log (search by person, unit or text, time filters, entry details, CSV export), system settings in the admin pages (defaults and last change shown), an admin overview of what needs attention |
 | Question banks | Done | Four question types, math, autosave, version conflict detection, try-it mode, deleting or setting points for several questions at once |
-| Exams and rosters | Done | Create, publish (freezes the paper), end; roster import (.xlsx, .csv, Big5); login codes and printable slips |
+| Exams and rosters | Done | Create, publish (freezes the paper), end; home page cards for coming and running exams with what is still missing; roster import (.xlsx, .csv, Big5); login codes and printable slips |
 | Taking the exam | Done | Candidate sign-in, single session, server-side timer, autosave, resume, submit, auto-submit, auto-grading |
 | Proctoring | Done | Live status with filters, lockout and reset, leave-window count, extra time per candidate or for several at once, reprinting only the slips whose codes were reset |
 | Grading | Done | One or more anonymous graders, averaged scores, disagreement warning, reopening with a reason |
@@ -16,7 +16,7 @@ Testa's first target is a school admission exam: a few hundred candidates in com
 | Data lifecycle | Done | Archiving, retention period, deletion with a reason |
 | Emergency access | Done | An exam owner grants one administrator time-limited, read-only access; every view is audited |
 | Deployment | Done | Docker Compose with Nginx, HTTPS option, daily backups, health checks, smoke test |
-| Backups in the admin panel | Done | Take, download, delete and restore backups; retention in System settings; restore puts the site in maintenance, backs up the current data first, needs a typed confirmation, and is refused during an exam or for a dump from another schema version |
+| Backups in the admin panel | Done | Take, download, delete and restore backups; retention in System settings; restore puts the site in maintenance, backs up the current data first, needs a typed confirmation, and is refused during an exam or for a dump from another schema version; the page shows the next scheduled backup, recent runs (written by `deploy/backup.sh`), free disk space and a reminder to keep a copy off the server |
 | Operation manual | Done | `/help`, open without signing in: a chapter per role written in Markdown (`testa/src/manual`) with short recorded clips, numbered steps and tables, printable candidate notice, FAQ that opens one answer at a time; Chinese only. `/about` gives non-technical readers the exam flow, why it is safe and the credits. Clips are re-recorded with `tools/record-videos.mjs` |
 | AI question import | Experimental, off by default | A local model drafts questions from a Word, PDF or text exam paper; the author confirms each one. See [AI features](ai.md#question-import) |
 | On-site trial | Not started | Real lab network, printers and browsers; see [Before production](#before-production) |

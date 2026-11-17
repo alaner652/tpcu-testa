@@ -90,6 +90,11 @@ public class SettingsService {
         return days;
     }
 
+    /** The value from application.yml, used when nothing is stored */
+    int defaultNumber(String key) {
+        return Integer.parseInt(defaults.get(key));
+    }
+
     String get(String key) {
         String value = values().get(key);
         return value != null ? value : defaults.get(key);

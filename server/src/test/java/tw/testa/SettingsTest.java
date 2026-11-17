@@ -121,6 +121,13 @@ class SettingsTest extends IntegrationTestBase {
         assertThat(detail).contains("開啟 AI 匯入題目").contains("評分差距提醒 20% 改為 15%").contains("資料保存年數 1 年 改為 2 年")
                 .contains("登入錯誤上限 3 次 改為 5 次").contains("更新 AI API 金鑰").doesNotContain(KEY);
         assertThat(log.getResponse().getContentAsString()).doesNotContain(KEY);
+
+        // The page shows the defaults next to each field and who changed the settings last
+        mvc.perform(get("/api/admin/settings").session(admin)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.defaults.flagPercent").value(20)).andExpect(jsonPath("$.defaults.loginMaxFailures").value(3))
+                .andExpect(jsonPath("$.defaults.backupKeepDays").value(30))
+                .andExpect(jsonPath("$.lastChange.by").value("Admin"))
+                .andExpect(jsonPath("$.lastChange.detail").value(org.hamcrest.Matchers.containsString("評分差距提醒 20% 改為 15%")));
     }
 
     @Test

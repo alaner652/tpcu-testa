@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { Ban, Building2, ChevronDown, DatabaseBackup, Download, History, KeyRound, Lock, Plus, RotateCw, ScrollText, Search, Settings, Shield, Trash2, UserCog, UserPlus, Users, X } from 'lucide-vue-next'
+import { Ban, Building2, DatabaseBackup, Gauge, KeyRound, Lock, Plus, RotateCw, ScrollText, Search, Settings, Shield, Trash2, UserCog, UserPlus, Users, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import AdminOverview from '@/components/app/AdminOverview.vue'
+import AuditLog from '@/components/app/AuditLog.vue'
+import BackupPanel from '@/components/app/BackupPanel.vue'
 import BatchCreate from '@/components/app/BatchCreate.vue'
 import EmergencyView from '@/components/app/EmergencyView.vue'
 import StaffUnits from '@/components/app/StaffUnits.vue'
@@ -17,10 +20,10 @@ import { ROLE_CHOICES, UNIT_ROLE_LABEL, rolesOf, useAuth, type UnitRole } from '
 import { useConfirm } from '@/composables/useConfirm'
 import { useSelection } from '@/composables/useSelection'
 import { useShortcuts } from '@/composables/useShortcuts'
-import { api, apiBlob } from '@/lib/api'
+import { api } from '@/lib/api'
 
 /**
- * Admin pages (system administrators): staff accounts, units and roles, audit log.
+ * Admin pages (system administrators): overview, staff accounts, units and roles, audit log, backups, settings.
  * Administrators manage accounts and units only; they cannot see banks, papers or scores.
  */
 interface Staff {
@@ -40,19 +43,6 @@ interface Unit {
   type: 'ADMISSION' | 'CLASS'
   active: boolean
 }
-interface AuditEntry {
-  id: number
-  at: string
-  actorType: string
-  actorLabel: string | null
-  action: string
-  targetType: string | null
-  targetId: string | null
-  unitId: number | null
-  reason: string | null
-  detail: string | null
-  ip: string | null
-}
 interface DeletionImpact {
   deletable: boolean
   banks: number
@@ -66,6 +56,7 @@ const { user } = useAuth()
 const { confirm } = useConfirm()
 
 const TABS = [
+  { value: 'overview', label: '總覽', icon: Gauge },
   { value: 'staff', label: '使用者', icon: UserCog },
   { value: 'units', label: '單位', icon: Building2 },
   { value: 'audit', label: '操作紀錄', icon: ScrollText },
@@ -74,7 +65,19 @@ const TABS = [
   { value: 'settings', label: '系統設定', icon: Settings },
 ] as const
 const tabs = TABS
-const tab = ref<(typeof TABS)[number]['value']>('staff')
+type Tab = (typeof TABS)[number]['value']
+const tab = ref<Tab>('overview')
+/** System settings with unsaved changes: ask before leaving the tab */
+const settingsDirty = ref(false)
+async function switchTab(next: Tab) {
+  if (next === tab.value) return
+  if (tab.value === 'settings' && settingsDirty.value) {
+    const ok = await confirm({ title: '設定還沒儲存', description: '離開這一頁，剛才的變更會消失。', confirmLabel: '不儲存，離開' })
+    if (!ok) return
+    settingsDirty.value = false
+  }
+  tab.value = next
+}
 
 const loadError = ref('')
 const fail = (e: unknown) => toast.error((e as Error).message)
@@ -343,270 +346,17 @@ async function toggleUnit(u: Unit) {
 
 const toggleMembers = (u: Unit) => (openUnit.value = openUnit.value === u.id ? null : u.id)
 
-// ── Audit log ────────────────────────────────────────
-const ACTION_LABEL: Record<string, string> = {
-  SYSTEM_SETUP: '初始設定',
-  LOGIN: '登入',
-  LOGIN_FAILED: '登入失敗',
-  LOGOUT: '登出',
-  PASSWORD_CHANGED: '變更密碼',
-  PASSWORD_RESET: '重設密碼',
-  STAFF_CREATED: '建立帳號',
-  STAFF_ENABLED: '啟用帳號',
-  STAFF_DISABLED: '停用帳號',
-  STAFF_DELETED: '永久刪除帳號',
-  BACKUP_REQUESTED: '建立備份',
-  BACKUP_DOWNLOADED: '下載備份',
-  BACKUP_DELETE_REQUESTED: '刪除備份',
-  BACKUP_RESTORE_REQUESTED: '要求還原備份',
-  BACKUP_RESTORED: '完成還原備份',
-  SYSTEM_ADMIN_GRANTED: '設為系統管理員',
-  SYSTEM_ADMIN_REVOKED: '取消系統管理員',
-  UNIT_CREATED: '建立單位',
-  UNIT_RENAMED: '單位改名',
-  UNIT_ENABLED: '啟用單位',
-  UNIT_DISABLED: '停用單位',
-  UNIT_ROLE_GRANTED: '指派角色',
-  UNIT_ROLE_REVOKED: '移除角色',
-  BANK_CREATED: '建立題庫',
-  BANK_DELETED: '刪除題庫',
-  EXAM_CREATED: '建立考試',
-  EXAM_PUBLISHED: '發布考試',
-  EXAM_WITHDRAWN: '取消發布',
-  EXAM_ENDED: '結束考試',
-  EXAM_ARCHIVED: '封存考試',
-  EXAM_UNARCHIVED: '取消封存',
-  EXAM_PURGED: '刪除考試資料',
-  EMERGENCY_ACCESS_GRANTED: '授權緊急檢視',
-  EMERGENCY_ACCESS_REVOKED: '撤銷緊急檢視',
-  EMERGENCY_ACCESS_VIEWED: '緊急檢視考試',
-  EXAM_DELETED: '刪除考試',
-  CANDIDATES_IMPORTED: '匯入考生名單',
-  CANDIDATE_CODE_RESET: '重設登入碼',
-  CANDIDATE_REMOVED: '移除考生',
-  CANDIDATE_LOGIN: '考生登入',
-  CANDIDATE_LOGIN_FAILED: '考生登入失敗',
-  CANDIDATE_LOGOUT: '考生登出',
-  ATTEMPT_STARTED: '開始作答',
-  ATTEMPT_SUBMITTED: '交卷',
-  ATTEMPT_EXTENDED: '補時',
-  GRADER_ASSIGNED: '指派評分者',
-  GRADER_UNASSIGNED: '取消指派評分者',
-  GRADING_REOPENED: '重開評分',
-  RESULTS_PUBLISHED: '公布成績',
-  CANDIDATE_RESULTS_CHANGED: '考生查詢成績設定',
-  SETTINGS_CHANGED: '變更系統設定',
-  RESULTS_EXPORTED: '匯出成績',
-}
-const DETAIL_LABEL: Record<string, string> = {
-  bad_password: '密碼錯誤',
-  unknown_account: '帳號不存在',
-  locked: '帳號鎖定中',
-  inactive: '帳號已停用',
-  system_admin: '系統管理員',
-  unknown_ticket: '准考證號不在名單上',
-  bad_code: '登入碼錯誤',
-  replaced_session: '在別處重新登入，舊連線已登出',
-  auto: '系統自動收卷',
-  ...UNIT_ROLE_LABEL,
-}
-const audit = ref<AuditEntry[]>([])
-const auditTotal = ref(0)
-const auditPage = ref(0)
-
-const auditAction = ref('')
-watch(auditAction, () => loadAudit())
-
-async function loadAudit(page = 0) {
-  try {
-    const action = auditAction.value ? `&action=${auditAction.value}` : ''
-    const res = await api<{ items: AuditEntry[]; total: number }>(`/admin/audit-logs?page=${page}&size=50${action}`)
-    audit.value = page === 0 ? res.items : [...audit.value, ...res.items]
-    auditTotal.value = res.total
-    auditPage.value = page
-    loadError.value = ''
-  } catch (e) {
-    loadError.value = (e as Error).message
-  }
-}
-
-/** The backend can list and download dumps, and signal the isolated backup container to create one. */
-interface BackupFile {
-  name: string
-  size: number
-  at: string
-}
-interface BackupState {
-  configured: boolean
-  triggerSupported: boolean
-  running: boolean
-  lastFailed: boolean
-  maintenance: boolean
-  operation: string
-  keepDays: number
-  items: BackupFile[]
-}
-const backups = ref<BackupState | null>(null)
-const backupsLoading = ref(false)
-const backupStarting = ref(false)
-const backupAction = ref<string | null>(null)
-const showAllBackups = ref(false)
-const shownBackups = computed(() => (showAllBackups.value ? backups.value?.items : backups.value?.items.slice(0, 7)) ?? [])
-async function loadBackups(silent = false) {
-  if (!silent) backupsLoading.value = true
-  try {
-    backups.value = await api<BackupState>('/admin/backups')
-    loadError.value = ''
-  } catch (e) {
-    loadError.value = (e as Error).message
-  } finally {
-    if (!silent) backupsLoading.value = false
-  }
-}
-
-async function startBackup() {
-  if (backupStarting.value || backups.value?.running) return
-  const previous = backups.value?.items[0]?.name
-  backupStarting.value = true
-  try {
-    await api('/admin/backups/run', { method: 'POST' })
-    toast('正在建立備份', { description: '完成後會自動更新清單。' })
-    for (let i = 0; i < 60; i++) {
-      await new Promise((resolve) => window.setTimeout(resolve, 1000))
-      await loadBackups(true)
-      if (!backups.value?.running) {
-        if (backups.value?.lastFailed) throw new Error('備份建立失敗，請聯絡系統維護人員。')
-        if (backups.value?.items[0]?.name !== previous) {
-          toast.success('備份已建立')
-          return
-        }
-      }
-    }
-    toast('備份仍在背景執行', { description: '稍後按「重新整理」查看結果。' })
-  } catch (e) {
-    fail(e)
-  } finally {
-    backupStarting.value = false
-  }
-}
-
-async function downloadBackup(b: BackupFile) {
-  try {
-    const blob = await apiBlob(`/admin/backups/${encodeURIComponent(b.name)}`)
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = b.name
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
-    toast.success('已開始下載備份')
-  } catch (e) {
-    fail(e)
-  }
-}
-
-async function deleteBackup(b: BackupFile) {
-  const ok = await confirm({
-    title: '刪除這份備份？',
-    description: `${b.name} 將永久刪除，之後無法用它還原資料。`,
-    confirmLabel: '刪除備份',
-    tone: 'danger',
-  })
-  if (!ok) return
-  backupAction.value = b.name
-  try {
-    await api(`/admin/backups/${encodeURIComponent(b.name)}`, { method: 'DELETE' })
-    for (let i = 0; i < 30; i++) {
-      await new Promise((resolve) => window.setTimeout(resolve, 1000))
-      await loadBackups(true)
-      if (backups.value?.lastFailed) throw new Error('備份刪除失敗，請查看伺服器日誌。')
-      if (!backups.value?.items.some((item) => item.name === b.name)) {
-        toast.success('備份已刪除')
-        return
-      }
-    }
-    toast('刪除仍在背景執行', { description: '稍後按「重新整理」查看結果。' })
-  } catch (e) {
-    fail(e)
-  } finally {
-    backupAction.value = null
-  }
-}
-
-async function restoreBackup(b: BackupFile) {
-  const ok = await confirm({
-    title: '從這份備份還原整個系統？',
-    description: `目前的資料會先自動備份，再以 ${b.name} 取代整個資料庫。還原期間所有人會暫時無法操作，完成後可能需要重新登入。`,
-    confirmLabel: '開始還原',
-    confirmText: '還原',
-    tone: 'danger',
-  })
-  if (!ok) return
-  backupAction.value = b.name
-  try {
-    await api(`/admin/backups/${encodeURIComponent(b.name)}/restore`, { method: 'POST', body: { confirmation: '還原' } })
-    toast('正在還原備份', { description: '請勿關閉伺服器；完成後頁面會自動重新載入。' })
-    let started = false
-    for (let i = 0; i < 300; i++) {
-      await new Promise((resolve) => window.setTimeout(resolve, 1000))
-      const state = await api<{ active: boolean; status: string }>('/maintenance')
-      if (state.active || state.status === 'restoring') started = true
-      if (started && state.status === 'version-mismatch') {
-        throw new Error('這份備份來自不同版本的系統，無法從網頁還原，請由系統維護人員在主機上還原。原本的資料未被取代。')
-      }
-      if (started && !state.active && state.status === 'error') throw new Error('備份還原失敗，原本的資料未被取代。')
-      if (started && !state.active && state.status === 'ok') {
-        toast.success('備份已還原，正在重新載入')
-        window.setTimeout(() => window.location.reload(), 800)
-        return
-      }
-    }
-    throw new Error('還原時間超過五分鐘，請查看伺服器狀態。')
-  } catch (e) {
-    fail(e)
-  } finally {
-    backupAction.value = null
-  }
-}
-
-const backupOperationLabel = computed(() => {
-  if (backups.value?.operation === 'deleting') return '正在刪除備份'
-  if (backups.value?.operation === 'restoring' || backups.value?.maintenance) return '正在還原備份'
-  return '正在建立備份'
-})
-/** Daily backups: warn when there has been none for 26 hours */
-const backupStale = (b: BackupFile) => Date.now() - new Date(b.at).getTime() > 26 * 3600 * 1000
-const fileSize = (bytes: number) => (bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`)
-
-const when = (iso: string) =>
-  new Date(iso).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
-
-const auditTarget = (a: AuditEntry) => {
-  const parts: string[] = []
-  if (a.targetType === 'staff') {
-    const s = staff.value.find((x) => String(x.id) === a.targetId)
-    parts.push(s ? s.name : `帳號 #${a.targetId}`)
-  }
-  if (a.unitId) parts.push(units.value.find((u) => u.id === a.unitId)?.name ?? `單位 #${a.unitId}`)
-  if (a.detail) parts.push(DETAIL_LABEL[a.detail] ?? a.detail)
-  if (a.reason) parts.push(`理由：${a.reason}`)
-  return parts.join('，')
-}
-
 function load() {
   loadError.value = ''
   if (tab.value === 'staff') {
     loadStaff()
     loadUnits()
   } else if (tab.value === 'units') loadUnits()
-  else if (tab.value === 'audit') {
-    loadAudit()
+  else if (tab.value === 'audit' || tab.value === 'overview') {
     // Map ids in the audit log back to names and unit names
     if (!staff.value.length) loadStaff()
     if (!units.value.length) loadUnits()
-  } else if (tab.value === 'backups') loadBackups()
+  }
 }
 onMounted(load)
 watch(tab, load)
@@ -625,7 +375,7 @@ watch(tab, load)
         :aria-selected="tab === t.value"
         class="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-4 text-[15px] transition-colors"
         :class="tab === t.value ? 'bg-brand font-medium text-brand-fg' : 'text-ink-2 hover:bg-ink/[0.06] hover:text-ink'"
-        @click="tab = t.value"
+        @click="switchTab(t.value)"
       >
         <component :is="t.icon" class="size-4" aria-hidden="true" />{{ t.label }}
       </button>
@@ -636,8 +386,10 @@ watch(tab, load)
       <Button variant="outline" @click="load"><RotateCw />重試</Button>
     </p>
 
+    <AdminOverview v-if="tab === 'overview'" :staff="staff" @go="switchTab" />
+
     <!-- Users -->
-    <section v-if="tab === 'staff'" class="card">
+    <section v-else-if="tab === 'staff'" class="card">
       <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
         <p class="text-[15px] text-ink-2">{{ staff.length }} 位教職員</p>
         <label v-if="staff.length > 8" class="relative ml-auto w-full max-w-64 max-sm:order-last max-sm:max-w-none">
@@ -762,104 +514,13 @@ watch(tab, load)
       </ul>
     </section>
 
-    <!-- Audit log -->
-    <section v-else-if="tab === 'audit'" class="card">
-      <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
-        <p class="text-[15px] text-ink-2">共 {{ auditTotal }} 筆。紀錄只會增加，任何人都不能修改或刪除。</p>
-        <select v-model="auditAction" class="field h-10 w-full sm:w-56" aria-label="依動作篩選">
-          <option value="">全部動作</option>
-          <option v-for="(label, action) in ACTION_LABEL" :key="action" :value="action">{{ label }}</option>
-        </select>
-      </div>
-      <ul class="divide-y divide-line border-t border-line">
-        <li v-if="auditAction && !audit.length" class="px-5 py-6 text-[15px] text-ink-2 sm:px-6">沒有這個動作的紀錄。</li>
-        <li v-for="a in audit" :key="a.id" class="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 px-5 py-3 text-[15px] sm:px-6">
-          <span class="w-36 shrink-0 text-sm text-ink-2 tabular-nums">{{ when(a.at) }}</span>
-          <span class="w-28 shrink-0 font-medium" :class="a.action.endsWith('LOGIN_FAILED') && 'text-grade'">{{ ACTION_LABEL[a.action] ?? a.action }}</span>
-          <span class="min-w-0 flex-1 basis-48 truncate">{{ a.actorLabel ?? '系統' }}<template v-if="a.actorType === 'CANDIDATE'">（考生）</template></span>
-          <span class="min-w-0 flex-1 basis-48 text-sm text-ink-2">{{ auditTarget(a) }}</span>
-        </li>
-      </ul>
-      <div v-if="audit.length < auditTotal" class="border-t border-line px-5 py-3 text-center sm:px-6">
-        <Button variant="outline" @click="loadAudit(auditPage + 1)"><ChevronDown />載入更早的紀錄</Button>
-      </div>
-    </section>
+    <AuditLog v-else-if="tab === 'audit'" :staff="staff" :units="units" />
 
-    <!-- Backups -->
-    <section v-else-if="tab === 'backups'" class="card">
-      <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
-        <div>
-          <h2 class="text-[17px] font-semibold">資料庫備份</h2>
-          <p class="mt-0.5 text-sm text-ink-2">系統每天自動備份一次。</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <Button variant="outline" :disabled="backupsLoading" @click="loadBackups()">
-            <RotateCw :class="backupsLoading && 'animate-spin'" />重新整理
-          </Button>
-          <Button
-            v-if="backups?.triggerSupported"
-            variant="primary"
-            :disabled="backupStarting || backups.running"
-            @click="startBackup"
-          >
-            <RotateCw v-if="backupStarting || backups.running" class="animate-spin" /><DatabaseBackup v-else />
-            {{ backupStarting || backups.running ? backupOperationLabel : '立即備份' }}
-          </Button>
-        </div>
-      </div>
-
-      <p v-if="backupsLoading && !backups" class="border-t border-line px-5 py-6 text-[15px] text-ink-2 sm:px-6" role="status">正在讀取備份狀態…</p>
-      <template v-else-if="backups">
-        <p v-if="!backups.configured" class="border-t border-line px-5 py-5 text-[15px] sm:px-6">
-          <Badge tone="danger">無法讀取備份狀態</Badge>
-          <span class="mt-2 block text-ink-2">請聯絡系統維護人員檢查備份設定。</span>
-        </p>
-        <p v-else-if="!backups.items.length" class="border-t border-line px-5 py-5 text-[15px] sm:px-6">
-          <Badge tone="warn">{{ backups.running ? '正在建立第一份備份' : backups.lastFailed ? '備份建立失敗' : '還沒有任何備份' }}</Badge>
-          <span class="mt-2 block text-ink-2">
-            {{ backups.running ? '完成後會自動出現在這裡。' : backups.lastFailed ? '請再試一次；如果仍然失敗，請聯絡系統維護人員。' : '如果系統已運作超過一天，請聯絡系統維護人員。' }}
-          </span>
-        </p>
-        <template v-else>
-          <div class="border-t border-line px-5 py-4 text-[15px] sm:px-6">
-            <div class="flex flex-wrap items-center gap-2">
-              <Badge :tone="backups.running ? 'warn' : backups.lastFailed || backupStale(backups.items[0]) ? 'danger' : 'done'">
-                {{ backups.running ? backupOperationLabel : backups.lastFailed ? '上次備份操作失敗' : backupStale(backups.items[0]) ? '需要注意' : '備份正常' }}
-              </Badge>
-              <span>最近一次：<span class="font-medium tabular-nums">{{ when(backups.items[0].at) }}</span></span>
-              <span class="text-sm text-ink-2">{{ fileSize(backups.items[0].size) }}</span>
-            </div>
-            <p v-if="backups.lastFailed" class="mt-2 text-sm text-grade">上次備份操作失敗，請再試一次；如果仍然失敗，請查看伺服器日誌。</p>
-            <p v-else-if="backupStale(backups.items[0])" class="mt-2 text-sm text-grade">已超過一天沒有新的備份，請聯絡系統維護人員。</p>
-            <p v-else class="mt-2 text-sm text-ink-2">保留 {{ backups.keepDays }} 天，目前可管理 {{ backups.items.length }} 份。保留天數可在「系統設定」調整。</p>
-          </div>
-          <ul class="divide-y divide-line border-t border-line">
-            <li v-for="b in shownBackups" :key="b.name" class="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 text-[15px] sm:px-6">
-              <span class="w-36 shrink-0 text-sm text-ink-2 tabular-nums">{{ when(b.at) }}</span>
-              <span class="min-w-0 flex-1 basis-48 truncate font-mono text-sm">{{ b.name }}</span>
-              <span class="text-sm text-ink-2 tabular-nums">{{ fileSize(b.size) }}</span>
-              <Button variant="outline" :disabled="backups.running || !!backupAction" @click="downloadBackup(b)"><Download />下載</Button>
-              <MoreMenu
-                :label="`${b.name} 更多動作`"
-                :actions="backups.running || backupAction ? [] : [
-                  { label: '還原到這份備份', icon: History, run: () => restoreBackup(b), danger: true },
-                  { label: '刪除備份', icon: Trash2, run: () => deleteBackup(b), danger: true },
-                ]"
-              />
-            </li>
-          </ul>
-          <div v-if="backups.items.length > 7" class="border-t border-line px-5 py-3 text-center sm:px-6">
-            <Button @click="showAllBackups = !showAllBackups">
-              <ChevronDown :class="showAllBackups && 'rotate-180'" />{{ showAllBackups ? '收合' : `查看全部 ${backups.items.length} 份` }}
-            </Button>
-          </div>
-        </template>
-      </template>
-    </section>
+    <BackupPanel v-else-if="tab === 'backups'" />
 
     <EmergencyView v-else-if="tab === 'emergency'" />
 
-    <SystemSettings v-else />
+    <SystemSettings v-else-if="tab === 'settings'" v-model:dirty="settingsDirty" />
 
     <SelectionBar :count="selection.count.value" :total="shownStaff.length" unit="人" @all="selection.all" @clear="selection.clear">
       <form v-if="bulkJoin.open" class="flex flex-wrap items-center gap-1.5" @submit.prevent="bulkAddToUnit">

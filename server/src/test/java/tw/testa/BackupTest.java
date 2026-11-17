@@ -97,6 +97,32 @@ class BackupTest extends IntegrationTestBase {
                 .andExpect(header().string("Cache-Control", "no-store"));
         mvc.perform(get("/api/admin/audit-logs").param("action", "BACKUP_DOWNLOADED").session(admin))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].targetId").value(name));
+        mvc.perform(get("/api/admin/backups").session(admin)).andExpect(jsonPath("$.lastDownloadAt").isNotEmpty());
+    }
+
+    @Test
+    void statusShowsScheduleHistoryAndDisk() throws Exception {
+        Files.writeString(CONTROL.resolve("next-run"), "1795000000\n");
+        Files.writeString(CONTROL.resolve("history"), """
+                1794900000\tauto\tok\ttesta-20261117-030000.sql.gz
+                not a line
+                1794910000\tmanual\terror\t
+                1794920000\tdelete\tok\ttesta-20261117-030000.sql.gz
+                """);
+        try {
+            mvc.perform(get("/api/admin/backups").session(adminSession())).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.nextRunAt").value(Instant.ofEpochSecond(1795000000).toString()))
+                    .andExpect(jsonPath("$.history.length()").value(3))
+                    .andExpect(jsonPath("$.history[0].kind").value("delete"))
+                    .andExpect(jsonPath("$.history[1].kind").value("manual"))
+                    .andExpect(jsonPath("$.history[1].ok").value(false))
+                    .andExpect(jsonPath("$.history[2].name").value("testa-20261117-030000.sql.gz"))
+                    .andExpect(jsonPath("$.disk.total").isNumber())
+                    .andExpect(jsonPath("$.totalSize").isNumber());
+        } finally {
+            Files.deleteIfExists(CONTROL.resolve("next-run"));
+            Files.deleteIfExists(CONTROL.resolve("history"));
+        }
     }
 
     @Test

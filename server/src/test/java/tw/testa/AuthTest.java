@@ -181,4 +181,41 @@ class AuthTest extends IntegrationTestBase {
         assertThatThrownBy(() -> jdbc.update("update audit_log set action = 'X'")).hasMessageContaining("只能新增");
         assertThatThrownBy(() -> jdbc.update("delete from audit_log")).hasMessageContaining("只能新增");
     }
+
+    @Test
+    void auditLogCanBeSearchedByTextAndTime() throws Exception {
+        MockHttpSession admin = adminSession();
+        createStaff(admin, "searched@test.tw", "搜尋測試甲");
+        // A failed sign-in keeps whatever was typed as the account
+        mvc.perform(json(post("/api/auth/login"), "{\"email\":\"find_me%@test.tw\",\"password\":\"x\"}"))
+                .andExpect(status().isUnauthorized());
+        String now = java.time.Instant.now().plusSeconds(1).toString();
+        String past = java.time.Instant.now().minusSeconds(3600).toString();
+
+        // Entries about a person are found by their name, though the log keeps only the id
+        mvc.perform(get("/api/admin/audit-logs").param("q", "搜尋測試甲").session(admin)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].action").value("STAFF_CREATED"));
+        // Case-insensitive, and % or _ in the search are plain characters
+        mvc.perform(get("/api/admin/audit-logs").param("q", "FIND_ME%").session(admin)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].action").value("LOGIN_FAILED"));
+        mvc.perform(get("/api/admin/audit-logs").param("q", "find_me%").param("action", "LOGIN").session(admin))
+                .andExpect(jsonPath("$.total").value(0));
+        mvc.perform(get("/api/admin/audit-logs").param("q", "find%me").session(admin)).andExpect(jsonPath("$.total").value(0));
+        mvc.perform(get("/api/admin/audit-logs").param("q", "find_me%").param("to", past).session(admin))
+                .andExpect(jsonPath("$.total").value(0));
+        mvc.perform(get("/api/admin/audit-logs").param("q", "find_me%").param("from", past).param("to", now).session(admin))
+                .andExpect(jsonPath("$.total").value(org.hamcrest.Matchers.greaterThan(0)));
+    }
+
+    @Test
+    void overviewIsForAdministratorsOnly_andCountsWhatNeedsAttention() throws Exception {
+        MockHttpSession admin = adminSession();
+        Object[] s = createStaff(admin, "overview@test.tw", "總覽");
+        mvc.perform(get("/api/admin/overview").session(login("overview@test.tw", (String) s[1]))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/overview").session(admin)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").isNotEmpty())
+                .andExpect(jsonPath("$.databaseBytes").value(org.hamcrest.Matchers.greaterThan(0)))
+                .andExpect(jsonPath("$.counts.temporaryPasswords").value(org.hamcrest.Matchers.greaterThan(0)))
+                .andExpect(jsonPath("$.recent[0].action").value("STAFF_CREATED"));
+    }
 }

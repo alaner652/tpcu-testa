@@ -1,13 +1,17 @@
 package tw.testa.config;
 
 import java.io.IOException;
+import java.nio.file.FileStore;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 import org.springframework.core.io.FileSystemResource;
@@ -29,6 +33,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import tw.testa.attempt.AttemptRepository;
+import tw.testa.audit.AuditLogRepository;
 import tw.testa.audit.AuditService;
 import tw.testa.auth.StaffPrincipal;
 import tw.testa.common.ApiException;
@@ -48,10 +53,12 @@ public class BackupController {
     private final SettingsService settings;
     private final AttemptRepository attempts;
     private final AuditService audit;
+    private final AuditLogRepository auditLog;
 
     public BackupController(TestaProperties props, BackupMaintenanceService maintenance, SettingsService settings,
-            AttemptRepository attempts, AuditService audit) {
+            AttemptRepository attempts, AuditService audit, AuditLogRepository auditLog) {
         this.attempts = attempts;
+        this.auditLog = auditLog;
         this.dir = props.backupDir();
         this.maintenance = maintenance;
         this.settings = settings;
@@ -60,8 +67,19 @@ public class BackupController {
 
     public record BackupFile(String name, long size, Instant at) {}
 
+    /** One finished operation of the backup container: kind is auto, manual, delete or restore. */
+    public record Run(Instant at, String kind, boolean ok, String name) {}
+
+    /** Free and total bytes of the disk that holds the dumps. */
+    public record Disk(long free, long total) {}
+
+    /**
+     * nextRunAt: the next daily backup, as scheduled by the backup container. history: newest first.
+     * lastDownloadAt: a copy kept somewhere else is the only protection when the server's disk fails.
+     */
     public record Backups(boolean configured, boolean triggerSupported, boolean running, boolean lastFailed,
-            boolean maintenance, String operation, int keepDays, List<BackupFile> items) {}
+            boolean maintenance, String operation, int keepDays, List<BackupFile> items, long totalSize, Disk disk,
+            Instant nextRunAt, List<Run> history, Instant lastDownloadAt) {}
 
     public record RestoreRequest(String confirmation) {}
 
@@ -75,21 +93,62 @@ public class BackupController {
                 || operation.equals("backup") || operation.equals("deleting") || operation.equals("restoring"));
         boolean lastFailed = triggerSupported && operation.equals("error");
         int keepDays = settings.backupKeepDays();
-        if (dir.isBlank()) return new Backups(false, triggerSupported, running, lastFailed, maintenance.active(), operation,
-                keepDays, List.of());
-        Path path = Path.of(dir);
-        if (!Files.isDirectory(path)) return new Backups(false, triggerSupported, running, lastFailed, maintenance.active(), operation,
-                keepDays, List.of());
+        Instant nextRunAt = triggerSupported ? nextRun(control) : null;
+        List<Run> history = triggerSupported ? history(control) : List.of();
+        Instant lastDownloadAt = auditLog.findFirstByActionOrderByIdDesc("BACKUP_DOWNLOADED").map(a -> a.getAt()).orElse(null);
+        Path path = dir.isBlank() ? null : Path.of(dir);
+        if (path == null || !Files.isDirectory(path)) return new Backups(false, triggerSupported, running, lastFailed,
+                maintenance.active(), operation, keepDays, List.of(), 0, null, nextRunAt, history, lastDownloadAt);
         try (Stream<Path> files = Files.list(path)) {
-            List<BackupFile> items = files
+            List<BackupFile> all = files
                     .filter(f -> f.getFileName().toString().matches("testa-.*\\.sql\\.gz") && Files.isRegularFile(f))
                     .map(BackupController::describe)
                     .sorted(Comparator.comparing(BackupFile::at).reversed())
-                    .limit(MAX_ITEMS)
                     .toList();
-            return new Backups(true, triggerSupported, running, lastFailed, maintenance.active(), operation, keepDays, items);
+            long totalSize = all.stream().mapToLong(BackupFile::size).sum();
+            return new Backups(true, triggerSupported, running, lastFailed, maintenance.active(), operation, keepDays,
+                    all.stream().limit(MAX_ITEMS).toList(), totalSize, disk(path), nextRunAt, history, lastDownloadAt);
         } catch (IOException | java.io.UncheckedIOException e) {
-            return new Backups(false, triggerSupported, running, lastFailed, maintenance.active(), operation, keepDays, List.of());
+            return new Backups(false, triggerSupported, running, lastFailed, maintenance.active(), operation, keepDays,
+                    List.of(), 0, null, nextRunAt, history, lastDownloadAt);
+        }
+    }
+
+    private static Disk disk(Path path) {
+        try {
+            FileStore store = Files.getFileStore(path);
+            return new Disk(store.getUsableSpace(), store.getTotalSpace());
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    /** The backup container writes the epoch second of its next daily run. */
+    private static Instant nextRun(Path control) {
+        try {
+            Path file = control.resolve("next-run");
+            return Files.isRegularFile(file) ? Instant.ofEpochSecond(Long.parseLong(Files.readString(file).trim())) : null;
+        } catch (IOException | NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /** Lines of "epoch-second, kind, ok|error, file name" separated by tabs, oldest first. */
+    private static List<Run> history(Path control) {
+        Path file = control.resolve("history");
+        if (!Files.isRegularFile(file)) return List.of();
+        try (Stream<String> lines = Files.lines(file)) {
+            List<Run> runs = new ArrayList<>(lines.map(line -> line.split("\t", -1)).filter(f -> f.length >= 3).map(f -> {
+                try {
+                    return new Run(Instant.ofEpochSecond(Long.parseLong(f[0])), f[1], f[2].equals("ok"), f.length > 3 ? f[3] : "");
+                } catch (NumberFormatException e) {
+                    return null;
+                }
+            }).filter(Objects::nonNull).toList());
+            Collections.reverse(runs);
+            return runs.stream().limit(20).toList();
+        } catch (IOException | java.io.UncheckedIOException e) {
+            return List.of();
         }
     }
 

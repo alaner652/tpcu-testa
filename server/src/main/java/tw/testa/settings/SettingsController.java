@@ -1,6 +1,7 @@
 package tw.testa.settings;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -20,8 +21,11 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import tw.testa.ai.ModelClient;
+import tw.testa.audit.AuditLogRepository;
 import tw.testa.audit.AuditService;
 import tw.testa.common.ApiException;
+import tw.testa.staff.Staff;
+import tw.testa.staff.StaffRepository;
 
 /**
  * System settings for the admin pages (system administrators only). Every change is audited.
@@ -34,17 +38,28 @@ public class SettingsController {
     private final SettingsService settings;
     private final ModelClient model;
     private final AuditService audit;
+    private final AuditLogRepository auditLog;
+    private final StaffRepository staff;
 
-    public SettingsController(SettingsService settings, ModelClient model, AuditService audit) {
+    public SettingsController(SettingsService settings, ModelClient model, AuditService audit, AuditLogRepository auditLog,
+            StaffRepository staff) {
         this.settings = settings;
+        this.auditLog = auditLog;
+        this.staff = staff;
         this.model = model;
         this.audit = audit;
     }
 
     public record AiDto(boolean enabled, String baseUrl, String model, boolean apiKeySet) {}
 
+    /** The numbers as they would be without any change in the admin pages */
+    public record Defaults(int flagPercent, int retentionYears, int loginMaxFailures, int loginLockMinutes, int backupKeepDays) {}
+
+    /** The latest change, from the audit log: who, when and what (the audit text) */
+    public record LastChange(Instant at, String by, String detail) {}
+
     public record SettingsDto(AiDto ai, int flagPercent, int retentionYears, int loginMaxFailures, int loginLockMinutes,
-            int backupKeepDays) {}
+            int backupKeepDays, Defaults defaults, LastChange lastChange) {}
 
     /** aiApiKey: null keeps the stored key, an empty string removes it. */
     public record SaveRequest(
@@ -66,7 +81,12 @@ public class SettingsController {
         SettingsService.Ai ai = settings.ai();
         return new SettingsDto(new AiDto(ai.enabled(), ai.baseUrl(), ai.model(), !ai.apiKey().isBlank()),
                 settings.flagPercent(), settings.retentionYears(), settings.loginMaxFailures(), settings.loginLockMinutes(),
-                settings.backupKeepDays());
+                settings.backupKeepDays(),
+                new Defaults(settings.defaultNumber(SettingsService.FLAG_PERCENT), settings.defaultNumber(SettingsService.RETENTION_YEARS),
+                        settings.defaultNumber(SettingsService.LOGIN_MAX_FAILURES), settings.defaultNumber(SettingsService.LOGIN_LOCK_MINUTES),
+                        settings.defaultNumber(SettingsService.BACKUP_KEEP_DAYS)),
+                auditLog.findFirstByActionOrderByIdDesc("SETTINGS_CHANGED")
+                        .map(a -> new LastChange(a.getAt(), by(a.getActorId(), a.getActorLabel()), a.getDetail())).orElse(null));
     }
 
     @PutMapping
@@ -117,6 +137,10 @@ public class SettingsController {
         if (url.isEmpty()) throw ApiException.badRequest("ai_url_required", "請先填寫 AI 服務網址。");
         checkUrl(url);
         return model.probe(url, body.apiKey() != null ? body.apiKey().strip() : settings.ai().apiKey());
+    }
+
+    private String by(Long staffId, String label) {
+        return staffId == null ? label : staff.findById(staffId).map(Staff::getName).orElse(label);
     }
 
     private static void number(Map<String, String> changes, List<String> notes, String key, String label, int before, int after, String unit) {
