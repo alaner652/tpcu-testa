@@ -12,7 +12,7 @@
 
   <groupId>tw.testa</groupId>
   <artifactId>testa-server</artifactId>
-  <version>0.1.0</version>
+  <version>0.2.0</version>
   <name>testa-server</name>
   <description>Testa 考試平台後端</description>
 
