@@ -3,9 +3,9 @@
  * Actions move a drawn cursor to the element before sending real mouse and keyboard input,
  * so viewers can follow where each click lands.
  */
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { spawn } from 'node:child_process'
 import { evaluate, pause } from './chrome.mjs'
 
@@ -191,13 +191,25 @@ export class Recorder {
 
   /** Clicks a button that opens a file picker and answers the picker with a local file. */
   async upload(target, file) {
-    await this.page.send('Page.setInterceptFileChooserDialog', { enabled: true })
-    const opened = new Promise((done) => this.page.on('Page.fileChooserOpened', done))
-    await this.click(target, { after: 0 })
-    const { backendNodeId } = await opened
-    this.page.on('Page.fileChooserOpened', null)
-    await this.page.send('DOM.setFileInputFiles', { files: [file], backendNodeId })
-    await this.page.send('Page.setInterceptFileChooserDialog', { enabled: false })
+    const at = await this.move(target)
+    await evaluate(this.page, `window.__recCursor.ring(${at.x}, ${at.y})`)
+    await pause(120)
+    // Build the File in the page. Chromium 156 no longer reliably applies a
+    // local path through DOM.setFileInputFiles in a headless container.
+    const bytes = (await readFile(file)).toString('base64')
+    const added = await evaluate(this.page, `(() => {
+      const input = [...document.querySelectorAll('input[type=file]')].at(-1)
+      if (!input) return false
+      const binary = atob(${JSON.stringify(bytes)})
+      const data = Uint8Array.from(binary, (ch) => ch.charCodeAt(0))
+      const transfer = new DataTransfer()
+      transfer.items.add(new File([data], ${JSON.stringify(basename(file))}))
+      input.files = transfer.files
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+      return true
+    })()`)
+    if (!added) throw new Error(`No file input for ${JSON.stringify(target)}`)
     await pause(1200)
   }
 
