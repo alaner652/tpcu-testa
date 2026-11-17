@@ -39,7 +39,7 @@ Testa's first target is a school admission exam: a few hundred candidates in com
 These depend on the deploying site and cannot be tested in development:
 
 - The production server and the lab network, including the site's reverse proxy or certificate.
-- A rehearsal with the Internet actually cut off: internal DNS for the exam host name, routing from every lab subnet, NTP on the VM (see [Deployment](deployment.md#network-and-offline-exams)).
+- A rehearsal with lab PCs blocked from the Internet: internal DNS for the exam host name, routing from every lab subnet to the server (see [Deployment](deployment.md#network)).
 - Safari, Firefox and Edge, and Windows lab PCs.
 - Login slips printed on the site's printers.
 
@@ -88,4 +88,4 @@ Defaults agreed with the first deploying school. Those marked "System settings" 
 - Login codes are issued when slips are printed, not at import, and cannot be reprinted: printing again issues new codes.
 - Spring Boot 4.1 instead of 3, which is out of open-source support; the target is still Java 21.
 - Whether candidates can check their own published scores is a per-exam option, off by default.
-- The exam form has no delivery-mode field (lab or online); it had no effect. Where candidates sit is up to each unit: a lab, a lab whose PCs are blocked from the Internet, or online from home all work (see [Deployment](deployment.md#network-and-offline-exams)).
+- The exam form has no delivery-mode field (lab or online); it had no effect. Where candidates sit is up to each unit: a lab, a lab whose PCs are blocked from the Internet, or online from home all work (see [Deployment](deployment.md#network)).

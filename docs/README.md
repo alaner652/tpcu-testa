@@ -8,7 +8,7 @@ Guides for the people who run Testa have a Traditional Chinese copy (`*.zh-TW.md
 
 | Document | Contents |
 | --- | --- |
-| [Deployment](deployment.md) ([中文](deployment.zh-TW.md)) | Installation, going live, HTTPS, offline exams, upgrades, backup and restore |
+| [Deployment](deployment.md) ([中文](deployment.zh-TW.md)) | Installation, going live, HTTPS, network options, upgrades, backup and restore |
 | [Server requirements](server-requirements.md) ([中文](server-requirements.zh-TW.md)) | What to request from IT: VM size, network, DNS, certificate |
 | [Screenshots](screenshots.md) ([中文](screenshots.zh-TW.md)) | Every page on desktop and phone, in the order an exam runs |
 

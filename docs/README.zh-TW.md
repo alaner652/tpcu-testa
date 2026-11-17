@@ -8,7 +8,7 @@
 
 | 文件 | 內容 |
 | --- | --- |
-| [部署指南](deployment.zh-TW.md) | 安裝、正式上線、HTTPS、斷網考試、升級、備份與還原 |
+| [部署指南](deployment.zh-TW.md) | 安裝、正式上線、HTTPS、網路、升級、備份與還原 |
 | [主機需求](server-requirements.zh-TW.md) | 向資訊單位申請的 VM、網路、DNS 與憑證規格 |
 | [畫面截圖](screenshots.zh-TW.md) | 依一場考試的流程整理桌機與手機畫面 |
 

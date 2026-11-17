@@ -80,7 +80,7 @@ A single Linux VM running Docker Engine is enough. The full list to request from
 | CPU and memory | 4 vCPU, 8 GB | 300 concurrent candidates measured p99 12 ms on a laptop; this leaves headroom |
 | CPU type (Proxmox/QEMU) | `host` or `x86-64-v3` | The image build runs Vite and Tailwind native binaries, which crash with "Illegal instruction" on the default QEMU CPU model |
 | Disk | 64 GB or more | The database is small; most space is backups |
-| Network | A fixed internal IP reachable from the labs | See [Network and offline exams](#network-and-offline-exams) |
+| Network | A fixed internal IP reachable from the labs | See [Network](#network) |
 | Backup | The scheduled `pg_dump` plus VM-level backups (for example vzdump or Proxmox Backup Server) | One restores data, the other the whole machine |
 
 ## HTTPS
@@ -109,23 +109,31 @@ Port 80 then only redirects to HTTPS (which assumes `TESTA_HTTPS_PORT` is 443). 
 
 Either way keep `TESTA_COOKIE_SECURE=true`.
 
-## Network and offline exams
+## Network
 
-The labs reach the same deployment over the school's internal network. During an exam the Internet can be cut off: the application, its fonts and scripts, sign-in and the database are all on this VM, and start-up needs no Internet. What still has to work is the **internal** path from the labs to the VM; if that breaks, the exam stops for those rooms (answers already saved are kept, candidates resume when the network returns, and proctors can add time).
+Where candidates sit is up to each unit:
+
+| Setting | What it needs |
+| --- | --- |
+| Computer lab | Lab PCs reach the server over the school network |
+| Lab PCs blocked from the Internet | The same, and the firewall must still let lab PCs reach the server (check this when the server has a public IP). The server itself can stay online |
+| Online from home | A public DNS record for the host name and TCP 443 open from the Internet |
+
+Nothing in an exam needs the Internet: the application, its fonts and scripts, sign-in and the database are all on this VM. What must work is the path from candidates to the server; if it breaks, saved answers are kept, candidates resume when it returns, and proctors can add time.
 
 To arrange with the network administrators:
 
 | Item | What is needed |
 | --- | --- |
-| DNS | The exam host name must resolve inside the school without the Internet: an internal (split-horizon) DNS record pointing to the VM's internal IP, served by the school's own DNS servers |
-| Routing and firewall | Lab subnets/VLANs to the VM on TCP 443 (and 80 for the redirect). The VM needs no inbound access from the Internet for exams |
-| Certificate | Issued for the exam host name (a public CA or the school's wildcard certificate; an internal CA only if every lab PC trusts it). Browsers accept a valid certificate offline, but renewal may need the Internet: check the expiry date before each exam period with `openssl x509 -enddate -noout -in tls/fullchain.pem` |
-| Time | The server clock decides exam timing, so the VM needs NTP from a source reachable without the Internet (the hypervisor host or a school NTP server). Lab PC clocks do not matter |
-| Outbound | Only for building images and upgrades (Docker Hub, Maven Central, npm). Never build or upgrade on an exam day |
+| DNS | An internal record for the exam host name on the school's DNS servers, so lab PCs resolve it even when blocked from the Internet. Online exams also need a public record |
+| Routing and firewall | Lab subnets/VLANs to the server on TCP 443 (and 80 for the redirect); from the Internet only for online exams |
+| Certificate | Issued for the exam host name (a public CA or the school's wildcard certificate; an internal CA only if every candidate's PC trusts it). Check the expiry date before each exam period with `openssl x509 -enddate -noout -in tls/fullchain.pem` |
+| Time | The server clock decides exam timing, so the VM needs NTP (a public server, or the hypervisor host or a school server if the VM has no Internet). Candidates' clocks do not matter |
+| Outbound | For building images and upgrades (Docker Hub, Maven Central, npm). Never build or upgrade on an exam day |
 
-Cutting the Internet does not make the exam secure on its own: candidates on the internal network can still reach each other and other internal services, so lab isolation is the school's responsibility; the application enforces sign-in, timing and access on the server.
+Blocking the Internet does not make an exam secure on its own: candidates on the internal network can still reach each other and other internal services, so lab isolation is the school's responsibility; the application enforces sign-in, timing and access on the server.
 
-How candidates sit the exam is up to each unit: in a lab, in a lab whose PCs are blocked from the Internet (the server can stay online; the PCs only need to reach it over the internal network), or online from home. For online exams the host name needs a public DNS record and TCP 443 open from the Internet; autosave, resume and extra time cover unstable home connections. Testa has no video proctoring or lockdown browser and only counts how often a candidate leaves the window, so a unit relying on online exams for high-stakes results has to arrange its own supervision.
+Testa has no video proctoring or lockdown browser and only counts how often a candidate leaves the window, so a unit relying on online exams for high-stakes results has to arrange its own supervision.
 
 ## AI question import (optional)
 

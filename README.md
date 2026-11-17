@@ -2,7 +2,7 @@
 
 **English** | [繁體中文](README.zh-TW.md)
 
-Testa is a self-hosted online exam system for schools. Teachers write question banks, an exam officer schedules the exam and prints login slips, candidates take it in a computer lab, essays are graded anonymously, and results are published, all on one server inside the school network.
+Testa is a self-hosted online exam system for schools. Teachers write question banks, an exam officer schedules the exam and prints login slips, candidates take it in a computer lab or online, essays are graded anonymously, and results are published, all on one server the school runs itself.
 
 ![Question bank editor](docs/images/editor.png)
 
@@ -20,7 +20,7 @@ More in [Screenshots](docs/screenshots.md).
 - Optional: a local AI model drafts questions from an existing Word or PDF paper, and the author confirms each one. Off by default.
 
 **Running an exam**
-- Roster import from Excel or CSV (including Big5), one login code per candidate, printable login slips.
+- Roster import from Excel or CSV (including Big5) and printable login slips; login codes are stored only as hashes and shown once, when the slips are printed.
 - Candidates need no account: candidate number plus login code, one active session per candidate.
 - The server owns the clock: autosave, resume after a disconnect, auto-submit at time-up, per-candidate extra time.
 - Live proctoring: status filters, lockout after wrong codes, a count of how often a candidate left the exam window.
@@ -33,7 +33,7 @@ More in [Screenshots](docs/screenshots.md).
 **Operations**
 - No default credentials: the first administrator is created on a first-run setup page that closes for good afterwards.
 - Append-only audit log for sensitive actions; administrators cannot see papers unless an exam owner grants time-limited access.
-- Runs without Internet access: fonts, math and scripts are bundled, and sessions live in the database, so a restart signs no one out.
+- Needs no Internet during an exam, so lab PCs can be blocked from it: fonts, math and scripts are bundled, and sessions live in the database, so a restart signs no one out.
 - Docker Compose deployment with Nginx, daily database backups and an end-to-end smoke test. Administrators can create, download, delete and restore backups in the admin panel; destructive actions ask for confirmation, and a restore must be confirmed by typing a word.
 
 ## Design principles
@@ -99,7 +99,7 @@ Roles are granted per unit (for example, an admissions office), and one person c
 
 | Document | Contents |
 | --- | --- |
-| [Deployment](docs/deployment.md) | Installation, HTTPS, offline exams, upgrades, backup and restore |
+| [Deployment](docs/deployment.md) | Installation, HTTPS, network options, upgrades, backup and restore |
 | [Server requirements](docs/server-requirements.md) | One table of what to request: VM size, network, certificate |
 | [Development](docs/development.md) | Code layout, backend rules, tests, contributing |
 | [Frontend](testa/README.md) | Pages, components, design tokens, UI rules |
