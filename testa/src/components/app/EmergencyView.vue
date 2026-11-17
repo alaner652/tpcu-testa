@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { ChevronLeft, Eye, RotateCw } from 'lucide-vue-next'
+import { ChevronLeft, Eye } from 'lucide-vue-next'
+import EmptyNote from '@/components/ui/EmptyNote.vue'
+import ErrorNote from '@/components/ui/ErrorNote.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import { CANDIDATE_STATUS, EXAM_STATUS, when, type Candidate, type Exam } from '@/composables/useExams'
@@ -63,10 +65,7 @@ const candidate = (ticket: string) => view.value?.candidates.find((c) => c.ticke
 
 <template>
   <section class="card">
-    <p v-if="error" class="flex items-center gap-3 px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
-      <span class="min-w-0 flex-1">{{ error }}</span>
-      <Button variant="outline" @click="load"><RotateCw />重試</Button>
-    </p>
+    <ErrorNote v-if="error" :message="error" :retry="load" />
 
     <template v-else-if="view">
       <div class="px-5 py-4 sm:px-6">
@@ -86,14 +85,14 @@ const candidate = (ticket: string) => view.value?.candidates.find((c) => c.ticke
         </p>
       </div>
       <div class="overflow-x-auto border-t border-line">
-        <table class="w-full min-w-[640px] text-left text-[15px]">
+        <table class="w-full text-left text-[15px] sm:min-w-[640px]">
           <thead class="text-sm text-ink-2">
             <tr>
               <th class="px-5 py-2.5 font-medium sm:px-6">座位</th>
               <th class="px-2 py-2.5 font-medium">考生</th>
               <th class="px-2 py-2.5 font-medium">狀態</th>
-              <th class="px-2 py-2.5 text-right font-medium">自動批改</th>
-              <th class="px-2 py-2.5 text-right font-medium">申論</th>
+              <th class="px-2 py-2.5 text-right font-medium max-sm:hidden">自動批改</th>
+              <th class="px-2 py-2.5 text-right font-medium max-sm:hidden">申論</th>
               <th class="px-5 py-2.5 text-right font-medium sm:px-6">總分</th>
             </tr>
           </thead>
@@ -102,14 +101,14 @@ const candidate = (ticket: string) => view.value?.candidates.find((c) => c.ticke
               <td class="px-5 py-2.5 text-ink-3 sm:px-6">{{ r.seat }}</td>
               <td class="px-2 py-2.5">
                 <span class="font-medium">{{ r.name }}</span>
-                <span class="ml-2 text-sm text-ink-2">{{ r.ticket }}</span>
+                <span class="text-sm text-ink-2 max-sm:block sm:ml-2">{{ r.ticket }}</span>
               </td>
               <td class="px-2 py-2.5 text-sm">
                 {{ CANDIDATE_STATUS[r.status].label }}
                 <span v-if="candidate(r.ticket)?.leaveCount" class="text-ink-2">，離開畫面 {{ candidate(r.ticket)?.leaveCount }} 次</span>
               </td>
-              <td class="px-2 py-2.5 text-right">{{ n(r.autoScore) }}</td>
-              <td class="px-2 py-2.5 text-right">
+              <td class="px-2 py-2.5 text-right max-sm:hidden">{{ n(r.autoScore) }}</td>
+              <td class="px-2 py-2.5 text-right max-sm:hidden">
                 <template v-if="r.pending">評分中（剩 {{ r.pending }} 題）</template><template v-else>{{ n(r.essayScore) }}</template>
               </td>
               <td class="px-5 py-2.5 text-right font-semibold sm:px-6">{{ n(r.total) }}</td>
@@ -117,15 +116,17 @@ const candidate = (ticket: string) => view.value?.candidates.find((c) => c.ticke
           </tbody>
         </table>
       </div>
-      <p v-if="!view.results.rows.length" class="border-t border-line px-5 py-8 text-[15px] text-ink-2 sm:px-6">名單上沒有考生。</p>
+      <EmptyNote v-if="!view.results.rows.length" line>名單上沒有考生。</EmptyNote>
     </template>
 
     <template v-else-if="grants">
-      <p class="px-5 py-4 text-[15px] text-ink-2 sm:px-6">
-        系統管理員平常看不到考試內容。單位負責人授權之後，這裡會出現那場考試，在時效內可以檢視名單、作答狀態與成績。每開一次都會留下操作紀錄。
-      </p>
-      <p v-if="!grants.length" class="border-t border-line px-5 py-5 text-[15px] sm:px-6">目前沒有授權給你的考試。</p>
-      <ul v-else class="divide-y divide-line border-t border-line">
+      <div v-if="!grants.length" class="px-5 py-5 text-[15px] sm:px-6">
+        <p>目前沒有授權給你的考試。</p>
+        <p class="mt-0.5 text-sm text-ink-2">單位負責人授權後，考試會出現在這裡。</p>
+      </div>
+      <template v-else>
+      <p class="px-5 py-3 text-sm text-ink-2 sm:px-6">在有效時間內可以檢視名單、作答狀態與成績，每次開啟都會留下紀錄。</p>
+      <ul class="divide-y divide-line border-t border-line">
         <li v-for="g in grants" :key="g.id" class="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 sm:px-6">
           <div class="min-w-0 flex-1 basis-64 text-[15px]">
             <p class="font-medium">{{ g.examName }}</p>
@@ -134,6 +135,7 @@ const candidate = (ticket: string) => view.value?.candidates.find((c) => c.ticke
           <Button variant="outline" @click="open(g)"><Eye />檢視</Button>
         </li>
       </ul>
+      </template>
     </template>
   </section>
 </template>

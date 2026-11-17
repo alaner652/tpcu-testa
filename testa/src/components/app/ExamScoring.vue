@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Download, Megaphone, RotateCcw, RotateCw, UserMinus, UserPlus, X } from 'lucide-vue-next'
+import { Download, Megaphone, RotateCcw, UserMinus, UserPlus, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import CardHeader from '@/components/ui/CardHeader.vue'
+import EmptyNote from '@/components/ui/EmptyNote.vue'
+import ErrorNote from '@/components/ui/ErrorNote.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import Switch from '@/components/ui/Switch.vue'
@@ -142,25 +145,19 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
 </script>
 
 <template>
-  <p v-if="error" class="card flex items-center gap-3 px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
-    <span class="min-w-0 flex-1">{{ error }}</span>
-    <Button variant="outline" @click="load"><RotateCw />重試</Button>
-  </p>
+  <ErrorNote v-if="error" class="card" :message="error" :retry="load" />
 
   <!-- Grading -->
-  <div v-else-if="view === 'grading' && results" class="space-y-3">
+  <div v-else-if="view === 'grading' && results" class="space-y-4">
     <p v-if="flagged.length" class="rounded-card bg-grade-soft px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
       <strong class="font-semibold">有 {{ flagged.length }} 份申論答案的評分差距過大。</strong>
       評分者之間最高分與最低分相差超過該題配分的 20%（100 分的題目就是差 20 分以上）。請在下方確認，需要的話重開評分。
     </p>
     <section class="card">
-      <div class="px-5 py-4 sm:px-6">
-        <h2 class="text-[17px] font-semibold">評分者</h2>
-        <p class="mt-1 text-[15px] text-ink-2">每個申論答案由所有被指派的人各自評分，取平均。評分者看不到考生身分，也看不到彼此的分數。</p>
-      </div>
-      <p v-if="!graders.length" class="border-t border-line px-5 py-5 text-[15px] text-ink-2 sm:px-6">
+      <CardHeader title="評分者" hint="每份申論由所有評分者各自評分後取平均；評分者看不到考生身分和彼此的分數。" />
+      <EmptyNote v-if="!graders.length" line>
         這個單位還沒有「評分」角色的教職員。請系統管理員或單位負責人先到單位成員裡加入。
-      </p>
+      </EmptyNote>
       <ul v-else class="divide-y divide-line border-t border-line">
         <li v-for="g in graders" :key="g.staffId" class="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-5 py-3 sm:px-6">
           <div class="min-w-0 flex-1 basis-48">
@@ -185,17 +182,12 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
     </section>
 
     <section class="card">
-      <div class="px-5 py-4 sm:px-6">
-        <h2 class="text-[17px] font-semibold">申論答案</h2>
-        <p class="mt-1 text-[15px] text-ink-2 tabular-nums">
-          {{ results.itemsLocked }} / {{ results.itemsTotal }} 份已評完<template v-if="flagged.length"
-            >，其中 {{ flagged.length }} 份評分者之間差距較大，請確認是否需要重評</template
-          >。
-        </p>
-      </div>
-      <p v-if="!results.itemsTotal" class="border-t border-line px-5 py-5 text-[15px] text-ink-2 sm:px-6">
+      <CardHeader title="申論答案" :meta="`${results.itemsLocked} / ${results.itemsTotal} 份已評完`">
+        <template v-if="flagged.length" #hint>其中 {{ flagged.length }} 份評分者之間差距較大，請確認是否需要重評。</template>
+      </CardHeader>
+      <EmptyNote v-if="!results.itemsTotal" line>
         還沒有需要評分的申論答案（考生交卷後才會出現；空白的申論答案直接 0 分）。
-      </p>
+      </EmptyNote>
       <ul v-else class="divide-y divide-line border-t border-line">
         <li v-for="i in results.items" :key="i.anonId + i.questionId" class="px-5 py-3 sm:px-6">
           <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[15px]">
@@ -221,7 +213,7 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
 
   <!-- Results -->
   <section v-else-if="results" class="card">
-    <div class="no-print flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
+    <div class="no-print flex flex-wrap items-center gap-3 px-5 py-4 sm:px-6">
       <p class="min-w-0 flex-1 basis-64 text-[15px] text-ink-2">
         <template v-if="results.publishedAt">成績已於 {{ when(results.publishedAt) }} 公布。</template>
         <template v-else-if="exam.archivedAt">考試已封存，成績沒有公布。</template>
@@ -259,13 +251,13 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
       有 {{ flagged.length }} 份申論答案的評分差距過大，公布前請先到「評分」確認。
     </p>
     <div class="overflow-x-auto border-t border-line">
-      <table class="w-full min-w-[560px] text-left text-[15px]">
+      <table class="w-full text-left text-[15px] sm:min-w-[560px]">
         <thead class="text-sm text-ink-2">
           <tr>
             <th class="px-5 py-2.5 font-medium sm:px-6">座位</th>
             <th class="px-2 py-2.5 font-medium">考生</th>
-            <th class="px-2 py-2.5 text-right font-medium">自動批改</th>
-            <th class="px-2 py-2.5 text-right font-medium">申論</th>
+            <th class="px-2 py-2.5 text-right font-medium max-sm:hidden">自動批改</th>
+            <th class="px-2 py-2.5 text-right font-medium max-sm:hidden">申論</th>
             <th class="px-5 py-2.5 text-right font-medium sm:px-6">總分</th>
           </tr>
         </thead>
@@ -274,20 +266,22 @@ const STATUS = computed(() => ({ IDLE: props.exam.status === 'ended' ? '缺考' 
             <td class="px-5 py-2.5 text-ink-3 sm:px-6">{{ r.seat }}</td>
             <td class="px-2 py-2.5">
               <span class="font-medium">{{ r.name }}</span>
-              <span class="ml-2 text-sm text-ink-2">{{ r.ticket }}</span>
+              <span class="text-sm text-ink-2 max-sm:block sm:ml-2">{{ r.ticket }}</span>
             </td>
             <template v-if="r.status === 'DONE'">
-              <td class="px-2 py-2.5 text-right">{{ n(r.autoScore) }}</td>
-              <td class="px-2 py-2.5 text-right">
+              <td class="px-2 py-2.5 text-right max-sm:hidden">{{ n(r.autoScore) }}</td>
+              <td class="px-2 py-2.5 text-right max-sm:hidden">
                 <template v-if="r.pending">評分中（剩 {{ r.pending }} 題）</template><template v-else>{{ n(r.essayScore) }}</template>
               </td>
-              <td class="px-5 py-2.5 text-right text-lg font-semibold sm:px-6">{{ n(r.total) }}</td>
+              <td class="px-5 py-2.5 text-right text-lg font-semibold sm:px-6">
+                {{ n(r.total) }}<span v-if="r.pending" class="block text-xs font-normal text-ink-2 sm:hidden">評分中</span>
+              </td>
             </template>
             <td v-else colspan="3" class="px-5 py-2.5 text-right text-ink-2 sm:px-6">{{ STATUS[r.status] }}</td>
           </tr>
         </tbody>
       </table>
     </div>
-    <p v-if="!results.rows.length" class="border-t border-line px-5 py-8 text-[15px] text-ink-2 sm:px-6">名單上還沒有考生。</p>
+    <EmptyNote v-if="!results.rows.length" line>名單上還沒有考生。</EmptyNote>
   </section>
 </template>

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { CircleAlert, LoaderCircle, LogIn } from 'lucide-vue-next'
+import { LoaderCircle, LogIn } from 'lucide-vue-next'
 import Logo from '@/components/app/Logo.vue'
+import FormError from '@/components/ui/FormError.vue'
 import Button from '@/components/ui/Button.vue'
 import { DEMO_ACCOUNTS, signedOutNotice, useAuth } from '@/composables/useAuth'
 import { DEMO_CANDIDATE } from '@/composables/useWorkspace'
@@ -148,9 +149,7 @@ function switchTo(next: 'candidate' | 'staff') {
           </div>
         </template>
 
-        <p v-if="error" class="mt-4 flex items-start gap-1.5 text-sm text-grade" role="alert">
-          <CircleAlert class="mt-0.5 size-4 shrink-0" />{{ error }}
-        </p>
+        <FormError v-if="error" class="mt-4">{{ error }}</FormError>
 
         <Button variant="primary" size="lg" type="submit" class="mt-6" :disabled="loading">
           <LoaderCircle v-if="loading" class="animate-spin" /><LogIn v-else />{{ loading ? '登入中…' : '登入' }}

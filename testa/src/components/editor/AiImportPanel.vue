@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
-import { Circle, FileText, LoaderCircle, TriangleAlert, Upload, X } from 'lucide-vue-next'
+import { Circle, FileText, LoaderCircle, Upload, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import FormError from '@/components/ui/FormError.vue'
 import Button from '@/components/ui/Button.vue'
 import { useBanks } from '@/composables/useBanks'
 import { api, ApiError } from '@/lib/api'
@@ -180,9 +181,7 @@ function onDrop(event: DragEvent) {
         <span class="mt-1 text-xs text-ink-3">支援 Word（.docx）、PDF 與純文字，5 MB、約 8000 字以內</span>
       </label>
 
-      <p v-if="error" class="mt-3 flex items-start gap-1.5 text-sm text-grade" role="alert">
-        <TriangleAlert class="mt-0.5 size-4 shrink-0" />{{ error }}
-      </p>
+      <FormError v-if="error" class="mt-3">{{ error }}</FormError>
 
       <p class="mt-5 text-xs leading-relaxed text-ink-3">
         考卷文字只會送到學校設定的 AI 服務。掃描成圖片的 PDF、Word 的方程式物件目前讀不到，請匯入後自行補上。

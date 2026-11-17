@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { UserPlus, X } from 'lucide-vue-next'
+import FormError from '@/components/ui/FormError.vue'
 import Button from '@/components/ui/Button.vue'
 import { ROLE_CHOICES, rolesOf } from '@/composables/useAuth'
 import { ApiError, api } from '@/lib/api'
@@ -154,10 +155,8 @@ async function submit() {
       </select>
     </div>
 
-    <p v-if="problems" class="mt-2 text-sm text-grade" role="alert">有 {{ problems }} 行需要修正，修正後才能建立。</p>
-    <p v-else-if="error" class="mt-2 text-sm text-grade" role="alert">
-      {{ error }}
-    </p>
+    <FormError v-if="problems" class="mt-2">有 {{ problems }} 行需要修正，修正後才能建立。</FormError>
+    <FormError v-else-if="error" class="mt-2">{{ error }}</FormError>
     <div class="mt-3 flex justify-end gap-2">
       <Button size="md" @click="emit('cancel')"><X />取消</Button>
       <Button variant="primary" size="md" type="submit" :disabled="!rows.length || !!problems || saving">

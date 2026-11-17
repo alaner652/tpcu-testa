@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import CardHeader from '@/components/ui/CardHeader.vue'
+import EmptyNote from '@/components/ui/EmptyNote.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
 import { computed } from 'vue'
 import UnitMembers from '@/components/app/UnitMembers.vue'
 import { useAuth } from '@/composables/useAuth'
@@ -10,17 +13,12 @@ const owned = computed(() => (user.value?.units ?? []).filter((u) => u.roles.inc
 
 <template>
   <div>
-    <div class="mb-5 px-4 md:px-0">
-      <h1 class="text-[26px] font-bold sm:text-[30px]">成員</h1>
-      <p class="mt-1 text-[15px] text-ink-2">
-        一個人可以有多個角色。對方還沒有帳號時，請系統管理員先建立。
-      </p>
-    </div>
-    <div v-if="!owned.length" class="card px-5 py-10 text-[15px] text-ink-2 sm:px-10">你不是任何單位的負責人。</div>
-    <div class="space-y-3">
-      <section v-for="u in owned" :key="u.id" class="card px-5 py-5 sm:px-6">
-        <h2 class="mb-3 text-[17px] font-semibold">{{ u.name }}</h2>
-        <UnitMembers :unit="u" />
+    <PageHeader title="成員" hint="一個人可以有多個角色。對方還沒有帳號時，請系統管理員先建立。" />
+    <EmptyNote v-if="!owned.length" class="card">你不是任何單位的負責人。</EmptyNote>
+    <div class="space-y-4">
+      <section v-for="u in owned" :key="u.id" class="card">
+        <CardHeader :title="u.name" />
+        <UnitMembers class="border-t border-line px-5 py-4 sm:px-6" :unit="u" />
       </section>
     </div>
   </div>

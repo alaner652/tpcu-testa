@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { ChevronDown, Info, Printer } from 'lucide-vue-next'
+import { computed, ref, watch, type Component } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { BookOpen, ChevronDown, CircleHelp, ClipboardPenLine, FileText, GraduationCap, Info, LibraryBig, Printer, Settings } from 'lucide-vue-next'
 import PublicHeader from '@/components/app/PublicHeader.vue'
+import BottomBar from '@/components/ui/BottomBar.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
 import Button from '@/components/ui/Button.vue'
 import { useAuth } from '@/composables/useAuth'
 import { CHAPTERS } from '@/data/manual'
@@ -25,29 +27,43 @@ watch(chapter, () => {
 const toc = computed(() => (!chapter.value.accordion && chapter.value.sections.length >= 3 ? chapter.value.sections : []))
 const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 const print = () => window.print()
+
+/** Phone: chapters in a bottom bar; the ones most readers need are cells, the rest and "about" sit under "更多" */
+const ICONS: Record<string, Component> = {
+  start: BookOpen,
+  admin: Settings,
+  author: LibraryBig,
+  officer: FileText,
+  grader: ClipboardPenLine,
+  candidate: GraduationCap,
+  faq: CircleHelp,
+}
+const PHONE_CHAPTERS = ['start', 'candidate', 'faq']
+const phoneItems = [...CHAPTERS.map((c) => ({ value: c.id, label: c.title, icon: ICONS[c.id] ?? BookOpen })), { value: 'about', label: '關於 Testa', icon: Info }]
+const router = useRouter()
+const goChapter = (id: string) => router.push(id === 'about' ? '/about' : `/help/${id}`)
 </script>
 
 <template>
   <div class="flex h-dvh flex-col">
-    <PublicHeader title="操作手冊" />
+    <PublicHeader title="操作手冊" frame="max-w-[1080px] xl:max-w-[1240px]" />
 
     <main ref="content" class="thin-scroll min-h-0 flex-1 overflow-y-auto">
       <div class="mx-auto flex max-w-[1080px] gap-8 py-4 md:px-6 md:py-8 xl:max-w-[1240px]">
-        <!-- Chapters: a side list on wide screens, a scrolling row on phones -->
+        <!-- Chapters: a side list on wide screens, the bottom bar on phones -->
         <nav aria-label="章節" class="no-print shrink-0 max-md:hidden md:w-44">
           <ul class="sticky top-0 space-y-0.5">
             <li v-for="c in CHAPTERS" :key="c.id">
               <RouterLink
                 :to="`/help/${c.id}`"
-                class="block rounded-control px-3 py-2 text-[15px] transition-colors"
-                :class="c.id === chapter.id ? 'bg-brand-soft font-medium text-brand' : 'text-ink-2 hover:bg-ink/[0.06] hover:text-ink'"
+                class="pill-tab w-full"
                 :aria-current="c.id === chapter.id ? 'page' : undefined"
               >
                 {{ c.title }}
               </RouterLink>
             </li>
             <li class="mt-3 border-t border-line pt-3">
-              <RouterLink to="/about" class="flex items-center gap-2 rounded-control px-3 py-2 text-[15px] text-ink-2 hover:bg-ink/[0.06] hover:text-ink">
+              <RouterLink to="/about" class="pill-tab w-full">
                 <Info class="size-4" />關於 Testa
               </RouterLink>
             </li>
@@ -55,27 +71,11 @@ const print = () => window.print()
         </nav>
 
         <article class="min-w-0 flex-1">
-          <nav aria-label="章節" class="no-print thin-scroll -mt-1 mb-4 flex gap-1.5 overflow-x-auto px-4 pb-1 md:hidden">
-            <RouterLink
-              v-for="c in CHAPTERS"
-              :key="c.id"
-              :to="`/help/${c.id}`"
-              class="shrink-0 rounded-full px-3.5 py-1.5 text-sm"
-              :class="c.id === chapter.id ? 'bg-brand font-medium text-brand-fg' : 'bg-sunken text-ink-2'"
-            >
-              {{ c.title }}
-            </RouterLink>
-          </nav>
-
-          <div class="mb-5 flex flex-wrap items-end gap-3 px-4 md:px-0">
-            <div class="min-w-0 flex-1">
-              <h1 class="text-[26px] font-bold sm:text-[30px]">{{ chapter.title }}</h1>
-              <p class="mt-1 text-[15px] text-ink-2">給{{ chapter.who }}</p>
-            </div>
-            <Button v-if="chapter.id === 'candidate'" variant="outline" size="md" class="no-print" @click="print">
-              <Printer />列印
-            </Button>
-          </div>
+          <PageHeader :title="chapter.title" :hint="`給${chapter.who}`">
+            <template #actions>
+              <Button v-if="chapter.id === 'candidate'" variant="outline" size="md" class="no-print" @click="print"><Printer />列印</Button>
+            </template>
+          </PageHeader>
 
           <!-- FAQ: questions fold open one at a time -->
           <div v-if="chapter.accordion" class="card divide-y divide-line">
@@ -96,7 +96,7 @@ const print = () => window.print()
             </section>
           </div>
 
-          <div v-else class="space-y-3">
+          <div v-else class="space-y-4">
             <section v-for="s in chapter.sections" :id="s.id" :key="s.id" class="card scroll-mt-4 px-5 py-5 sm:px-6">
               <h2 class="text-[18px] font-semibold">{{ s.title }}</h2>
               <div class="manual-prose mt-3" v-html="s.html" />
@@ -122,5 +122,7 @@ const print = () => window.print()
         </nav>
       </div>
     </main>
+
+    <BottomBar class="no-print shrink-0 md:hidden" label="章節" :items="phoneItems" :main="PHONE_CHAPTERS" :current="chapter.id" @select="goChapter" />
   </div>
 </template>

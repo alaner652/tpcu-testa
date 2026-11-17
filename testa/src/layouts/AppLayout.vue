@@ -7,6 +7,7 @@ import ShortcutHelp from '@/components/app/ShortcutHelp.vue'
 import UserMenu from '@/components/app/UserMenu.vue'
 import { useAuth, type UnitRole } from '@/composables/useAuth'
 import { useGrading } from '@/composables/useGrading'
+import NavCapsule from '@/components/ui/NavCapsule.vue'
 
 const { user, isAdmin, isStudent } = useAuth()
 const { pending } = useGrading()
@@ -33,38 +34,20 @@ const staffLinks = computed(() => [
 <template>
   <div class="flex h-dvh flex-col">
     <!-- Nav -->
-    <header class="relative z-20 shrink-0 bg-paper shadow-card">
-      <div class="mx-auto flex h-14 max-w-[1080px] items-center gap-6 px-4 md:px-6">
-        <RouterLink to="/" class="rounded-control" aria-label="Testa 首頁"><Logo /></RouterLink>
-        <nav class="flex h-full items-stretch gap-1 max-md:hidden" aria-label="主要導覽">
-          <RouterLink
-            v-for="link in links"
-            :key="link.to"
-            v-slot="{ href, navigate }"
-            :to="link.to"
-            custom
-          >
-            <a
-              :href="href"
-              class="relative flex items-center gap-1.5 px-3 text-[15px] transition-colors"
-              :class="active(link) ? 'font-medium text-brand' : 'text-ink-2 hover:text-ink'"
-              :aria-current="active(link) ? 'page' : undefined"
-              @click="navigate"
-            >
-              <component :is="link.icon" class="size-4" aria-hidden="true" />{{ link.label }}
-              <span v-if="link.badge" class="rounded-full bg-grade px-1.5 text-xs leading-5 font-semibold text-white dark:text-desk">
-                {{ link.badge }}
-              </span>
-              <span
-                v-if="active(link)"
-                class="absolute inset-x-3 bottom-0 h-[3px] rounded-t-full bg-brand"
-              />
-            </a>
-          </RouterLink>
-        </nav>
-        <div class="ml-auto"><UserMenu /></div>
-      </div>
-    </header>
+    <NavCapsule class="gap-6 pr-2 pl-5">
+      <RouterLink to="/" class="rounded-control" aria-label="Testa 首頁"><Logo /></RouterLink>
+      <nav class="flex items-center gap-1 max-md:hidden" aria-label="主要導覽">
+        <RouterLink v-for="link in links" :key="link.to" v-slot="{ href, navigate }" :to="link.to" custom>
+          <a :href="href" class="pill-tab h-9 px-3.5" :aria-current="active(link) ? 'page' : undefined" @click="navigate">
+            <component :is="link.icon" class="size-4" aria-hidden="true" />{{ link.label }}
+            <span v-if="link.badge" class="rounded-full bg-grade px-1.5 text-xs leading-5 font-semibold text-white dark:text-desk">
+              {{ link.badge }}
+            </span>
+          </a>
+        </RouterLink>
+      </nav>
+      <div class="ml-auto"><UserMenu /></div>
+    </NavCapsule>
 
     <main class="thin-scroll min-h-0 flex-1 overflow-y-auto">
       <div class="mx-auto max-w-[1080px] py-4 md:px-6 md:py-8">
@@ -72,8 +55,13 @@ const staffLinks = computed(() => [
       </div>
     </main>
 
-    <!-- Phone: bottom tabs -->
-    <nav v-if="links.length > 1" class="flex shrink-0 border-t border-line bg-paper pb-[env(safe-area-inset-bottom)] md:hidden" aria-label="主要導覽">
+    <!-- Phone: bottom tabs. A page with its own tabs (the admin page) puts them here instead. -->
+    <div id="page-bar" class="shrink-0 md:hidden" />
+    <nav
+      v-if="links.length > 1 && !route.meta.admin"
+      class="flex shrink-0 border-t border-line bg-paper pb-[env(safe-area-inset-bottom)] md:hidden"
+      aria-label="主要導覽"
+    >
       <RouterLink v-for="link in links" :key="link.to" v-slot="{ href, navigate }" :to="link.to" custom>
         <a
           :href="href"

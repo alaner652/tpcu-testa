@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { CircleAlert, KeyRound, LoaderCircle, UserPlus } from 'lucide-vue-next'
+import { KeyRound, LoaderCircle, UserPlus } from 'lucide-vue-next'
 import Logo from '@/components/app/Logo.vue'
+import FormError from '@/components/ui/FormError.vue'
 import Button from '@/components/ui/Button.vue'
 import { useAuth } from '@/composables/useAuth'
 import { api } from '@/lib/api'
@@ -70,9 +71,7 @@ async function submit() {
           </label>
         </div>
 
-        <p v-if="error" class="mt-4 flex items-start gap-1.5 text-sm text-grade" role="alert">
-          <CircleAlert class="mt-0.5 size-4 shrink-0" />{{ error }}
-        </p>
+        <FormError v-if="error" class="mt-4">{{ error }}</FormError>
 
         <Button variant="primary" size="lg" type="submit" class="mt-6" :disabled="loading">
           <LoaderCircle v-if="loading" class="animate-spin" /><UserPlus v-else />{{ loading ? '建立中…' : '建立管理員' }}

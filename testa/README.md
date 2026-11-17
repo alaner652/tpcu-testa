@@ -54,7 +54,7 @@ src/
     useWorkspace.ts       the demo candidate shown on the sign-in page in development
     useAi.ts              whether the server has AI question import turned on
   components/
-    ui/                   Button, Switch, Tip, Menu, MoreMenu, SidePanel, ConfirmDialog...
+    ui/                   Button, Switch, Tip, Menu, MoreMenu, SidePanel, ConfirmDialog, NavCapsule, BottomBar, PageHeader, CardHeader, TabBar...
     app/                  Logo, UserMenu, UnitMembers, ExamScoring, emergency access
     editor/               bank editor and the question cards shared with the exam
   lib/
@@ -83,7 +83,7 @@ Defined in `src/style.css`, one set each for light and dark.
 
 | Token | Use |
 | --- | --- |
-| `desk` / `paper` / `sunken` | Canvas, cards, inputs and hover |
+| `desk` / `paper` / `sunken` | Canvas and cards (both white in light mode), inputs and hover |
 | `ink` / `ink-2` / `ink-3` | Three levels of text |
 | `brand` / `brand-strong` / `brand-soft` | Chalkboard green: brand, primary actions, correct answers |
 | `grade` / `grade-soft` | Red: errors, warnings, delete only |
@@ -97,6 +97,14 @@ One sans-serif stack for the whole site; question content uses `.exam-text`, sha
 - Buttons, tabs and nav items carry a Lucide icon.
 - Whole cards are clickable; a one-line hint next to the status says what to do next.
 - Keep explanatory text to what is needed.
+- The same kind of UI uses the same component, so pages look alike: `NavCapsule` (the top bar of every full page, a dashed
+  capsule), `BottomBar` (phone navigation, three cells and "更多"), `PageHeader` (page title, hint, actions),
+  `CardHeader` (card title, count, one-line hint, actions), `TabBar` (tabs; the current one is a dashed capsule, `.pill-tab`),
+  `EmptyNote` (empty or loading list), `ErrorNote` (failed load with a retry button), `FormError` (red line under a form),
+  `SettingRow` with `ChoiceSelect` (a setting and its control). Write a new one only when nothing fits.
+- Flat material: white page, cards outlined by a hairline, no floating shadows, no grey header bars in lists.
+  A list is one card with rows split by lines; rows that need attention (a live exam) sort first;
+  rows are white, and an exam ended more than 7 days ago turns grey.
 
 ### Picking several rows and keyboard shortcuts
 

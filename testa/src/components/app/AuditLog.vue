@@ -3,6 +3,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { watchDebounced } from '@vueuse/core'
 import { ChevronDown, ChevronRight, Download, LoaderCircle, Search, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import ErrorNote from '@/components/ui/ErrorNote.vue'
+import EmptyNote from '@/components/ui/EmptyNote.vue'
 import Button from '@/components/ui/Button.vue'
 import { api } from '@/lib/api'
 import { ACTION_GROUPS, ACTION_LABEL, ACTOR_TYPE_LABEL, DETAIL_LABEL, isAlarming, type AuditEntry } from '@/lib/audit'
@@ -31,10 +33,10 @@ const range = ref<Range>('all')
 const fromDate = ref('')
 const toDate = ref('')
 const RANGES: { value: Range; label: string }[] = [
-  { value: 'all', label: '全部時間' },
+  { value: 'all', label: '全部' },
   { value: 'today', label: '今天' },
-  { value: '7d', label: '最近 7 天' },
-  { value: '30d', label: '最近 30 天' },
+  { value: '7d', label: '7 天內' },
+  { value: '30d', label: '30 天內' },
   { value: 'custom', label: '自訂' },
 ]
 
@@ -182,7 +184,7 @@ async function exportCsv() {
       <div class="flex flex-wrap items-center gap-2">
         <label class="relative min-w-0 flex-1 basis-64">
           <Search class="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-ink-3" aria-hidden="true" />
-          <input v-model="q" type="search" class="field h-10 pl-10" placeholder="搜尋姓名、Email、准考證號、單位或理由" aria-label="搜尋操作紀錄" />
+          <input v-model="q" type="search" class="field h-10 pl-10" placeholder="搜尋姓名、Email 或准考證號" aria-label="搜尋操作紀錄" />
         </label>
         <select v-model="action" class="field h-10 w-full sm:w-52" aria-label="依動作篩選">
           <option value="">全部動作</option>
@@ -224,27 +226,29 @@ async function exportCsv() {
       </Button>
     </div>
 
-    <p v-if="error" class="border-t border-line px-5 py-6 text-[15px] text-grade sm:px-6" role="alert">{{ error }}</p>
-    <p v-else-if="!loading && !items.length" class="border-t border-line px-5 py-6 text-[15px] text-ink-2 sm:px-6">
+    <ErrorNote v-if="error" class="border-t border-line" :message="error" :retry="() => load()" />
+    <EmptyNote v-else-if="!loading && !items.length" line>
       {{ filtered ? '沒有符合條件的紀錄。' : '還沒有任何紀錄。' }}
-    </p>
+    </EmptyNote>
 
     <template v-for="d in days" :key="d.day">
-      <h3 class="border-t border-line bg-sunken px-5 py-1.5 text-[13px] font-semibold text-ink-2 sm:px-6">{{ d.day }}</h3>
+      <h3 class="px-5 pt-5 pb-2 text-[13px] font-semibold text-ink-3 sm:px-6">{{ d.day }}</h3>
       <ul class="divide-y divide-line border-t border-line">
         <li v-for="a in d.entries" :key="a.id">
           <button
             type="button"
-            class="flex w-full flex-wrap items-baseline gap-x-4 gap-y-0.5 px-5 py-3 text-left text-[15px] hover:bg-ink/[0.03] sm:px-6"
+            class="flex w-full items-center gap-4 px-5 py-3 text-left text-[15px] hover:bg-ink/[0.03] sm:px-6"
             :aria-expanded="open === a.id"
             @click="open = open === a.id ? null : a.id"
           >
-            <span class="w-16 shrink-0 text-sm text-ink-2 tabular-nums">{{ time(a.at) }}</span>
-            <span class="w-28 shrink-0 font-medium" :class="isAlarming(a.action) && 'text-grade'">{{ ACTION_LABEL[a.action] ?? a.action }}</span>
-            <span class="min-w-0 flex-1 basis-40 truncate">
-              {{ actor(a) }}<span v-if="a.actorType === 'CANDIDATE'" class="text-ink-3">（考生）</span>
+            <span class="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-4 gap-y-0.5">
+              <span class="w-16 shrink-0 text-sm text-ink-2 tabular-nums">{{ time(a.at) }}</span>
+              <span class="w-28 shrink-0 font-medium" :class="isAlarming(a.action) && 'text-grade'">{{ ACTION_LABEL[a.action] ?? a.action }}</span>
+              <span class="min-w-0 flex-1 basis-40 truncate">
+                {{ actor(a) }}<span v-if="a.actorType === 'CANDIDATE'" class="text-ink-3">（考生）</span>
+              </span>
+              <span v-if="summary(a)" class="min-w-0 flex-1 basis-48 truncate text-sm text-ink-2">{{ summary(a) }}</span>
             </span>
-            <span class="min-w-0 flex-1 basis-48 truncate text-sm text-ink-2">{{ summary(a) }}</span>
             <ChevronRight class="size-4 shrink-0 self-center text-ink-3 transition-transform" :class="open === a.id && 'rotate-90'" />
           </button>
           <dl v-if="open === a.id" class="grid gap-x-6 gap-y-1.5 bg-sunken/60 px-5 py-4 text-sm sm:grid-cols-[6rem_1fr] sm:px-6">

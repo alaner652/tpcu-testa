@@ -2,6 +2,8 @@
 import { LogIn, RotateCw } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import ErrorNote from '@/components/ui/ErrorNote.vue'
 import Badge, { type BadgeTone } from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import Skeleton from '@/components/ui/Skeleton.vue'
@@ -45,14 +47,9 @@ const enter = () => router.push({ name: 'student-exam', params: { id: 'now' } })
 
 <template>
   <div class="mx-auto max-w-[760px]">
-    <div class="mb-5 px-4 md:px-0">
-      <h1 class="text-[26px] font-bold sm:text-[30px]">{{ state?.name }}，你好</h1>
-    </div>
+    <PageHeader :title="`${state?.name ?? ''}，你好`" />
 
-    <div v-if="error" class="card flex items-center gap-3 px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
-      <span class="min-w-0 flex-1">{{ error }}</span>
-      <Button variant="outline" @click="refresh"><RotateCw />重試</Button>
-    </div>
+    <ErrorNote v-if="error" class="card" :message="error" :retry="refresh" />
     <Skeleton v-else-if="!state || !view" class="mx-4 h-28 rounded-card md:mx-0" />
 
     <div v-else class="card px-5 py-5 sm:px-6">

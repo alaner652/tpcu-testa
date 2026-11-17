@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, type Component } from 'vue'
 import { ChartColumn, ChevronRight, Circle, CircleCheck, CircleStop, ClipboardPenLine, Clock, Inbox, LibraryBig, Plus, Send, Upload, Users } from 'lucide-vue-next'
+import PageHeader from '@/components/ui/PageHeader.vue'
 import Badge from '@/components/ui/Badge.vue'
 import { useAuth, type UnitRole } from '@/composables/useAuth'
 import { useBanks } from '@/composables/useBanks'
@@ -91,10 +92,11 @@ const starters = computed(() => [
 
 <template>
   <div class="space-y-6">
-    <div class="px-4 md:px-0">
-      <h1 class="text-[26px] font-bold sm:text-[30px]">{{ user?.name }}，你好</h1>
-      <p v-if="!user?.units?.length" class="mt-1 text-[15px] text-ink-2">你還沒有被加入任何單位。請單位負責人或系統管理員把你加進單位。</p>
-    </div>
+    <PageHeader
+      class="!mb-0"
+      :title="`${user?.name}，你好`"
+      :hint="user?.units?.length ? undefined : '你還沒有被加入任何單位。請單位負責人或系統管理員把你加進單位。'"
+    />
 
     <section v-if="upcoming.length">
       <h2 class="mb-3 px-4 text-[17px] font-semibold md:px-0">考試概況</h2>

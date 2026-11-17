@@ -2,6 +2,8 @@
 import { computed, onMounted, ref, type Component } from 'vue'
 import { ArrowRight, CalendarClock, CircleCheck, Clock, DatabaseBackup, HardDrive, KeyRound, Lock, PenLine, RotateCw, ShieldAlert, Users, Wifi } from 'lucide-vue-next'
 import { version as webVersion } from '../../../package.json'
+import CardHeader from '@/components/ui/CardHeader.vue'
+import ErrorNote from '@/components/ui/ErrorNote.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import { api } from '@/lib/api'
@@ -105,19 +107,15 @@ const actor = (a: AuditEntry) => (a.actorType === 'STAFF' && props.staff.find((s
 </script>
 
 <template>
-  <p v-if="error" class="card flex items-center gap-3 px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
-    <span class="min-w-0 flex-1">{{ error }}</span>
-    <Button variant="outline" @click="load"><RotateCw />重試</Button>
-  </p>
+  <ErrorNote v-if="error" class="card" :message="error" :retry="load" />
   <p v-else-if="!overview" class="card px-5 py-8 text-center text-ink-2 sm:px-6">載入中…</p>
 
   <div v-else class="space-y-4">
     <!-- Needs attention -->
     <section class="card">
-      <div class="flex items-center gap-3 px-5 py-4 sm:px-6">
-        <h2 class="min-w-0 flex-1 text-[17px] font-semibold">需要處理</h2>
+      <CardHeader title="需要處理">
         <Button size="md" :disabled="loading" @click="load"><RotateCw :class="loading && 'animate-spin'" />重新整理</Button>
-      </div>
+      </CardHeader>
       <p v-if="!alerts.length" class="flex items-center gap-2 border-t border-line px-5 py-4 text-[15px] sm:px-6">
         <CircleCheck class="size-5 text-brand" />一切正常，目前沒有需要處理的事。
       </p>
@@ -149,7 +147,7 @@ const actor = (a: AuditEntry) => (a.actorType === 'STAFF' && props.staff.find((s
     <div class="grid gap-4 lg:grid-cols-[2fr_3fr]">
       <!-- System -->
       <section class="card">
-        <h2 class="px-5 py-4 text-[17px] font-semibold sm:px-6">系統</h2>
+        <CardHeader title="系統" />
         <dl class="divide-y divide-line border-t border-line text-[15px]">
           <div class="flex items-center justify-between gap-3 px-5 py-3 sm:px-6">
             <dt class="text-ink-2">備份</dt>
@@ -192,12 +190,11 @@ const actor = (a: AuditEntry) => (a.actorType === 'STAFF' && props.staff.find((s
 
       <!-- Recent -->
       <section class="card">
-        <div class="flex items-center gap-3 px-5 py-4 sm:px-6">
-          <h2 class="min-w-0 flex-1 text-[17px] font-semibold">最近的重要操作</h2>
+        <CardHeader title="最近的重要操作">
           <button type="button" class="inline-flex items-center gap-1 text-sm font-medium text-brand hover:underline" @click="emit('go', 'audit')">
             全部紀錄<ArrowRight class="size-4" />
           </button>
-        </div>
+        </CardHeader>
         <ul class="divide-y divide-line border-t border-line">
           <li v-for="a in overview.recent" :key="a.id" class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-5 py-2.5 text-[15px] sm:px-6">
             <span class="w-24 shrink-0 text-sm text-ink-2 tabular-nums">{{ when(a.at) }}</span>

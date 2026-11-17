@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { Ban, RotateCw, Shield } from 'lucide-vue-next'
+import { Ban, Shield } from 'lucide-vue-next'
 import { onMounted, reactive, ref } from 'vue'
 import { toast } from 'vue-sonner'
+import CardHeader from '@/components/ui/CardHeader.vue'
+import EmptyNote from '@/components/ui/EmptyNote.vue'
+import ErrorNote from '@/components/ui/ErrorNote.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import { useConfirm } from '@/composables/useConfirm'
@@ -93,20 +96,12 @@ const state = (g: Grant) => (g.active ? `有效到 ${when(g.expiresAt)}` : g.rev
 </script>
 
 <template>
-  <p v-if="error" class="card flex items-center gap-3 px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
-    <span class="min-w-0 flex-1">{{ error }}</span>
-    <Button variant="outline" @click="load"><RotateCw />重試</Button>
-  </p>
+  <ErrorNote v-if="error" class="card" :message="error" :retry="load" />
 
-  <div v-else-if="data" class="space-y-3">
+  <div v-else-if="data" class="space-y-4">
     <section class="card">
-      <div class="px-5 py-4 sm:px-6">
-        <h2 class="text-[17px] font-semibold">授權系統管理員檢視</h2>
-        <p class="mt-1 text-[15px] text-ink-2">
-          系統管理員平常看不到考試內容。遇到需要協助查證的狀況（例如考生申訴、系統異常），可以在這裡授權一位系統管理員限時檢視。對方只能看名單、作答狀態與成績，看不到登入碼，也不能修改。
-        </p>
-      </div>
-      <p v-if="!data.admins.length" class="border-t border-line px-5 py-5 text-[15px] text-ink-2 sm:px-6">目前沒有啟用中的系統管理員。</p>
+      <CardHeader title="授權系統管理員檢視" hint="處理申訴或異常時，讓一位系統管理員限時查看名單、作答狀態與成績；看不到登入碼，也不能修改。" />
+      <EmptyNote v-if="!data.admins.length" line>目前沒有啟用中的系統管理員。</EmptyNote>
       <form v-else class="space-y-4 border-t border-line px-5 py-5 sm:px-6" novalidate @submit.prevent="grant">
         <div class="flex flex-wrap gap-4">
           <label class="block min-w-0 flex-1 basis-56">
@@ -132,7 +127,7 @@ const state = (g: Grant) => (g.active ? `有效到 ${when(g.expiresAt)}` : g.rev
     </section>
 
     <section v-if="data.grants.length" class="card">
-      <h2 class="px-5 py-4 text-[17px] font-semibold sm:px-6">授權紀錄</h2>
+      <CardHeader title="授權紀錄" />
       <ul class="divide-y divide-line border-t border-line">
         <li v-for="g in data.grants" :key="g.id" class="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 sm:px-6">
           <div class="min-w-0 flex-1 basis-64 text-[15px]">

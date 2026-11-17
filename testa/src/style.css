@@ -7,20 +7,21 @@
  * Testa design tokens
  *
  * Colour: mostly neutral with a single brand colour (chalkboard green); other colours appear only when they mean something.
- * - Neutrals: canvas, cards, text and dividers are greys with a hint of green, all one hue, staying in the background.
+ * - Neutrals: a white canvas, cards outlined by a hairline (no floating shadows), text and dividers in plain greys.
+ *   They stay in the background.
  * - Brand green: primary actions, the current location, correct answers.
  * - Red: only errors, warnings and delete. Scores and points are ordinary information and use text colour.
  * - Yellow: pending (scheduled, flagged, awaiting grading).
  */
 :root {
-  --desk: #f3f4f1; /* canvas */
+  --desk: #ffffff; /* canvas */
   --paper: #ffffff; /* cards */
-  --sunken: #f1f2ee; /* inputs, hover */
+  --sunken: #f4f4f3; /* inputs, hover */
   --ink: #1a1f1c; /* text, filled answer bubbles */
   --ink-2: #4c5450;
   --ink-3: #69716c;
-  --line: #e4e6e1;
-  --line-strong: #c4c9c3;
+  --line: #e6e6e3;
+  --line-strong: #c9c9c5;
   --brand: #1f6b54; /* chalkboard green: brand, primary actions, correct answers */
   --brand-strong: #17513f;
   --brand-soft: #e3efe9;
@@ -30,7 +31,7 @@
   --grade-fg: #ffffff;
   --marker: #f4e7b8; /* yellow: pending */
   --marker-ink: #57460c;
-  --sh-card: 0 1px 2px rgb(26 31 28 / 0.06), 0 0 0 1px rgb(26 31 28 / 0.03);
+  --sh-card: 0 0 0 1px var(--line);
   --sh-lift: 0 2px 4px rgb(26 31 28 / 0.05), 0 14px 32px -12px rgb(26 31 28 / 0.22);
   color-scheme: light;
 }
@@ -81,7 +82,7 @@
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
   /* Radius by level: cards largest, then controls */
-  --radius-card: 14px;
+  --radius-card: 10px;
   --radius-control: 8px;
 
   --shadow-card: var(--sh-card);
@@ -350,6 +351,14 @@
   }
   .card {
     @apply overflow-hidden bg-paper shadow-card md:rounded-card;
+  }
+  /* Navigation and tabs: a dashed capsule marks where you are */
+  .pill-tab {
+    @apply inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-dashed border-transparent px-4 text-[15px] text-ink-2 transition-colors hover:border-line-strong hover:text-ink;
+  }
+  .pill-tab[aria-selected='true'],
+  .pill-tab[aria-current='page'] {
+    @apply border-brand font-medium text-brand hover:border-brand hover:text-brand;
   }
 }
 

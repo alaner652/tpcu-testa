@@ -1,6 +1,10 @@
 <script setup lang="ts">
-import { computed, reactive, ref, type Component } from 'vue'
-import { Archive, ArchiveRestore, CalendarClock, ChartColumn, ChevronRight, CircleAlert, CircleStop, Clock, Megaphone, Pencil, Plus, RotateCw, Save, Send, Trash2, Undo2, Upload, X } from 'lucide-vue-next'
+import { computed, h, reactive, ref, type Component } from 'vue'
+import { Archive, ArchiveRestore, CalendarClock, ChartColumn, ChevronRight, CircleAlert, CircleStop, Clock, Megaphone, Pencil, Plus, Save, Send, Trash2, Undo2, Upload, X } from 'lucide-vue-next'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import FormError from '@/components/ui/FormError.vue'
+import EmptyNote from '@/components/ui/EmptyNote.vue'
+import ErrorNote from '@/components/ui/ErrorNote.vue'
 import MoreMenu, { type MoreAction } from '@/components/ui/MoreMenu.vue'
 import { toast } from 'vue-sonner'
 import Badge from '@/components/ui/Badge.vue'
@@ -100,6 +104,15 @@ async function doEnd(exam: Exam) {
   }
 }
 
+/** The row's main action: publish a draft or end a live exam. Shown beside the name, or on its own line on phones. */
+const hasAction = (exam: Exam) => exam.canManage && (exam.status === 'draft' || exam.status === 'live')
+function ExamAction({ exam }: { exam: Exam }) {
+  if (!hasAction(exam)) return null
+  if (exam.status === 'draft') return h(Button, { variant: 'primary', class: 'relative z-10', onClick: () => doPublish(exam) }, () => [h(Send), '發布'])
+  if (exam.status === 'live') return h(Button, { variant: 'outline', class: 'relative z-10', onClick: () => doEnd(exam) }, () => [h(CircleStop), '結束考試'])
+  return null
+}
+
 async function doWithdraw(exam: Exam) {
   const ok = await confirm({ title: `取消發布「${exam.name}」？`, description: '考試會回到草稿，可以再修改設定。考生名單會保留。', confirmLabel: '取消發布' })
   if (!ok) return
@@ -127,7 +140,16 @@ async function doRemove(exam: Exam) {
   }
 }
 
-const current = computed(() => exams.value.filter((e) => !e.archivedAt))
+/** Most active first: live (most candidates writing on top), then upcoming, drafts, and ended ones, newest first */
+const RANK: Record<Exam['status'], number> = { live: 0, scheduled: 1, draft: 2, ended: 3 }
+/** Ended more than a week ago: shown in grey so the active ones stand out */
+const STALE_MS = 7 * 86400 * 1000
+const stale = (e: Exam) => e.status === 'ended' && !!e.startAt && Date.now() - new Date(e.startAt).getTime() - e.duration * 60000 > STALE_MS
+const current = computed(() =>
+  exams.value
+    .filter((e) => !e.archivedAt)
+    .sort((a, b) => RANK[a.status] - RANK[b.status] || b.inProgress - a.inProgress || (b.startAt ?? '').localeCompare(a.startAt ?? '') || b.id - a.id),
+)
 const archived = computed(() => exams.value.filter((e) => e.archivedAt))
 
 async function doArchive(exam: Exam) {
@@ -219,15 +241,11 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
 
 <template>
   <div>
-    <div class="mb-5 flex items-center justify-between gap-3 px-4 md:px-0">
-      <h1 class="text-[26px] font-bold sm:text-[30px]">考試</h1>
-      <Button v-if="ownedUnits.length" variant="primary" size="md" @click="openForm()"><Plus />建立考試</Button>
-    </div>
+    <PageHeader title="考試">
+      <template #actions><Button v-if="ownedUnits.length" variant="primary" size="md" @click="openForm()"><Plus />建立考試</Button></template>
+    </PageHeader>
 
-    <div v-if="loadError" class="card flex items-center gap-3 px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
-      <span class="min-w-0 flex-1">{{ loadError }}</span>
-      <Button variant="outline" @click="load"><RotateCw />重試</Button>
-    </div>
+    <ErrorNote v-if="loadError" class="card" :message="loadError" :retry="load" />
 
     <div v-else-if="loading" class="space-y-3 px-4 md:px-0">
       <Skeleton v-for="n in 2" :key="n" class="h-28 rounded-card" />
@@ -244,22 +262,26 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
     </div>
 
     <template v-else>
-    <p v-if="!current.length" class="card px-5 py-6 text-[15px] text-ink-2 sm:px-6">目前沒有進行中或待處理的考試，其餘都已封存。</p>
-    <ul v-else class="space-y-3">
-      <li v-for="exam in current" :key="exam.id" class="card relative px-5 py-4 transition-shadow hover:shadow-lift sm:px-6">
-        <div class="flex items-center gap-x-3 gap-y-2">
+    <EmptyNote v-if="!current.length" class="card">目前沒有進行中或待處理的考試，其餘都已封存。</EmptyNote>
+    <ul v-else class="card divide-y divide-line">
+      <li
+        v-for="exam in current"
+        :key="exam.id"
+        class="relative px-5 py-4 transition-colors sm:px-6"
+        :class="stale(exam) ? 'bg-sunken/70 text-ink-2 hover:bg-sunken' : 'hover:bg-sunken'"
+      >
+        <div class="flex items-center gap-3">
           <div class="min-w-0 flex-1">
-            <p class="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-              <!-- The whole card is clickable: the link covers it and buttons sit above -->
-              <RouterLink :to="`/exams/${exam.id}`" class="text-lg font-semibold after:absolute after:inset-0 after:rounded-card">{{ exam.name }}</RouterLink>
-              <Badge :tone="EXAM_STATUS[exam.status].tone">{{ EXAM_STATUS[exam.status].label }}</Badge>
+            <p class="flex items-start gap-2">
+              <Badge class="mt-px shrink-0" :tone="EXAM_STATUS[exam.status].tone">{{ EXAM_STATUS[exam.status].label }}</Badge>
+              <!-- The whole row is clickable: the link covers it and buttons sit above -->
+              <RouterLink :to="`/exams/${exam.id}`" class="min-w-0 text-[17px] font-semibold after:absolute after:inset-0">{{ exam.name }}</RouterLink>
             </p>
             <p class="mt-1 flex items-center gap-1.5 text-sm tabular-nums" :class="nextStep(exam).todo ? 'font-medium text-brand-strong' : 'text-ink-2'">
               <component :is="nextStep(exam).icon" class="size-4 shrink-0" aria-hidden="true" />{{ nextStep(exam).text }}
             </p>
           </div>
-          <Button v-if="exam.canManage && exam.status === 'draft'" variant="primary" class="relative z-10" @click="doPublish(exam)"><Send />發布</Button>
-          <Button v-else-if="exam.canManage && exam.status === 'live'" variant="outline" class="relative z-10" @click="doEnd(exam)"><CircleStop />結束考試</Button>
+          <div v-if="hasAction(exam)" class="max-sm:hidden"><ExamAction :exam="exam" /></div>
           <MoreMenu :actions="exam.canManage ? moreActions(exam) : []" />
           <ChevronRight class="size-5 shrink-0 text-ink-3" aria-hidden="true" />
         </div>
@@ -270,6 +292,8 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
           </div>
           <p class="shrink-0 text-sm text-ink-2 tabular-nums">已交卷 {{ exam.submitted }} / {{ exam.takers }}</p>
         </div>
+        <!-- Phone: the main action gets its own line instead of squeezing the name -->
+        <div v-if="hasAction(exam)" class="mt-3 sm:hidden"><ExamAction :exam="exam" /></div>
       </li>
     </ul>
 
@@ -333,7 +357,7 @@ const percent = (exam: Exam) => (exam.takers ? Math.round((exam.submitted / exam
             <span class="mb-1.5 block text-sm font-medium">作答時間（分鐘）</span>
             <input v-model.number="form.duration" type="number" min="1" max="600" inputmode="numeric" class="field" />
           </label>
-          <p v-if="formError" class="text-sm text-grade" role="alert">{{ formError }}</p>
+          <FormError v-if="formError">{{ formError }}</FormError>
         </div>
         <footer class="flex shrink-0 justify-end gap-2 border-t border-line px-5 py-3">
           <Button size="md" @click="formOpen = false"><X />取消</Button>

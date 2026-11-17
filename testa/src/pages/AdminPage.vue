@@ -11,6 +11,12 @@ import StaffUnits from '@/components/app/StaffUnits.vue'
 import SystemSettings from '@/components/app/SystemSettings.vue'
 import TempPasswords, { type IssuedPassword } from '@/components/app/TempPasswords.vue'
 import UnitMembers from '@/components/app/UnitMembers.vue'
+import BottomBar from '@/components/ui/BottomBar.vue'
+import TabBar from '@/components/ui/TabBar.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import FormError from '@/components/ui/FormError.vue'
+import EmptyNote from '@/components/ui/EmptyNote.vue'
+import ErrorNote from '@/components/ui/ErrorNote.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import MoreMenu from '@/components/ui/MoreMenu.vue'
@@ -65,6 +71,8 @@ const TABS = [
   { value: 'settings', label: '系統設定', icon: Settings },
 ] as const
 const tabs = TABS
+/** Phone: the bottom bar holds three tabs and a "more" menu with the rest */
+const PHONE_TABS = ['overview', 'staff', 'backups'] as const
 type Tab = (typeof TABS)[number]['value']
 const tab = ref<Tab>('overview')
 /** System settings with unsaved changes: ask before leaving the tab */
@@ -364,27 +372,16 @@ watch(tab, load)
 
 <template>
   <div>
-    <h1 class="mb-4 px-4 text-[26px] font-bold sm:text-[30px] md:px-0">後台管理</h1>
+    <PageHeader title="後台管理" />
 
-    <div role="tablist" class="mb-4 flex gap-1 overflow-x-auto px-4 md:px-0">
-      <button
-        v-for="t in tabs"
-        :key="t.value"
-        type="button"
-        role="tab"
-        :aria-selected="tab === t.value"
-        class="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-4 text-[15px] transition-colors"
-        :class="tab === t.value ? 'bg-brand font-medium text-brand-fg' : 'text-ink-2 hover:bg-ink/[0.06] hover:text-ink'"
-        @click="switchTab(t.value)"
-      >
-        <component :is="t.icon" class="size-4" aria-hidden="true" />{{ t.label }}
-      </button>
-    </div>
+    <TabBar class="max-md:hidden" label="管理分頁" :tabs="tabs" :current="tab" @select="switchTab" />
 
-    <p v-if="loadError" class="card mb-4 flex items-center gap-3 px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
-      <span class="min-w-0 flex-1">{{ loadError }}</span>
-      <Button variant="outline" @click="load"><RotateCw />重試</Button>
-    </p>
+    <!-- Phone: the tabs move to the bottom bar -->
+    <Teleport defer to="#page-bar">
+      <BottomBar label="管理分頁" :items="TABS" :main="PHONE_TABS" :current="tab" @select="switchTab" />
+    </Teleport>
+
+    <ErrorNote v-if="loadError" class="card mb-4" :message="loadError" :retry="load" />
 
     <AdminOverview v-if="tab === 'overview'" :staff="staff" @go="switchTab" />
 
@@ -428,7 +425,7 @@ watch(tab, load)
           <input v-model="draft.systemAdmin" type="checkbox" class="size-4 accent-brand" />
           設為系統管理員（可以管理所有帳號與單位）
         </label>
-        <p v-if="createError" class="mt-2 text-sm text-grade" role="alert">{{ createError }}</p>
+        <FormError v-if="createError" class="mt-2">{{ createError }}</FormError>
       </form>
 
       <ul class="divide-y divide-line border-t border-line">
@@ -478,7 +475,7 @@ watch(tab, load)
             <StaffUnits :staff="s" :units="units" @changed="loadStaff" />
           </div>
         </li>
-        <li v-if="staffQuery.trim() && !shownStaff.length" class="px-5 py-6 text-[15px] text-ink-2 sm:px-6">找不到符合「{{ staffQuery.trim() }}」的教職員。</li>
+        <EmptyNote v-if="staffQuery.trim() && !shownStaff.length" as="li">找不到符合「{{ staffQuery.trim() }}」的教職員。</EmptyNote>
       </ul>
     </section>
 
@@ -490,8 +487,8 @@ watch(tab, load)
       </form>
       <ul class="divide-y divide-line border-t border-line">
         <li v-for="u in units" :key="u.id">
-          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5 sm:px-6" :class="!u.active && 'opacity-60'">
-            <p class="flex min-w-0 flex-1 basis-40 items-center gap-2 text-base font-medium">
+          <div class="flex items-center gap-2 px-5 py-3.5 sm:gap-4 sm:px-6" :class="!u.active && 'opacity-60'">
+            <p class="flex min-w-0 flex-1 items-center gap-2 text-base font-medium">
               <span class="truncate">{{ u.name }}</span>
               <Badge v-if="!u.active">已停用</Badge>
             </p>
@@ -510,7 +507,7 @@ watch(tab, load)
             <UnitMembers :unit="u" @changed="loadStaff" />
           </div>
         </li>
-        <li v-if="!units.length && !loadError" class="px-5 py-6 text-[15px] text-ink-2 sm:px-6">還沒有任何單位。先新增一個，例如「招生組」。</li>
+        <EmptyNote v-if="!units.length && !loadError" as="li">還沒有任何單位。先新增一個，例如「招生組」。</EmptyNote>
       </ul>
     </section>
 

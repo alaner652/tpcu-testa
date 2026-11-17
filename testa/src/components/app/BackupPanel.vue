@@ -1,18 +1,25 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { ChevronDown, DatabaseBackup, Download, HardDrive, History, RotateCw, Trash2, TriangleAlert } from 'lucide-vue-next'
+import { ChevronDown, DatabaseBackup, Download, History, RotateCw, SquareTerminal, Trash2, TriangleAlert } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import CardHeader from '@/components/ui/CardHeader.vue'
+import ErrorNote from '@/components/ui/ErrorNote.vue'
+import EmptyNote from '@/components/ui/EmptyNote.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import MoreMenu from '@/components/ui/MoreMenu.vue'
+import Switch from '@/components/ui/Switch.vue'
+import BackupConsole from '@/components/app/BackupConsole.vue'
+import ChoiceSelect from '@/components/app/ChoiceSelect.vue'
+import SettingRow from '@/components/app/SettingRow.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { api, apiBlob } from '@/lib/api'
-import { backupHealth, bytes, diskLow, type BackupState } from '@/lib/backups'
+import { backupHealth, bytes, diskLow, type BackupSchedule, type BackupState } from '@/lib/backups'
 
 /**
  * Backups (system administrators). The backend lists and downloads dumps and signals the isolated backup container
- * to create, delete or restore one; this page also shows the schedule, recent runs, free disk space,
- * and reminds the administrator to keep a copy somewhere else.
+ * to create, delete or restore one. The page also sets the automatic schedule (saved on change), shows free disk space,
+ * reminds the administrator to keep a copy somewhere else, and offers a small command console for those who prefer it.
  */
 type BackupFile = BackupState['items'][number]
 
@@ -23,9 +30,7 @@ const error = ref('')
 const starting = ref(false)
 const busyWith = ref<string | null>(null)
 const showAll = ref(false)
-const showAllRuns = ref(false)
 const shown = computed(() => (showAll.value ? backups.value?.items : backups.value?.items.slice(0, 7)) ?? [])
-const runs = computed(() => (showAllRuns.value ? backups.value?.history : backups.value?.history.slice(0, 5)) ?? [])
 const health = computed(() => backups.value && backupHealth(backups.value))
 
 async function load(silent = false) {
@@ -159,95 +164,134 @@ const operationLabel = computed(() => {
 })
 
 const when = (iso: string) =>
-  new Date(iso).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+  new Date(iso).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false })
 const whenShort = (iso: string) => new Date(iso).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
-const KIND: Record<string, string> = { auto: '自動備份', manual: '手動備份', delete: '刪除備份', restore: '還原備份' }
+
+/** Schedule choices: saved as soon as one is picked */
+const savingSchedule = ref(false)
+const EVERY: [number, string][] = [
+  [6, '每 6 小時'],
+  [12, '每 12 小時'],
+  [24, '每天'],
+  [168, '每週'],
+]
+const HOURS: [number, string][] = Array.from({ length: 24 }, (_, h) => [h, `${String(h).padStart(2, '0')}:00`])
+const WEEKDAYS: [number, string][] = [...'一二三四五六日'].map((d, i) => [i + 1, `星期${d}`])
+const KEEP: [number, string][] = [7, 14, 30, 60, 90, 180, 365].map((n) => [n, `${n} 天`])
+const at = (h: number) => `${String(h).padStart(2, '0')}:00`
+/** "每天 02:00", "每週日 02:00", "每 6 小時（02:00、08:00…）" */
+function describe(s: BackupSchedule) {
+  if (s.everyHours === 24) return `每天 ${at(s.hour)}`
+  if (s.everyHours === 168) return `每週${'一二三四五六日'[s.weekday - 1]} ${at(s.hour)}`
+  const times = Array.from({ length: 24 / s.everyHours }, (_, i) => at((s.hour + i * s.everyHours) % 24)).sort()
+  return `每 ${s.everyHours} 小時（${times.join('、')}）`
+}
+const timeHint = computed(() => {
+  const s = backups.value?.schedule
+  if (!s || s.everyHours === 24 || s.everyHours === 168) return '建議選沒有考試的半夜。'
+  return `${describe(s).replace(/^每 \d+ 小時/, '每天')}各一次。`
+})
+
+async function saveSchedule(patch: Partial<BackupSchedule>) {
+  if (!backups.value) return false
+  savingSchedule.value = true
+  try {
+    await api('/admin/settings/backup', { method: 'PUT', body: { ...backups.value.schedule, ...patch } })
+    await load(true)
+    toast.success('已儲存')
+    return true
+  } catch (e) {
+    fail(e)
+    return false
+  } finally {
+    savingSchedule.value = false
+  }
+}
+const showConsole = ref(false)
+
+/** How each listed file was made, from the run history */
+const madeBy = computed(() => new Map((backups.value?.history ?? []).filter((r) => r.ok && r.name).map((r) => [r.name, r.kind])))
 
 /** A copy kept elsewhere: remind after 30 days without a download */
 const offsiteDue = computed(() => {
   const at = backups.value?.lastDownloadAt
   return !at || Date.now() - new Date(at).getTime() > 30 * 86400 * 1000
 })
-const diskShare = computed(() => (backups.value?.disk ? 1 - backups.value.disk.free / backups.value.disk.total : 0))
 </script>
 
 <template>
-  <section class="card">
-    <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
-      <div>
-        <h2 class="text-[17px] font-semibold">資料庫備份</h2>
-        <p class="mt-0.5 text-sm text-ink-2">系統每天自動備份一次，也可以隨時手動備份。</p>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <Button variant="outline" :disabled="loading" @click="load()"><RotateCw :class="loading && 'animate-spin'" />重新整理</Button>
-        <Button v-if="backups?.triggerSupported" variant="primary" :disabled="starting || backups.running" @click="start">
-          <RotateCw v-if="starting || backups.running" class="animate-spin" /><DatabaseBackup v-else />
-          {{ starting || backups.running ? operationLabel : '立即備份' }}
-        </Button>
-      </div>
-    </div>
-
-    <p v-if="error" class="border-t border-line px-5 py-6 text-[15px] text-grade sm:px-6" role="alert">{{ error }}</p>
-    <p v-else-if="loading && !backups" class="border-t border-line px-5 py-6 text-[15px] text-ink-2 sm:px-6" role="status">正在讀取備份狀態…</p>
-    <template v-else-if="backups && health">
-      <!-- Health -->
-      <div class="border-t border-line px-5 py-4 text-[15px] sm:px-6">
-        <div class="flex flex-wrap items-center gap-2">
+  <div class="space-y-4">
+    <!-- Status -->
+    <section class="card">
+      <CardHeader title="備份狀態">
+        <div class="flex flex-wrap gap-2">
+          <Button variant="outline" :disabled="loading" @click="load()"><RotateCw :class="loading && 'animate-spin'" />重新整理</Button>
+          <Button v-if="backups?.triggerSupported" variant="primary" :disabled="starting || backups.running" @click="start">
+            <DatabaseBackup />立即備份
+          </Button>
+        </div>
+      </CardHeader>
+      <ErrorNote v-if="error" class="border-t border-line" :message="error" :retry="() => load()" />
+      <EmptyNote v-else-if="loading && !backups" line role="status">正在讀取備份狀態…</EmptyNote>
+      <div v-else-if="backups && health" class="space-y-3 border-t border-line px-5 py-4 text-[15px] sm:px-6">
+        <p class="flex flex-wrap items-center gap-x-2 gap-y-1">
           <Badge :tone="backups.running ? 'warn' : health.tone">{{ backups.running ? operationLabel : health.label }}</Badge>
-          <span v-if="backups.items.length">最近一次：<span class="font-medium tabular-nums">{{ when(backups.items[0].at) }}</span></span>
-          <span v-if="backups.items.length" class="text-sm text-ink-2">{{ bytes(backups.items[0].size) }}</span>
-        </div>
-        <p v-if="health.advice" class="mt-2 text-sm" :class="health.tone === 'danger' ? 'text-grade' : 'text-ink-2'">{{ health.advice }}</p>
-      </div>
-
-      <!-- Numbers -->
-      <dl v-if="backups.configured" class="grid grid-cols-2 gap-px border-t border-line bg-line lg:grid-cols-4">
-        <div class="bg-paper px-5 py-3.5 sm:px-6">
-          <dt class="text-[13px] text-ink-3">下次自動備份</dt>
-          <dd class="mt-0.5 font-medium tabular-nums">{{ backups.nextRunAt ? whenShort(backups.nextRunAt) : '—' }}</dd>
-        </div>
-        <div class="bg-paper px-5 py-3.5 sm:px-6">
-          <dt class="text-[13px] text-ink-3">保留</dt>
-          <dd class="mt-0.5 font-medium">{{ backups.keepDays }} 天<span class="ml-1 text-[13px] font-normal text-ink-3">（在系統設定調整）</span></dd>
-        </div>
-        <div class="bg-paper px-5 py-3.5 sm:px-6">
-          <dt class="text-[13px] text-ink-3">目前備份</dt>
-          <dd class="mt-0.5 font-medium tabular-nums">{{ backups.items.length }} 份，共 {{ bytes(backups.totalSize) }}</dd>
-        </div>
-        <div class="bg-paper px-5 py-3.5 sm:px-6">
-          <dt class="flex items-center gap-1 text-[13px] text-ink-3"><HardDrive class="size-3.5" />主機剩餘空間</dt>
-          <dd v-if="backups.disk" class="mt-0.5">
-            <span class="font-medium tabular-nums" :class="diskLow(backups.disk) && 'text-grade'">{{ bytes(backups.disk.free) }}</span>
-            <span class="text-[13px] text-ink-3"> / {{ bytes(backups.disk.total) }}</span>
-            <span class="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-sunken">
-              <span class="block h-full rounded-full" :class="diskLow(backups.disk) ? 'bg-grade' : 'bg-brand'" :style="{ width: `${diskShare * 100}%` }" />
-            </span>
-          </dd>
-          <dd v-else class="mt-0.5 font-medium">—</dd>
-        </div>
-      </dl>
-
-      <!-- Keep a copy somewhere else -->
-      <div v-if="backups.items.length && offsiteDue" class="flex items-start gap-3 border-t border-line bg-marker/40 px-5 py-3.5 text-sm sm:px-6">
-        <TriangleAlert class="mt-0.5 size-4 shrink-0 text-marker-ink" />
-        <p class="min-w-0 flex-1 text-ink">
-          建議每個月下載一份備份，存到這台主機以外的地方（例如學校 NAS 或加密隨身碟）。主機硬碟壞掉時，只有另外存放的備份救得回來。
-          <span class="block text-ink-2">上次下載：{{ backups.lastDownloadAt ? whenShort(backups.lastDownloadAt) : '從來沒有' }}</span>
+          <span v-if="health.advice" :class="health.tone === 'danger' ? 'text-grade' : 'text-ink-2'">{{ health.advice }}</span>
         </p>
-        <Button size="md" variant="outline" class="shrink-0 bg-paper" @click="download(backups.items[0])"><Download />下載最新一份</Button>
+        <p v-if="backups.disk" class="text-ink-2">
+          主機剩餘空間
+          <span class="tabular-nums" :class="diskLow(backups.disk) ? 'font-medium text-grade' : 'text-ink'">{{ bytes(backups.disk.free) }}</span>
+          <span class="text-ink-3 tabular-nums"> / {{ bytes(backups.disk.total) }}</span>
+        </p>
+        <div v-if="backups.items.length && offsiteDue" class="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+          <p class="flex min-w-0 flex-1 basis-64 items-start gap-1.5 text-marker-ink">
+            <TriangleAlert class="mt-0.5 size-4 shrink-0" />
+            {{ backups.lastDownloadAt ? '超過一個月沒有' : '還沒有' }}把備份另存到主機以外的地方（NAS、隨身碟）。主機壞了，只有另存的備份救得回來。
+          </p>
+          <Button variant="outline" @click="download(backups.items[0])"><Download />下載最新一份</Button>
+        </div>
       </div>
+    </section>
+
+    <template v-if="backups && health">
+      <!-- Schedule: saved on change -->
+      <section v-if="backups.triggerSupported" class="card divide-y divide-line">
+        <CardHeader
+          title="自動備份"
+          for="backup-on"
+          :hint="backups.schedule.enabled ? (backups.nextRunAt ? `下次：${when(backups.nextRunAt)}` : '等候備份服務排定時間。') : '關閉後只有按「立即備份」才會備份。'"
+        >
+          <Switch id="backup-on" :model-value="backups.schedule.enabled" :disabled="savingSchedule" @update:model-value="saveSchedule({ enabled: $event })" />
+        </CardHeader>
+        <template v-if="backups.schedule.enabled">
+          <SettingRow title="多久一次" for="backup-every">
+            <ChoiceSelect id="backup-every" :model-value="backups.schedule.everyHours" :options="EVERY" :default-value="24" :disabled="savingSchedule" @update:model-value="saveSchedule({ everyHours: $event })" />
+          </SettingRow>
+          <SettingRow v-if="backups.schedule.everyHours === 168" title="星期幾" for="backup-weekday">
+            <ChoiceSelect id="backup-weekday" :model-value="backups.schedule.weekday" :options="WEEKDAYS" :default-value="7" :disabled="savingSchedule" @update:model-value="saveSchedule({ weekday: $event })" />
+          </SettingRow>
+          <SettingRow :title="backups.schedule.everyHours < 24 ? '從幾點開始' : '幾點'" :hint="timeHint" for="backup-hour">
+            <ChoiceSelect id="backup-hour" :model-value="backups.schedule.hour" :options="HOURS" :default-value="2" :disabled="savingSchedule" @update:model-value="saveSchedule({ hour: $event })" />
+          </SettingRow>
+        </template>
+        <SettingRow title="保留天數" hint="更舊的備份會在下次備份後自動刪除。" for="backup-keep">
+          <ChoiceSelect id="backup-keep" :model-value="backups.schedule.keepDays" :options="KEEP" :default-value="backups.keepDaysDefault" :format="(n) => `${n} 天`" :disabled="savingSchedule" @update:model-value="saveSchedule({ keepDays: $event })" />
+        </SettingRow>
+      </section>
 
       <!-- Files -->
-      <template v-if="backups.items.length">
-        <h3 class="border-t border-line bg-sunken px-5 py-1.5 text-[13px] font-semibold text-ink-2 sm:px-6">備份檔案</h3>
-        <ul class="divide-y divide-line border-t border-line">
-          <li v-for="b in shown" :key="b.name" class="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 text-[15px] sm:px-6">
-            <span class="w-36 shrink-0 text-sm text-ink-2 tabular-nums">{{ when(b.at) }}</span>
-            <span class="min-w-0 flex-1 basis-48 truncate font-mono text-sm">{{ b.name }}</span>
-            <span class="text-sm text-ink-2 tabular-nums">{{ bytes(b.size) }}</span>
-            <Button variant="outline" :disabled="backups.running || !!busyWith" @click="download(b)"><Download />下載</Button>
+      <section class="card">
+        <CardHeader title="備份檔案" :meta="backups.items.length ? `${backups.items.length} 份，共 ${bytes(backups.totalSize)}` : undefined" />
+        <EmptyNote v-if="!backups.items.length" line>還沒有備份。</EmptyNote>
+        <ul v-else class="divide-y divide-line border-t border-line">
+          <li v-for="b in shown" :key="b.name" class="flex items-center gap-3 py-2 pr-3 pl-5 sm:pr-4 sm:pl-6" :title="b.name">
+            <span class="min-w-0 flex-1 text-[15px] whitespace-nowrap tabular-nums">{{ when(b.at) }}</span>
+            <span class="text-sm whitespace-nowrap text-ink-2 tabular-nums">
+              <template v-if="madeBy.get(b.name) === 'manual'">手動 · </template>{{ bytes(b.size) }}
+            </span>
+            <Button variant="outline" :disabled="backups.running || !!busyWith" :aria-label="`下載 ${whenShort(b.at)} 的備份`" @click="download(b)"><Download /><span class="max-sm:hidden">下載</span></Button>
             <MoreMenu
-              :label="`${b.name} 更多動作`"
+              :label="`${whenShort(b.at)} 的備份，更多動作`"
               :actions="
                 backups.running || busyWith
                   ? []
@@ -259,30 +303,29 @@ const diskShare = computed(() => (backups.value?.disk ? 1 - backups.value.disk.f
             />
           </li>
         </ul>
-        <div v-if="backups.items.length > 7" class="border-t border-line px-5 py-3 text-center sm:px-6">
+        <div v-if="backups.items.length > 7" class="border-t border-line px-5 py-2 text-center sm:px-6">
           <Button @click="showAll = !showAll">
             <ChevronDown :class="showAll && 'rotate-180'" />{{ showAll ? '收合' : `查看全部 ${backups.items.length} 份` }}
           </Button>
         </div>
-      </template>
 
-      <!-- What the backup container did -->
-      <template v-if="backups.history.length">
-        <h3 class="border-t border-line bg-sunken px-5 py-1.5 text-[13px] font-semibold text-ink-2 sm:px-6">執行紀錄</h3>
-        <ul class="divide-y divide-line border-t border-line">
-          <li v-for="r in runs" :key="r.at + r.kind" class="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-2.5 text-sm sm:px-6">
-            <span class="w-36 shrink-0 text-ink-2 tabular-nums">{{ when(r.at) }}</span>
-            <span class="w-20 shrink-0 font-medium">{{ KIND[r.kind] ?? r.kind }}</span>
-            <Badge :tone="r.ok ? 'done' : 'danger'">{{ r.ok ? '成功' : '失敗' }}</Badge>
-            <span class="min-w-0 flex-1 truncate font-mono text-[13px] text-ink-3">{{ r.name }}</span>
-          </li>
-        </ul>
-        <div v-if="backups.history.length > 5" class="border-t border-line px-5 py-2 text-center sm:px-6">
-          <Button @click="showAllRuns = !showAllRuns">
-            <ChevronDown :class="showAllRuns && 'rotate-180'" />{{ showAllRuns ? '收合' : '查看更多' }}
-          </Button>
-        </div>
-      </template>
+        <!-- Console, for those who prefer typing -->
+        <button
+          type="button"
+          class="flex w-full items-center gap-2 border-t border-line px-5 py-3 text-left text-[15px] text-ink-2 hover:bg-sunken sm:px-6"
+          :aria-expanded="showConsole"
+          @click="showConsole = !showConsole"
+        >
+          <SquareTerminal class="size-4" />終端機<span class="text-sm text-ink-3">（進階）</span>
+          <ChevronDown class="ml-auto size-4 transition-transform" :class="showConsole && 'rotate-180'" />
+        </button>
+        <BackupConsole
+          v-if="showConsole"
+          :backups="backups"
+          :describe="describe"
+          :actions="{ refresh: () => load(true), start, download, remove, restore, schedule: saveSchedule }"
+        />
+      </section>
     </template>
-  </section>
+  </div>
 </template>

@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { ClipboardList, Send } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import PageHeader from '@/components/ui/PageHeader.vue'
 import Button from '@/components/ui/Button.vue'
 import MathText from '@/components/editor/MathText.vue'
 import PointsStepper from '@/components/editor/PointsStepper.vue'
@@ -82,12 +83,11 @@ async function submit() {
 
 <template>
   <div class="mx-auto max-w-[760px]">
-    <div class="mb-5 px-4 md:px-0">
-      <h1 class="text-[26px] font-bold sm:text-[30px]">閱卷</h1>
+    <PageHeader title="閱卷">
       <template v-if="exams.length">
         <select
           v-if="exams.length > 1"
-          class="field mt-3 max-w-md bg-paper"
+          class="field mt-3 max-w-md"
           aria-label="選擇考試"
           :value="examId ?? ''"
           @change="open(Number(($event.target as HTMLSelectElement).value))"
@@ -98,11 +98,11 @@ async function submit() {
           <template v-if="exams.length === 1">{{ exam?.name }}<template v-if="total">，</template></template>
           <template v-if="total">已完成 {{ done }} / {{ total }} 份</template>
         </p>
-        <div v-if="total" class="mt-2 h-1.5 overflow-hidden rounded-full bg-paper">
+        <div v-if="total" class="mt-2 h-1.5 overflow-hidden rounded-full bg-sunken">
           <div class="h-full rounded-full bg-brand transition-[width] duration-300" :style="{ width: `${total ? (done / total) * 100 : 0}%` }" />
         </div>
       </template>
-    </div>
+    </PageHeader>
 
     <p v-if="loading" class="px-4 text-[15px] text-ink-2 md:px-0">載入中…</p>
 
@@ -124,7 +124,7 @@ async function submit() {
       <p class="mt-2 text-[15px] text-ink-2">這場考試目前沒有等待你評分的申論答案。有新的交卷時會出現在這裡。</p>
     </div>
 
-    <div v-else class="space-y-3">
+    <div v-else class="space-y-4">
       <section class="card px-5 py-6 sm:px-10">
         <p class="flex flex-wrap items-center justify-between gap-2 text-sm text-ink-2">
           <span class="font-medium text-ink">答卷 {{ current.anonId }}</span>

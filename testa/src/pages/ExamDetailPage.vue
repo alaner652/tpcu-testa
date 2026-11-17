@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
 import { useRoute } from 'vue-router'
-import { ChartColumn, ChevronLeft, ClipboardList, EyeOff, KeyRound, LoaderCircle, Lock, Printer, RotateCw, Shield, Ticket, TimerReset, Trash2, Upload, Users, X } from 'lucide-vue-next'
+import { ChartColumn, ChevronLeft, ClipboardList, EyeOff, KeyRound, LoaderCircle, Lock, Printer, Shield, Ticket, TimerReset, Trash2, Upload, Users, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import TabBar from '@/components/ui/TabBar.vue'
+import EmptyNote from '@/components/ui/EmptyNote.vue'
+import ErrorNote from '@/components/ui/ErrorNote.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import MoreMenu, { type MoreAction } from '@/components/ui/MoreMenu.vue'
@@ -323,25 +326,9 @@ const site = location.origin + location.pathname
       這場考試已於 {{ when(exam.archivedAt) }} 封存，只能檢視。考生不能再登入查成績。資料保留到 {{ retainLabel(exam.retainUntil) }}。
     </p>
 
-    <div role="tablist" aria-label="考試步驟" class="thin-scroll mt-5 mb-4 flex gap-0.5 overflow-x-auto px-4 sm:gap-1 md:px-0">
-      <button
-        v-for="s in STEPS"
-        :key="s.value"
-        type="button"
-        role="tab"
-        :aria-selected="step === s.value"
-        class="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3 text-[15px] transition-colors sm:px-4"
-        :class="step === s.value ? 'bg-brand font-medium text-brand-fg' : 'text-ink-2 hover:bg-ink/[0.06] hover:text-ink'"
-        @click="step = s.value"
-      >
-        <component :is="s.icon" class="size-4" aria-hidden="true" />{{ s.label }}
-      </button>
-    </div>
+    <TabBar class="mt-5" label="考試步驟" :tabs="STEPS" :current="step" @select="step = $event" />
 
-    <p v-if="listError" class="card mb-3 flex items-center gap-3 px-5 py-4 text-[15px] text-grade sm:px-6" role="alert">
-      <span class="min-w-0 flex-1">{{ listError }}</span>
-      <Button variant="outline" @click="loadList"><RotateCw />重試</Button>
-    </p>
+    <ErrorNote v-if="listError" class="card mb-3" :message="listError" :retry="loadList" />
 
     <!-- Candidates: roster and proctoring -->
     <section v-if="step === 'roster'" class="card">
@@ -452,9 +439,9 @@ const site = location.origin + location.pathname
             <Button variant="primary" size="md" type="submit" :disabled="!extendReason.trim()"><TimerReset />確定補時</Button>
           </form>
         </li>
-        <li v-if="!shown.length" class="px-5 py-6 text-[15px] text-ink-2 sm:px-6">
+        <EmptyNote v-if="!shown.length" as="li">
           目前沒有這個狀態的考生。<button type="button" class="rounded-sm font-medium text-brand underline-offset-2 hover:underline" @click="filter = null">顯示全部</button>
-        </li>
+        </EmptyNote>
       </ul>
       <p v-if="live && list.length" class="border-t border-line px-5 py-3 text-sm text-ink-3 sm:px-6">每 10 秒自動更新。</p>
     </section>

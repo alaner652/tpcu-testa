@@ -16,6 +16,16 @@ export interface BackupState {
   /** Newest first: auto, manual, delete or restore */
   history: { at: string; kind: string; ok: boolean; name: string }[]
   lastDownloadAt: string | null
+  schedule: BackupSchedule
+  keepDaysDefault: number
+}
+/** everyHours: 6, 12, 24 or 168; weekday 1 = Monday */
+export interface BackupSchedule {
+  enabled: boolean
+  everyHours: number
+  hour: number
+  weekday: number
+  keepDays: number
 }
 export interface Disk {
   free: number
@@ -31,8 +41,8 @@ export const bytes = (n: number) => {
 /** Less than a tenth of the disk left */
 export const diskLow = (d: Disk) => d.total > 0 && d.free / d.total < 0.1
 
-/** Daily backups: a day and two hours without a new one means the schedule stopped */
-const STALE_MS = 26 * 3600 * 1000
+/** Two hours past the interval without a new backup means the schedule stopped */
+const staleMs = (s: BackupSchedule) => (s.everyHours + 2) * 3600 * 1000
 
 /** One line about the backups, for the backup tab and the overview. */
 export function backupHealth(b: BackupState): { tone: BadgeTone; label: string; advice: string | null } {
@@ -43,8 +53,9 @@ export function backupHealth(b: BackupState): { tone: BadgeTone; label: string; 
       : { tone: 'warn', label: '還沒有任何備份', advice: '如果系統已運作超過一天，請聯絡系統維護人員。' }
   }
   if (b.lastFailed) return { tone: 'danger', label: '上次備份操作失敗', advice: '請再試一次；如果仍然失敗，請查看伺服器日誌。' }
-  if (Date.now() - new Date(b.items[0]!.at).getTime() > STALE_MS) {
-    return { tone: 'danger', label: '需要注意', advice: '已超過一天沒有新的備份，請聯絡系統維護人員。' }
+  if (!b.schedule.enabled) return { tone: 'warn', label: '自動備份已關閉', advice: '只有按「立即備份」才會備份。' }
+  if (Date.now() - new Date(b.items[0]!.at).getTime() > staleMs(b.schedule)) {
+    return { tone: 'danger', label: '需要注意', advice: '超過預定時間沒有新的備份，請聯絡系統維護人員。' }
   }
   if (b.disk && diskLow(b.disk)) {
     return { tone: 'warn', label: '空間快不夠了', advice: '主機剩餘空間不到一成。請減少備份保留天數，或請維護人員擴充硬碟。' }

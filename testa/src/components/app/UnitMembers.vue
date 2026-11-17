@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { Plus, RotateCw, UserPlus, X } from 'lucide-vue-next'
+import { Plus, UserPlus, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import StaffPicker from '@/components/app/StaffPicker.vue'
 import TempPasswords, { type IssuedPassword } from '@/components/app/TempPasswords.vue'
+import ErrorNote from '@/components/ui/ErrorNote.vue'
 import Button from '@/components/ui/Button.vue'
 import { ROLE_CHOICES, UNIT_ROLE_LABEL, rolesOf, useAuth, type UnitRole } from '@/composables/useAuth'
 import { useConfirm } from '@/composables/useConfirm'
@@ -137,15 +138,12 @@ async function remove(m: UnitMember) {
 
 <template>
   <div>
-    <p v-if="error" class="flex items-center gap-3 text-[15px] text-grade" role="alert">
-      <span class="min-w-0 flex-1">{{ error }}</span>
-      <Button variant="outline" @click="load"><RotateCw />重試</Button>
-    </p>
+    <ErrorNote v-if="error" :message="error" :retry="load" plain />
     <p v-else-if="!loaded" class="text-[15px] text-ink-2">載入中…</p>
     <template v-else>
       <p v-if="!members.length" class="text-[15px] text-ink-2">這個單位還沒有成員。先加入一位承辦人。</p>
-      <ul v-else class="space-y-2">
-        <li v-for="row in grouped()" :key="row.email" class="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+      <ul v-else class="divide-y divide-line">
+        <li v-for="row in grouped()" :key="row.email" class="flex flex-wrap items-center gap-x-2 gap-y-1.5 py-3 first:pt-0 last:pb-0">
           <div class="min-w-0 flex-1 basis-full sm:basis-56">
             <p class="truncate text-[15px] font-medium">
               {{ row.name }}<span v-if="!row.active" class="ml-2 text-sm font-normal text-grade">帳號已停用</span>

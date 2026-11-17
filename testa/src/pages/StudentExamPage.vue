@@ -2,8 +2,10 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { LoaderCircle, Play, UserX, X } from 'lucide-vue-next'
+import NavCapsule from '@/components/ui/NavCapsule.vue'
 import Logo from '@/components/app/Logo.vue'
 import ExamPreview from '@/components/editor/ExamPreview.vue'
+import FormError from '@/components/ui/FormError.vue'
 import Button from '@/components/ui/Button.vue'
 import Skeleton from '@/components/ui/Skeleton.vue'
 import { useAuth } from '@/composables/useAuth'
@@ -94,7 +96,7 @@ onBeforeRouteLeave(async () => {
 
 <template>
   <div class="flex h-dvh flex-col">
-    <header class="relative z-20 flex h-14 shrink-0 items-center gap-3 bg-paper px-3 shadow-card sm:px-5">
+    <NavCapsule class="gap-3 pr-2 pl-5">
       <Logo class="max-sm:[&>span]:hidden" />
       <p class="min-w-0 flex-1 truncate text-[15px] font-medium">{{ exam?.name }}</p>
       <button
@@ -104,7 +106,7 @@ onBeforeRouteLeave(async () => {
       >
         <X class="size-4" />離開
       </button>
-    </header>
+    </NavCapsule>
 
     <main class="thin-scroll min-h-0 flex-1 overflow-y-auto">
       <div v-if="loading" class="mx-auto max-w-[760px] space-y-3 py-7 md:px-6">
@@ -142,7 +144,7 @@ onBeforeRouteLeave(async () => {
             <input v-model="agreed" type="checkbox" class="mt-0.5 size-5 shrink-0 accent-(--brand)" />
             以上資料是我本人，我已閱讀考試須知。
           </label>
-          <p v-if="error" class="mt-2 text-sm text-grade" role="alert">{{ error }}</p>
+          <FormError v-if="error" class="mt-2">{{ error }}</FormError>
           <div class="mt-3 flex flex-wrap-reverse gap-2">
             <Button variant="outline" size="lg" class="flex-1 basis-32" @click="router.push({ name: 'student' })"><UserX />這不是我</Button>
             <Button variant="primary" size="lg" class="flex-[2] basis-48" :disabled="!agreed || beginning" @click="begin">
