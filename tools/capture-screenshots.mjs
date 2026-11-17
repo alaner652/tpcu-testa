@@ -143,7 +143,9 @@ async function main() {
 
     await staffLogin(page, 'admin@testa.tw', 'testa-admin')
     await viewport(page)
-    await visit(page, '/admin', '使用者')
+    await visit(page, '/admin', '需要處理')
+    await capture(page, 'admin-overview.png')
+    await clickText(page, '使用者')
     await capture(page, 'admin-users.png')
     await clickText(page, '操作紀錄')
     await capture(page, 'admin-audit.png')

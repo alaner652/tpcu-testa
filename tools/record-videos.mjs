@@ -84,14 +84,29 @@ const clips = {
   async 'admin-create-account'(page, rec) {
     await staffLogin(page, ...ADMIN, '/admin')
     const unit = (await api(page, '/units')).find((u) => u.active)
-    await visit(page, '/admin', '使用者')
+    await visit(page, '/admin', '需要處理')
     await rec.start()
+    await rec.click('使用者', { after: 1000 })
     await rec.click('新增帳號')
     await rec.type({ field: 'Email' }, `teacher${stamp}@school.edu.tw`)
     await rec.type({ field: '姓名' }, '陳老師')
     await rec.choose({ field: '加入單位' }, `加入「${unit.name}」`)
     await rec.choose({ field: '角色' }, '教師（出題＋評分）')
     await rec.click('建立帳號', { after: 2500 })
+  },
+
+  /** The administrator reads the overview, then finds what one person did this week in the audit log. */
+  async 'admin-audit'(page, rec) {
+    await staffLogin(page, ...OFFICER)
+    await staffLogin(page, ...ADMIN, '/admin')
+    await waitFor(page, '需要處理')
+    await rec.start()
+    await pause(2000)
+    await rec.click('操作紀錄', { after: 1200 })
+    await rec.type({ field: '搜尋操作紀錄' }, '王承辦')
+    await rec.click('最近 7 天', { after: 1500 })
+    // The newest entry, at the top of the list
+    await rec.click({ css: 'section > ul:first-of-type > li:first-child > button[aria-expanded]' }, { after: 2500 })
   },
 
   /** A teacher starts a bank, writes one choice question and tries it as a candidate. */

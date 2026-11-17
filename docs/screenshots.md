@@ -75,19 +75,23 @@ Results can be published once the exam has ended and every essay is graded.
 
 ## System administrators
 
+![Overview](images/admin-overview.png)
+
+The first tab: what needs an administrator now (backups, locked accounts, temporary passwords), who is online, and the system's disk, database size and version.
+
 ![Accounts](images/admin-users.png)
 
 ![Audit log](images/admin-audit.png)
 
-The audit log is append-only and can be filtered by action.
+The audit log is append-only. It can be searched by person, unit or text, filtered by action and time, opened for every detail (including the IP address) and exported to CSV.
 
 ![Backups](images/admin-backups.png)
 
-Backups can be taken, downloaded, deleted and restored here. Delete and restore sit in the "..." menu and ask for confirmation; restore also asks the administrator to type 「還原」, and is refused while candidates are answering.
+Backups can be taken, downloaded, deleted and restored here. Delete and restore sit in the "..." menu and ask for confirmation; restore also asks the administrator to type 「還原」, and is refused while candidates are answering. The page also shows the next scheduled backup, recent runs, free disk space, and a reminder to keep a copy off the server.
 
 ![System settings](images/admin-settings.png)
 
-Everything a site may need to adjust, in plain words: AI import, grading flags, data retention, backup retention and sign-in lockout.
+Everything a site may need to adjust, in plain words: AI import, grading flags, data retention, backup retention and sign-in lockout. Each value shows its default, and the page shows who changed the settings last.
 
 ## Retaking
 
