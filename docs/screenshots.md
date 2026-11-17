@@ -98,3 +98,15 @@ Everything a site may need to adjust, in plain words: AI import, grading flags, 
 3. From the repository root: `node tools/capture-screenshots.mjs` (set `CHROMIUM` if Chrome is not in `/Applications`, and `TESTA_APP` if the preview is not on `http://localhost:4173/`).
 
 Keep the file names so links in the README keep working, and keep the demo data free of real people and school details.
+
+## Manual videos
+
+`tools/record-videos.mjs` records the short silent clips for the in-app manual into `testa/public/manual/` (1280 x 800 MP4, a drawn cursor and a ring on each click).
+Same setup as above, plus `ffmpeg` on the PATH. Record against a fresh database (for example `createdb testa_manual` and `TESTA_DB_URL=jdbc:postgresql://localhost:5432/testa_manual`), so lists show only demo data.
+
+```bash
+node tools/record-videos.mjs                 # every clip
+node tools/record-videos.mjs exam-proctor    # only the clips named
+```
+
+Each clip creates the data it needs, so one clip can be re-recorded after a UI change. If a button or field is renamed, update its label in the script.

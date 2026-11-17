@@ -100,3 +100,15 @@
 
 請沿用既有檔名，避免 README 的連結失效；示範資料不可包含真實人名與校務資料。
 
+
+## 操作手冊影片
+
+`tools/record-videos.mjs` 會錄下系統內操作手冊用的無聲短片，存到 `testa/public/manual/`（1280 x 800 的 MP4，畫面上有游標，每次點擊會出現光圈）。
+準備步驟同上，另外需要 `ffmpeg`。請用一個全新的資料庫錄影（例如 `createdb testa_manual`，再設定 `TESTA_DB_URL=jdbc:postgresql://localhost:5432/testa_manual`），清單裡才只會出現示範資料。
+
+```bash
+node tools/record-videos.mjs                 # 錄全部
+node tools/record-videos.mjs exam-proctor    # 只錄指定的片段
+```
+
+每段影片會自己建立需要的資料，介面改了之後可以只重錄那一段。按鈕或欄位改名時，請一併修改腳本裡的名稱。
