@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, type Component } from 'vue'
-import { ChartColumn, ChevronRight, CircleStop, ClipboardPenLine, Clock, Inbox, LibraryBig, Plus, Send, Upload } from 'lucide-vue-next'
+import { ChartColumn, ChevronRight, Circle, CircleCheck, CircleStop, ClipboardPenLine, Clock, Inbox, LibraryBig, Plus, Send, Upload, Users } from 'lucide-vue-next'
+import Badge from '@/components/ui/Badge.vue'
 import { useAuth, type UnitRole } from '@/composables/useAuth'
 import { useBanks } from '@/composables/useBanks'
-import { useExams, when } from '@/composables/useExams'
+import { EXAM_STATUS, useExams, when, type Exam } from '@/composables/useExams'
 import { useGrading } from '@/composables/useGrading'
 
 /**
@@ -57,6 +58,30 @@ const todos = computed<Todo[]>(() => {
   return list
 })
 
+/** Exams coming up or running, for owners and proctors: what is ready at a glance (live first, then by start time) */
+const ORDER: Record<string, number> = { live: 0, scheduled: 1, draft: 2 }
+const upcoming = computed(() =>
+  exams.value
+    .filter((e) => !e.archivedAt && e.status in ORDER)
+    .sort((a, b) => ORDER[a.status]! - ORDER[b.status]! || (a.startAt ?? '9').localeCompare(b.startAt ?? '9'))
+    .slice(0, 3),
+)
+function countdown(e: Exam) {
+  if (e.status === 'live' || !e.startAt) return ''
+  const minutes = Math.round((new Date(e.startAt).getTime() - Date.now()) / 60000)
+  if (minutes <= 0) return '時間已到'
+  if (minutes < 60) return `還有 ${minutes} 分鐘`
+  if (minutes < 48 * 60) return `還有 ${Math.round(minutes / 60)} 小時`
+  return `還有 ${Math.round(minutes / 1440)} 天`
+}
+/** What an owner still has to prepare */
+const checklist = (e: Exam) => [
+  { label: '題庫', done: e.bankId !== null },
+  { label: '開始時間', done: !!e.startAt },
+  { label: '考生名單', done: e.takers > 0 },
+  { label: '發布', done: e.status !== 'draft' },
+]
+
 /** With nothing to do, offer a starting point */
 const starters = computed(() => [
   ...(can('AUTHOR') ? [{ to: '/banks', icon: LibraryBig, text: banks.value.length ? `題庫（${banks.value.length} 份）` : '建立第一份題庫' }] : []),
@@ -70,6 +95,46 @@ const starters = computed(() => [
       <h1 class="text-[26px] font-bold sm:text-[30px]">{{ user?.name }}，你好</h1>
       <p v-if="!user?.units?.length" class="mt-1 text-[15px] text-ink-2">你還沒有被加入任何單位。請單位負責人或系統管理員把你加進單位。</p>
     </div>
+
+    <section v-if="upcoming.length">
+      <h2 class="mb-3 px-4 text-[17px] font-semibold md:px-0">考試概況</h2>
+      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <RouterLink
+          v-for="e in upcoming"
+          :key="e.id"
+          :to="`/exams/${e.id}`"
+          class="card flex flex-col gap-3 px-5 py-4 transition-shadow hover:shadow-lift sm:px-6"
+        >
+          <div class="flex items-start gap-2">
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-base font-semibold">{{ e.name }}</p>
+              <p class="truncate text-sm text-ink-2">{{ e.unitName }}・{{ when(e.startAt) }}</p>
+            </div>
+            <Badge :tone="EXAM_STATUS[e.status].tone">{{ EXAM_STATUS[e.status].label }}</Badge>
+          </div>
+
+          <p class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-2">
+            <span class="inline-flex items-center gap-1"><Users class="size-4 text-ink-3" />{{ e.takers }} 位考生</span>
+            <span v-if="e.questionCount" class="tabular-nums">{{ e.questionCount }} 題・{{ e.totalPoints }} 分</span>
+            <span v-if="countdown(e)" class="ml-auto font-medium" :class="e.status === 'live' ? 'text-brand' : 'text-ink'">{{ countdown(e) }}</span>
+          </p>
+
+          <!-- Running: how many have handed in -->
+          <div v-if="e.status === 'live'">
+            <span class="block h-1.5 overflow-hidden rounded-full bg-sunken">
+              <span class="block h-full rounded-full bg-brand" :style="{ width: `${e.takers ? (e.submitted / e.takers) * 100 : 0}%` }" />
+            </span>
+            <span class="mt-1.5 block text-[13px] text-ink-2 tabular-nums">作答中 {{ e.inProgress }}・已交卷 {{ e.submitted }} / {{ e.takers }}</span>
+          </div>
+          <!-- Not started: what is still missing -->
+          <ul v-else-if="e.canManage" class="flex flex-wrap gap-x-3 gap-y-1 text-[13px]">
+            <li v-for="c in checklist(e)" :key="c.label" class="inline-flex items-center gap-1" :class="c.done ? 'text-ink-2' : 'font-medium text-ink'">
+              <CircleCheck v-if="c.done" class="size-4 text-brand" /><Circle v-else class="size-4 text-ink-3" />{{ c.label }}
+            </li>
+          </ul>
+        </RouterLink>
+      </div>
+    </section>
 
     <section v-if="todos.length">
       <h2 class="mb-3 px-4 text-[17px] font-semibold md:px-0">接下來要做的事</h2>
