@@ -26,6 +26,13 @@ watch(
   <TooltipProvider :delay-duration="350">
     <RouterView />
     <ConfirmDialog />
-    <Toaster position="bottom-center" :theme="dark ? 'dark' : 'light'" :duration="4000" :offset="{ bottom: '5rem' }" :mobile-offset="{ bottom: '5rem' }" />
+    <!-- Bottom right on computers; on phones full width above the bottom navigation -->
+    <Toaster
+      position="bottom-right"
+      :theme="dark ? 'dark' : 'light'"
+      :duration="4000"
+      :offset="{ bottom: '1.5rem', right: '1.5rem' }"
+      :mobile-offset="{ bottom: '5rem' }"
+    />
   </TooltipProvider>
 </template>

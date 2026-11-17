@@ -86,7 +86,6 @@ const MODES = [
             <MenuItem class="max-md:hidden" @select="helpOpen = true">
               <Keyboard />
               鍵盤快捷鍵
-              <kbd class="ml-auto font-sans text-xs text-ink-3">?</kbd>
             </MenuItem>
           </MenuContent>
         </DropdownMenuRoot>

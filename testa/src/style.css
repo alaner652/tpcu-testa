@@ -27,6 +27,7 @@
   --brand-fg: #ffffff;
   --grade: #b23f2f; /* red: errors, warnings, delete */
   --grade-soft: #f8ebe7;
+  --grade-fg: #ffffff;
   --marker: #f4e7b8; /* yellow: pending */
   --marker-ink: #57460c;
   --sh-card: 0 1px 2px rgb(26 31 28 / 0.06), 0 0 0 1px rgb(26 31 28 / 0.03);
@@ -49,6 +50,7 @@
   --brand-fg: #0c1512;
   --grade: #ee8a7c;
   --grade-soft: #38221e;
+  --grade-fg: #22100d;
   --marker: #453c17;
   --marker-ink: #e9d98c;
   --sh-card: 0 0 0 1px var(--line);
@@ -71,6 +73,7 @@
   --color-brand-fg: var(--brand-fg);
   --color-grade: var(--grade);
   --color-grade-soft: var(--grade-soft);
+  --color-grade-fg: var(--grade-fg);
   --color-marker: var(--marker);
   --color-marker-ink: var(--marker-ink);
 
@@ -154,28 +157,196 @@
   }
 }
 
-/* Toasts: graphite, matching the other dark elements */
+/* Toasts: bottom right, colour by meaning (green done, red failed, yellow warning, graphite for plain information) */
 [data-sonner-toaster] {
+  --width: 400px !important;
+  --border-radius: var(--radius-card) !important;
   --normal-bg: var(--ink) !important;
   --normal-text: var(--paper) !important;
   --normal-border: transparent !important;
   font-family: var(--font-sans) !important;
 }
+[data-sonner-toast][data-styled='true'] {
+  padding: 16px 18px !important;
+  gap: 12px !important;
+  font-size: 15px !important;
+  box-shadow: var(--sh-lift) !important;
+}
+[data-sonner-toast][data-type='success'] {
+  --normal-bg: var(--brand) !important;
+  --normal-text: var(--brand-fg) !important;
+}
+[data-sonner-toast][data-type='error'] {
+  --normal-bg: var(--grade) !important;
+  --normal-text: var(--grade-fg) !important;
+}
+[data-sonner-toast][data-type='warning'] {
+  --normal-bg: var(--marker) !important;
+  --normal-text: var(--marker-ink) !important;
+}
+[data-sonner-toast][data-styled='true'] [data-icon] {
+  width: 20px !important;
+  height: 20px !important;
+}
+[data-sonner-toast][data-styled='true'] [data-icon] svg {
+  width: 20px;
+  height: 20px;
+}
 [data-sonner-toast] [data-description] {
-  color: color-mix(in srgb, var(--paper) 70%, transparent) !important;
+  color: inherit !important;
+  opacity: 0.8;
+  font-size: 14px;
 }
 [data-sonner-toast] [data-button] {
   background: transparent !important;
-  color: var(--paper) !important;
+  color: inherit !important;
+  height: auto !important;
+  font-size: 14px !important;
   text-decoration: underline;
   text-underline-offset: 3px;
+  font-weight: 600 !important;
+}
+
+/* Operation manual (rendered from src/manual/*.md) */
+.manual-prose {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.manual-prose > * + * {
+  margin-top: 0.75rem;
+}
+.manual-prose p {
+  color: var(--ink-2);
+}
+.manual-prose strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+.manual-prose h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 1.25rem;
+}
+.manual-prose h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-3);
+  margin-top: 1.25rem;
+}
+.manual-prose h4 + * {
+  margin-top: 0.375rem;
+}
+.manual-prose ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+  color: var(--ink-2);
+}
+.manual-prose ul > li + li {
+  margin-top: 0.375rem;
+}
+.manual-prose ul ::marker {
+  color: var(--ink-3);
+}
+/* Numbered steps: a filled circle per step */
+.manual-prose ol {
+  counter-reset: step;
+}
+.manual-prose ol > li {
+  counter-increment: step;
+  position: relative;
+  padding-left: 2.25rem;
+  min-height: 1.5rem;
+}
+.manual-prose ol > li + li {
+  margin-top: 0.5rem;
+}
+.manual-prose ol > li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 0.125rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+/* `key` and `$x^2$` in the text: shown like a key cap */
+.manual-prose code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  padding: 0.1em 0.4em;
+  border-radius: 6px;
+  background: var(--sunken);
+  box-shadow: inset 0 -1px 0 var(--line-strong);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.manual-prose video {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius-control);
+  background: var(--sunken);
+}
+.manual-prose .table-scroll {
+  overflow-x: auto;
+  border-radius: var(--radius-control);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.manual-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.manual-prose th {
+  background: var(--sunken);
+  text-align: left;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.manual-prose th,
+.manual-prose td {
+  padding: 0.55rem 0.85rem;
+  vertical-align: top;
+}
+.manual-prose td {
+  color: var(--ink-2);
+  border-top: 1px solid var(--line);
+}
+.manual-prose td:first-child {
+  color: var(--ink);
   font-weight: 500;
+  white-space: nowrap;
 }
 
 /* Shared filled input (login, exam, admin forms) */
 @layer components {
   .field {
     @apply h-11 w-full rounded-control border-[1.5px] border-transparent bg-sunken px-3.5 text-base text-ink transition-colors outline-none hover:border-line-strong focus:border-brand;
+  }
+  /* Native selects: drop the browser's own arrow and look like the other fields, with a quiet chevron */
+  select.field {
+    @apply cursor-pointer appearance-none truncate pr-10 disabled:cursor-default disabled:opacity-60;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2369716c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1.125rem;
+  }
+  .dark select.field {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2387908a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+  select.field option {
+    background: var(--paper);
+    color: var(--ink);
   }
   .card {
     @apply overflow-hidden bg-paper shadow-card md:rounded-card;

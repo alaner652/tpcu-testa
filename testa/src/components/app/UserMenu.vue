@@ -58,7 +58,6 @@ async function signOut() {
       <MenuItem v-if="user.role !== 'student'" class="h-10 max-md:hidden" @select="helpOpen = true">
         <Keyboard />
         鍵盤快捷鍵
-        <kbd class="ml-auto font-sans text-xs text-ink-3">?</kbd>
       </MenuItem>
       <MenuItem class="h-10" @select="router.push({ name: 'help' })">
         <BookOpen />
