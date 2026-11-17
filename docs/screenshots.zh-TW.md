@@ -112,3 +112,4 @@ node tools/record-videos.mjs exam-proctor    # 只錄指定的片段
 ```
 
 每段影片會自己建立需要的資料，介面改了之後可以只重錄那一段。按鈕或欄位改名時，請一併修改腳本裡的名稱。
+操作手冊頁（`/help`）把影片和 `testa/src/data/manual.ts` 裡的步驟說明放在一起，改其中一邊時請一併更新另一邊。

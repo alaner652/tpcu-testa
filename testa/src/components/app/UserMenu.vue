@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { DropdownMenuRoot, DropdownMenuSeparator, DropdownMenuTrigger } from 'reka-ui'
-import { Keyboard, KeyRound, LogOut, Moon, Sun, Users } from 'lucide-vue-next'
+import { BookOpen, Keyboard, KeyRound, LogOut, Moon, Sun, Users } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import MenuContent from '@/components/ui/MenuContent.vue'
@@ -59,6 +59,10 @@ async function signOut() {
         <Keyboard />
         鍵盤快捷鍵
         <kbd class="ml-auto font-sans text-xs text-ink-3">?</kbd>
+      </MenuItem>
+      <MenuItem class="h-10" @select="router.push({ name: 'help' })">
+        <BookOpen />
+        操作手冊
       </MenuItem>
       <MenuItem class="h-10" @select="signOut">
         <LogOut />

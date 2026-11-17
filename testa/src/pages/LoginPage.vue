@@ -140,6 +140,13 @@ function switchTo(next: 'candidate' | 'staff') {
         </Button>
       </form>
 
+      <p class="mt-4 text-center text-sm text-ink-2">
+        第一次使用？
+        <RouterLink :to="who === 'candidate' ? '/help/candidate' : '/help/start'" class="font-medium text-brand underline-offset-2 hover:underline">
+          看操作手冊
+        </RouterLink>
+      </p>
+
       <div v-if="showDemo" class="mt-4 rounded-card border-[1.5px] border-dashed border-line-strong p-4">
         <p class="text-sm text-ink-2">開發模式，點一下用示範身分登入：</p>
         <div class="mt-3 grid grid-cols-2 gap-2">

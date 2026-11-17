@@ -17,6 +17,7 @@ Testa's first target is a school admission exam: a few hundred candidates in com
 | Emergency access | Done | An exam owner grants one administrator time-limited, read-only access; every view is audited |
 | Deployment | Done | Docker Compose with Nginx, HTTPS option, daily backups, health checks, smoke test |
 | Backups in the admin panel | Done | Take, download, delete and restore backups; retention in System settings; restore puts the site in maintenance, backs up the current data first, needs a typed confirmation, and is refused during an exam or for a dump from another schema version |
+| Operation manual | Done | `/help`, open without signing in: a chapter per role with short recorded clips and numbered steps, printable candidate notice, FAQ; Chinese only. Clips are re-recorded with `tools/record-videos.mjs` |
 | AI question import | Experimental, off by default | A local model drafts questions from a Word, PDF or text exam paper; the author confirms each one. See [AI features](ai.md#question-import) |
 | On-site trial | Not started | Real lab network, printers and browsers; see [Before production](#before-production) |
 

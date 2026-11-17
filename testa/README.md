@@ -18,6 +18,7 @@ Hash routing, so URLs look like `http://localhost:5173/#/exams`. UI text is Trad
 | Path | Who | Contents |
 | --- | --- | --- |
 | `/login` | everyone | Candidates: candidate number + login code. Staff: email + password |
+| `/help` | everyone | Operation manual: a chapter per role, short clips with numbered steps; the candidate chapter prints |
 | `/password` | staff | Change password (forced after signing in with a temporary one) |
 | `/` | staff | Home: a to-do list, one button per item |
 | `/banks` | authors, owners | Question banks |
@@ -62,7 +63,7 @@ src/
     math.ts               formulas to HTML (KaTeX)
     flags.ts              DEMO_FEATURES
     __tests__/            unit tests
-  data/                   demo banks, mock AI import result
+  data/                   demo banks, mock AI import result, the manual's text (manual.ts)
 ```
 
 ## Conventions

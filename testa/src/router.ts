@@ -15,6 +15,8 @@ export const router = createRouter({
   routes: [
     { path: '/login', name: 'login', component: () => import('@/pages/LoginPage.vue'), meta: { public: true } },
     { path: '/setup', name: 'setup', component: () => import('@/pages/SetupPage.vue'), meta: { public: true } },
+    // The manual is open to everyone, signed in or not
+    { path: '/help/:chapter?', name: 'help', component: () => import('@/pages/HelpPage.vue'), meta: { public: true } },
     { path: '/password', name: 'password', component: () => import('@/pages/PasswordPage.vue') },
     {
       path: '/',
@@ -48,7 +50,7 @@ router.beforeEach(async (to) => {
   if (user.value?.mustChangePassword) return to.name === 'password' ? true : { name: 'password' }
   if (to.name === 'password') return isStudent.value ? { name: 'student' } : true
   // Candidates stay on the candidate side; staff never enter it
-  if (to.name !== 'login' && isStudent.value !== !!to.meta.student) return { name: isStudent.value ? 'student' : 'home' }
+  if (!to.meta.public && isStudent.value !== !!to.meta.student) return { name: isStudent.value ? 'student' : 'home' }
   if (to.meta.admin && !isAdmin.value) return { name: 'home' }
   // For administrators who only manage accounts and units, home is the admin page
   if (to.name === 'home' && isAdmin.value && !user.value?.units?.length) return { name: 'admin' }

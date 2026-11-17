@@ -110,3 +110,4 @@ node tools/record-videos.mjs exam-proctor    # only the clips named
 ```
 
 Each clip creates the data it needs, so one clip can be re-recorded after a UI change. If a button or field is renamed, update its label in the script.
+The manual page (`/help`) shows the clips with the steps in `testa/src/data/manual.ts`; keep the two in step.
