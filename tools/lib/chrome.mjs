@@ -61,9 +61,10 @@ class Cdp {
 /** Starts Chrome, runs work(browser), and always shuts Chrome down and removes its profile. */
 export async function withChrome(work) {
   const profile = await mkdtemp(join(tmpdir(), 'testa-chrome-'))
+  const extraArgs = process.env.CHROMIUM_NO_SANDBOX === '1' ? ['--no-sandbox'] : []
   const chromium = spawn(
     process.env.CHROMIUM || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    ['--headless=new', '--disable-gpu', '--hide-scrollbars', '--remote-debugging-port=9222', `--user-data-dir=${profile}`, 'about:blank'],
+    ['--headless=new', '--disable-gpu', '--hide-scrollbars', ...extraArgs, '--remote-debugging-port=9222', `--user-data-dir=${profile}`, 'about:blank'],
     { stdio: 'ignore' },
   )
   const pages = []

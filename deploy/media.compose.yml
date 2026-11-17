@@ -1,0 +1,52 @@
+name: testa-media
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: testa
+      POSTGRES_USER: testa
+      POSTGRES_PASSWORD: testa-media
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testa -d testa"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  server:
+    build: ../server
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      TESTA_DB_URL: jdbc:postgresql://db:5432/testa
+      TESTA_DB_PASSWORD: testa-media
+      TESTA_COOKIE_SECURE: "false"
+      TESTA_BACKUP_PATH: /tmp/testa-backups
+      TESTA_BACKUP_CONTROL_PATH: /tmp/testa-control
+
+  web:
+    build: ../testa
+    depends_on:
+      - server
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./http.conf:/etc/nginx/conf.d/00-http.conf:ro
+      - ./proxy.inc:/etc/nginx/proxy.inc:ro
+      - ./site.inc:/etc/nginx/site.inc:ro
+
+  renderer:
+    build:
+      context: ..
+      dockerfile: deploy/media.Dockerfile
+    depends_on:
+      - web
+    environment:
+      CHROMIUM: /usr/bin/chromium
+      CHROMIUM_NO_SANDBOX: "1"
+      TESTA_APP: http://web/
+      MEDIA_UID: ${MEDIA_UID:-0}
+      MEDIA_GID: ${MEDIA_GID:-0}
+    volumes:
+      - ..:/workspace

@@ -117,3 +117,14 @@ node tools/record-videos.mjs exam-proctor    # 只錄指定的片段
 
 每段影片會自己建立需要的資料，介面改了之後可以只重錄那一段。按鈕或欄位改名時，請一併修改腳本裡的名稱。
 操作手冊頁（`/help`）把影片和 `testa/src/manual/*.md`（每章一個 Markdown 檔，`![說明](影片名)` 嵌入影片）裡的步驟說明放在一起，改其中一邊時請一併更新另一邊。
+
+部署主機只要有 Docker，也可在建置正式 web image 前自動重錄：
+
+```bash
+./deploy/render-media.sh videos
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+腳本會啟動隔離的暫存資料庫與 dev 站台，不會讀寫正式資料；完成後會自動移除容器與 volume。也可以以 `screenshots` 或 `all` 取代 `videos`。
+
+GitHub Actions 的 **Refresh media** 可手動產生截圖、影片或兩者，結果預設只上傳成 artifact。只有從 `main` 執行並勾選「Commit generated files」時才會回推到 repository，避免一般 CI 及 PR 自動改動分支。

@@ -352,14 +352,23 @@
   .card {
     @apply overflow-hidden bg-paper shadow-card md:rounded-card;
   }
-  /* Navigation and tabs: a dashed capsule marks where you are */
+  /* The navigation shell is translucent glass; the selected destination is the only filled capsule. */
+  .nav-glass {
+    border: 1px solid color-mix(in srgb, var(--line-strong) 76%, transparent);
+    background: color-mix(in srgb, var(--paper) 72%, transparent);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.32) inset,
+      0 10px 30px -18px rgb(26 31 28 / 0.38);
+    -webkit-backdrop-filter: blur(18px) saturate(145%);
+    backdrop-filter: blur(18px) saturate(145%);
+  }
   .pill-tab {
-    @apply inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-dashed border-transparent px-4 text-[15px] text-ink-2 transition-colors hover:border-line-strong hover:text-ink;
+    @apply inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-4 text-[15px] text-ink-2 transition-colors hover:bg-ink/[0.05] hover:text-ink;
   }
   .pill-tab[aria-selected='true'],
   .pill-tab[aria-current='page'],
   .pill-tab[aria-pressed='true'] {
-    @apply border-brand font-medium text-brand hover:border-brand hover:text-brand;
+    @apply bg-brand-soft font-medium text-brand-strong hover:bg-brand-soft hover:text-brand-strong;
   }
 }
 

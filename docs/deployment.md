@@ -136,6 +136,7 @@ Never upgrade during an exam. Sessions survive a backend restart, but schema cha
 ```bash
 docker compose -f docker-compose.prod.yml restart backup     # fresh backup first
 git pull
+./deploy/render-media.sh videos                              # optional: rebuild manual clips in an isolated demo stack
 docker compose -f docker-compose.prod.yml up -d --build       # Flyway migrates the database on start
 docker compose -f docker-compose.prod.yml ps                  # wait until server and web are healthy
 ```

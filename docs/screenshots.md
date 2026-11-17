@@ -115,3 +115,14 @@ node tools/record-videos.mjs exam-proctor    # only the clips named
 
 Each clip creates the data it needs, so one clip can be re-recorded after a UI change. If a button or field is renamed, update its label in the script.
 The manual page (`/help`) shows the clips with the steps in `testa/src/manual/*.md` (one Markdown file per chapter; `![label](clip)` embeds a clip); keep the two in step.
+
+A deployment host with Docker can regenerate the clips before building the production web image:
+
+```bash
+./deploy/render-media.sh videos
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+The helper uses an isolated temporary database and dev stack; it never reads or writes production data, and removes its containers and volume when finished. Pass `screenshots` or `all` instead of `videos` for the other media.
+
+The manually triggered **Refresh media** GitHub Actions workflow can render screenshots, videos or both. It uploads an artifact by default. It pushes generated files only when run from `main` with **Commit generated files** enabled, keeping ordinary CI and pull requests read-only.

@@ -7,6 +7,7 @@ import { helpOpen, shortcutHelp, useShortcuts } from '@/composables/useShortcuts
 /** The "?" list: shortcuts the current page offers. Mounted once per staff layout, never on the candidate side. */
 useShortcuts('一般', () => [{ combo: '?', label: '顯示這份清單', run: () => (helpOpen.value = true) }])
 const groups = computed(() => (helpOpen.value ? shortcutHelp() : []))
+const hasPageShortcuts = computed(() => groups.value.some((group) => group.title !== '一般'))
 </script>
 
 <template>
@@ -24,6 +25,7 @@ const groups = computed(() => (helpOpen.value ? shortcutHelp() : []))
           </DialogClose>
         </div>
         <DialogDescription class="mt-1 text-sm text-ink-2">每個動作也都有按鈕可以按，快捷鍵只是讓常用的動作更快。</DialogDescription>
+        <p v-if="!hasPageShortcuts" class="mt-5 rounded-control bg-sunken px-4 py-3 text-sm text-ink-2">這個頁面沒有其他快捷鍵。</p>
         <section v-for="g in groups" :key="g.title" class="mt-5">
           <h3 class="text-sm font-semibold text-ink-2">{{ g.title }}</h3>
           <dl class="mt-1.5 divide-y divide-line">
