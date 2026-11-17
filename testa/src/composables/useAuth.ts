@@ -26,6 +26,17 @@ export interface User {
 export const ROLE_LABEL: Record<Role, string> = { admin: '系統管理員', teacher: '教職員', student: '考生' }
 export const UNIT_ROLE_LABEL: Record<UnitRole, string> = { OWNER: '負責人', AUTHOR: '出題', PROCTOR: '監考', GRADER: '評分' }
 
+/** The four roles combined into the two common sets first; single roles can still be assigned */
+export const ROLE_CHOICES: { value: string; label: string; roles: UnitRole[] }[] = [
+  { value: 'officer', label: '承辦人（負責人＋監考）', roles: ['OWNER', 'PROCTOR'] },
+  { value: 'teacher', label: '教師（出題＋評分）', roles: ['AUTHOR', 'GRADER'] },
+  { value: 'OWNER', label: '只有負責人', roles: ['OWNER'] },
+  { value: 'AUTHOR', label: '只有出題', roles: ['AUTHOR'] },
+  { value: 'PROCTOR', label: '只有監考', roles: ['PROCTOR'] },
+  { value: 'GRADER', label: '只有評分', roles: ['GRADER'] },
+]
+export const rolesOf = (choice: string) => ROLE_CHOICES.find((c) => c.value === choice)?.roles ?? []
+
 /** Demo accounts matching the backend dev profile (server/.../Bootstrap.java). Shown on the login page in development only. */
 export const DEMO_ACCOUNTS = [
   { label: '教師', name: '林老師', email: 'teacher@testa.tw', password: 'testa-teacher' },

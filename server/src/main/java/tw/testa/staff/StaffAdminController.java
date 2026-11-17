@@ -4,8 +4,11 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -25,11 +28,16 @@ import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import tw.testa.audit.AuditService;
 import tw.testa.auth.AccessGuard;
 import tw.testa.common.ApiException;
+import tw.testa.unit.MembershipService;
 import tw.testa.unit.Role;
+import tw.testa.unit.Unit;
+import tw.testa.unit.UnitRepository;
 import tw.testa.unit.UnitRole;
 import tw.testa.unit.UnitRoleRepository;
 
@@ -43,33 +51,52 @@ public class StaffAdminController {
 
     private final StaffRepository staffRepo;
     private final UnitRoleRepository roleRepo;
+    private final UnitRepository unitRepo;
+    private final MembershipService memberships;
     private final PasswordEncoder encoder;
     private final AuditService audit;
     private final AccessGuard access;
     private final JdbcTemplate jdbc;
 
-    public StaffAdminController(StaffRepository staffRepo, UnitRoleRepository roleRepo, PasswordEncoder encoder,
-            AuditService audit, AccessGuard access, JdbcTemplate jdbc) {
+    public StaffAdminController(StaffRepository staffRepo, UnitRoleRepository roleRepo, UnitRepository unitRepo,
+            MembershipService memberships, PasswordEncoder encoder, AuditService audit, AccessGuard access,
+            JdbcTemplate jdbc) {
         this.staffRepo = staffRepo;
         this.roleRepo = roleRepo;
+        this.unitRepo = unitRepo;
+        this.memberships = memberships;
         this.encoder = encoder;
         this.audit = audit;
         this.access = access;
         this.jdbc = jdbc;
     }
 
-    public record UnitRoleDto(Long unitId, String unitName, Role role) {}
+    /** {@code id} is the role assignment, used to remove it through the unit's member API. */
+    public record UnitRoleDto(Long id, Long unitId, String unitName, Role role) {}
 
     public record StaffDto(Long id, String email, String name, boolean systemAdmin, boolean active,
             boolean mustChangePassword, boolean locked, Instant lastLoginAt, Instant createdAt,
             List<UnitRoleDto> roles) {}
 
+    /** Roles to grant in one unit right after the account is created. */
+    public record Membership(@NotNull(message = "請選擇單位。") Long unitId,
+            @NotEmpty(message = "請選擇角色。") List<@NotNull Role> roles) {}
+
     public record CreateRequest(
             @NotBlank(message = "請輸入 Email。") @Email(message = "Email 格式不正確。") @Size(max = 254) String email,
             @NotBlank(message = "請輸入姓名。") @Size(max = 100, message = "姓名太長了。") String name,
-            Boolean systemAdmin) {
+            Boolean systemAdmin, List<@Valid Membership> memberships) {
         boolean admin() { return Boolean.TRUE.equals(systemAdmin); }
     }
+
+    public record Person(
+            @NotBlank(message = "請輸入 Email。") @Email(message = "Email 格式不正確。") @Size(max = 254) String email,
+            @NotBlank(message = "請輸入姓名。") @Size(max = 100, message = "姓名太長了。") String name) {}
+
+    /** Several accounts at once, all with the same unit roles. Nothing is created unless every row is valid. */
+    public record BatchRequest(
+            @NotEmpty(message = "請至少輸入一位教職員。") @Size(max = 200, message = "一次最多建立 200 個帳號。") List<@Valid Person> people,
+            List<@Valid Membership> memberships) {}
 
     /** After creating an account or resetting a password, the temporary password appears only in this response. */
     public record CreatedDto(StaffDto staff, String temporaryPassword) {}
@@ -85,8 +112,7 @@ public class StaffAdminController {
     public List<StaffDto> list() {
         Map<Long, List<UnitRoleDto>> byStaff = new HashMap<>();
         for (UnitRole r : roleRepo.findAllWithUnitAndStaff()) {
-            byStaff.computeIfAbsent(r.getStaff().getId(), k -> new ArrayList<>())
-                    .add(new UnitRoleDto(r.getUnit().getId(), r.getUnit().getName(), r.getRole()));
+            byStaff.computeIfAbsent(r.getStaff().getId(), k -> new ArrayList<>()).add(toDto(r));
         }
         return staffRepo.findAll(org.springframework.data.domain.Sort.by("name", "id")).stream()
                 .map(s -> toDto(s, byStaff.getOrDefault(s.getId(), List.of()))).toList();
@@ -100,12 +126,54 @@ public class StaffAdminController {
         if (staffRepo.existsByEmail(email)) {
             throw ApiException.conflict("email_taken", "這個 Email 已經有帳號了。");
         }
+        List<Unit> units = units(body.memberships());
+        return createOne(email, body.name(), body.admin(), units, body.memberships());
+    }
+
+    @PostMapping("/batch")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
+    public List<CreatedDto> createBatch(@Valid @RequestBody BatchRequest body) {
+        Map<String, String> errors = new LinkedHashMap<>();
+        Set<String> seen = new HashSet<>();
+        List<String> emails = body.people().stream().map(p -> Staff.normalizeEmail(p.email())).toList();
+        Set<String> taken = new HashSet<>();
+        staffRepo.findByEmailIn(emails).forEach(s -> taken.add(s.getEmail()));
+        for (int i = 0; i < emails.size(); i++) {
+            String email = emails.get(i);
+            if (!seen.add(email)) errors.put("people[" + i + "].email", "這個 Email 在名單裡重複了。");
+            else if (taken.contains(email)) errors.put("people[" + i + "].email", "這個 Email 已經有帳號了。");
+        }
+        if (!errors.isEmpty()) {
+            throw new ApiException(HttpStatus.CONFLICT, "batch_invalid",
+                    "有 " + errors.size() + " 筆資料不能建立，請修正後再試一次。", errors);
+        }
+        List<Unit> units = units(body.memberships());
+        List<CreatedDto> created = new ArrayList<>();
+        for (int i = 0; i < emails.size(); i++) {
+            created.add(createOne(emails.get(i), body.people().get(i).name(), false, units, body.memberships()));
+        }
+        return created;
+    }
+
+    private CreatedDto createOne(String email, String name, boolean admin, List<Unit> units, List<Membership> requested) {
         String password = randomPassword();
-        Staff s = new Staff(email, encoder.encode(password), body.name().trim(), body.admin());
+        Staff s = new Staff(email, encoder.encode(password), name.trim(), admin);
         s.setMustChangePassword(true);
         staffRepo.save(s);
-        audit.record("STAFF_CREATED", "staff", s.getId(), null, null, body.admin() ? "system_admin" : null);
-        return new CreatedDto(toDto(s, List.of()), password);
+        audit.record("STAFF_CREATED", "staff", s.getId(), null, null, admin ? "system_admin" : null);
+        List<UnitRoleDto> roles = new ArrayList<>();
+        for (int i = 0; i < units.size(); i++) {
+            memberships.grant(units.get(i), s, requested.get(i).roles()).forEach(r -> roles.add(toDto(r)));
+        }
+        return new CreatedDto(toDto(s, roles), password);
+    }
+
+    /** Looks up every requested unit before anything is written. */
+    private List<Unit> units(List<Membership> requested) {
+        if (requested == null) return List.of();
+        return requested.stream().map(m -> unitRepo.findById(m.unitId())
+                .orElseThrow(() -> ApiException.notFound("找不到這個單位。"))).toList();
     }
 
     @PatchMapping("/{id}")
@@ -126,8 +194,7 @@ public class StaffAdminController {
             s.invalidateSessions();
             audit.record(body.systemAdmin() ? "SYSTEM_ADMIN_GRANTED" : "SYSTEM_ADMIN_REVOKED", "staff", s.getId());
         }
-        return toDto(s, roleRepo.findByStaffIdWithUnit(id).stream()
-                .map(r -> new UnitRoleDto(r.getUnit().getId(), r.getUnit().getName(), r.getRole())).toList());
+        return toDto(s, roleRepo.findByStaffIdWithUnit(id).stream().map(StaffAdminController::toDto).toList());
     }
 
     /** Resets the password and clears the lockout. Every device is signed out and the next sign-in must change the password. */
@@ -196,6 +263,10 @@ public class StaffAdminController {
     private static StaffDto toDto(Staff s, List<UnitRoleDto> roles) {
         return new StaffDto(s.getId(), s.getEmail(), s.getName(), s.isSystemAdmin(), s.isActive(),
                 s.isMustChangePassword(), s.isLocked(Instant.now()), s.getLastLoginAt(), s.getCreatedAt(), roles);
+    }
+
+    private static UnitRoleDto toDto(UnitRole r) {
+        return new UnitRoleDto(r.getId(), r.getUnit().getId(), r.getUnit().getName(), r.getRole());
     }
 
     static String randomPassword() {

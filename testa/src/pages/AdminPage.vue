@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { Ban, Building2, ChevronDown, Copy, DatabaseBackup, Download, History, KeyRound, Lock, Plus, RotateCw, ScrollText, Search, Settings, Shield, Trash2, UserCog, UserPlus, Users, X } from 'lucide-vue-next'
+import { Ban, Building2, ChevronDown, DatabaseBackup, Download, History, KeyRound, Lock, Plus, RotateCw, ScrollText, Search, Settings, Shield, Trash2, UserCog, UserPlus, Users, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import BatchCreate from '@/components/app/BatchCreate.vue'
 import EmergencyView from '@/components/app/EmergencyView.vue'
+import StaffUnits from '@/components/app/StaffUnits.vue'
 import SystemSettings from '@/components/app/SystemSettings.vue'
+import TempPasswords, { type IssuedPassword } from '@/components/app/TempPasswords.vue'
 import UnitMembers from '@/components/app/UnitMembers.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import MoreMenu from '@/components/ui/MoreMenu.vue'
-import { UNIT_ROLE_LABEL, useAuth, type UnitRole } from '@/composables/useAuth'
+import { ROLE_CHOICES, UNIT_ROLE_LABEL, rolesOf, useAuth, type UnitRole } from '@/composables/useAuth'
 import { useConfirm } from '@/composables/useConfirm'
 import { api, apiBlob } from '@/lib/api'
 
@@ -25,7 +28,7 @@ interface Staff {
   mustChangePassword: boolean
   locked: boolean
   lastLoginAt: string | null
-  roles: { unitId: number; unitName: string; role: UnitRole }[]
+  roles: { id: number; unitId: number; unitName: string; role: UnitRole }[]
 }
 interface Unit {
   id: number
@@ -81,13 +84,14 @@ const shownStaff = computed(() => {
   return staff.value.filter((s) => [s.name, s.email, ...s.roles.map((r) => r.unitName)].some((t) => t.toLowerCase().includes(q)))
 })
 const creating = ref(false)
-const draft = reactive({ email: '', name: '', systemAdmin: false })
+const draft = reactive({ email: '', name: '', systemAdmin: false, unitId: null as number | null, choice: 'teacher' })
 const createError = ref('')
 const saving = ref(false)
-/** The temporary password just generated, shown only this once */
-const issued = ref<{ name: string; email: string; password: string } | null>(null)
-const passwordCopied = ref(false)
-watch(issued, () => (passwordCopied.value = false))
+const batching = ref(false)
+/** Staff row whose units and roles are open */
+const openStaff = ref<number | null>(null)
+/** Temporary passwords just generated, shown only this once */
+const issued = ref<IssuedPassword[]>([])
 
 async function loadStaff() {
   try {
@@ -103,9 +107,17 @@ async function createStaff() {
   if (!draft.email.trim() || !draft.name.trim()) return void (createError.value = '請輸入 Email 與姓名。')
   saving.value = true
   try {
-    const res = await api<{ staff: Staff; temporaryPassword: string }>('/admin/staff', { method: 'POST', body: draft })
-    issued.value = { name: res.staff.name, email: res.staff.email, password: res.temporaryPassword }
-    Object.assign(draft, { email: '', name: '', systemAdmin: false })
+    const res = await api<{ staff: Staff; temporaryPassword: string }>('/admin/staff', {
+      method: 'POST',
+      body: {
+        email: draft.email,
+        name: draft.name,
+        systemAdmin: draft.systemAdmin,
+        memberships: draft.unitId === null ? [] : [{ unitId: draft.unitId, roles: rolesOf(draft.choice) }],
+      },
+    })
+    issued.value = [{ name: res.staff.name, email: res.staff.email, password: res.temporaryPassword }]
+    Object.assign(draft, { email: '', name: '', systemAdmin: false, unitId: null })
     createError.value = ''
     creating.value = false
     await loadStaff()
@@ -145,7 +157,7 @@ async function resetPassword(s: Staff) {
   if (!ok) return
   try {
     const res = await api<{ temporaryPassword: string }>(`/admin/staff/${s.id}/reset-password`, { method: 'POST' })
-    issued.value = { name: s.name, email: s.email, password: res.temporaryPassword }
+    issued.value = [{ name: s.name, email: s.email, password: res.temporaryPassword }]
     await loadStaff()
   } catch (e) {
     fail(e)
@@ -174,7 +186,7 @@ async function deleteStaff(s: Staff) {
     })
     if (!ok) return
     await api(`/admin/staff/${s.id}`, { method: 'DELETE' })
-    if (issued.value?.email === s.email) issued.value = null
+    issued.value = issued.value.filter((i) => i.email !== s.email)
     toast.success(`已永久刪除 ${s.name} 的帳號`)
     await loadStaff()
   } catch (e) {
@@ -182,16 +194,11 @@ async function deleteStaff(s: Staff) {
   }
 }
 
-async function copyPassword() {
-  if (!issued.value) return
-  try {
-    await navigator.clipboard.writeText(issued.value.password)
-    passwordCopied.value = true
-    toast.success('已複製臨時密碼')
-  } catch {
-    passwordCopied.value = false
-    toast.error('無法複製，請手動抄寫')
-  }
+function batchDone(items: IssuedPassword[]) {
+  issued.value = items
+  batching.value = false
+  toast.success(`已建立 ${items.length} 個帳號`)
+  loadStaff()
 }
 
 const rolesText = (s: Staff) => {
@@ -501,8 +508,10 @@ const auditTarget = (a: AuditEntry) => {
 
 function load() {
   loadError.value = ''
-  if (tab.value === 'staff') loadStaff()
-  else if (tab.value === 'units') loadUnits()
+  if (tab.value === 'staff') {
+    loadStaff()
+    loadUnits()
+  } else if (tab.value === 'units') loadUnits()
   else if (tab.value === 'audit') {
     loadAudit()
     // Map ids in the audit log back to names and unit names
@@ -546,16 +555,16 @@ watch(tab, load)
           <Search class="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-ink-3" aria-hidden="true" />
           <input v-model="staffQuery" type="search" class="field h-10 pl-10" placeholder="搜尋姓名、Email 或單位" aria-label="搜尋教職員" />
         </label>
-        <Button v-if="!creating" variant="primary" @click="creating = true"><Plus />新增帳號</Button>
+        <div v-if="!creating && !batching" class="flex gap-2">
+          <Button variant="outline" @click="batching = true"><Users />批次建立</Button>
+          <Button variant="primary" @click="creating = true"><Plus />新增帳號</Button>
+        </div>
       </div>
 
-      <div v-if="issued" class="border-t border-line bg-marker/40 px-5 py-4 sm:px-6" role="status">
-        <p class="text-[15px] font-medium">{{ issued.name }}（{{ issued.email }}）的臨時密碼</p>
-        <div class="mt-2 flex flex-wrap items-center gap-2">
-          <code class="rounded-control bg-paper px-3 py-1.5 text-lg font-semibold tracking-wider select-all">{{ issued.password }}</code>
-          <Button variant="outline" @click="copyPassword"><Copy />{{ passwordCopied ? '已複製' : '複製' }}</Button>
-        </div>
-        <p class="mt-2 text-sm text-ink-2">這組密碼只會顯示這一次，請親自交給對方。對方登入後必須先換成自己的密碼。</p>
+      <TempPasswords v-if="issued.length" class="border-t border-line" :items="issued" @close="issued = []" />
+
+      <div v-if="batching" class="border-t border-line bg-sunken/60">
+        <BatchCreate :units="units" :existing="staff.map((s) => s.email)" @done="batchDone" @cancel="batching = false" />
       </div>
 
       <form v-if="creating" class="border-t border-line bg-sunken/60 px-5 py-4 sm:px-6" novalidate @submit.prevent="createStaff">
@@ -565,41 +574,57 @@ watch(tab, load)
           <Button size="md" @click="((creating = false), (createError = ''))"><X />取消</Button>
           <Button variant="primary" size="md" type="submit" :disabled="saving"><UserPlus />建立帳號</Button>
         </div>
+        <div class="mt-2 grid gap-2 sm:grid-cols-2">
+          <select v-model="draft.unitId" class="field bg-paper" aria-label="加入單位">
+            <option :value="null">先不加入單位</option>
+            <option v-for="u in units.filter((x) => x.active)" :key="u.id" :value="u.id">加入「{{ u.name }}」</option>
+          </select>
+          <select v-model="draft.choice" class="field bg-paper" aria-label="角色" :disabled="draft.unitId === null">
+            <option v-for="c in ROLE_CHOICES" :key="c.value" :value="c.value">{{ c.label }}</option>
+          </select>
+        </div>
         <label class="mt-3 flex items-center gap-2 text-[15px]">
           <input v-model="draft.systemAdmin" type="checkbox" class="size-4 accent-brand" />
           設為系統管理員（可以管理所有帳號與單位）
         </label>
-        <p class="mt-2 text-sm text-ink-2">建立後到「單位」分頁，把這位教職員加入單位並指派角色。</p>
         <p v-if="createError" class="mt-2 text-sm text-grade" role="alert">{{ createError }}</p>
       </form>
 
       <ul class="divide-y divide-line border-t border-line">
-        <li v-for="s in shownStaff" :key="s.id" class="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5 sm:px-6" :class="!s.active && 'opacity-60'">
-          <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[15px] font-semibold text-brand-strong">
-            {{ s.name.slice(0, 1).toUpperCase() }}
-          </span>
-          <div class="min-w-0 flex-1 basis-56">
-            <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-medium">
-              <span class="truncate">{{ s.name }}</span>
-              <Badge v-if="s.systemAdmin" tone="done"><Shield />系統管理員</Badge>
-              <Badge v-if="s.email === user?.email">你自己</Badge>
-              <Badge v-if="!s.active">已停用</Badge>
-              <Badge v-if="s.locked" tone="danger"><Lock />密碼輸錯，已鎖定</Badge>
-              <Badge v-if="s.mustChangePassword" tone="warn">尚未換掉臨時密碼</Badge>
-            </p>
-            <p class="truncate text-sm text-ink-2">{{ s.email }}</p>
-            <p class="text-sm text-ink-2">{{ rolesText(s) || (s.systemAdmin ? '' : '尚未加入任何單位') }}</p>
+        <li v-for="s in shownStaff" :key="s.id">
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5 sm:px-6" :class="!s.active && 'opacity-60'">
+            <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[15px] font-semibold text-brand-strong">
+              {{ s.name.slice(0, 1).toUpperCase() }}
+            </span>
+            <div class="min-w-0 flex-1 basis-56">
+              <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-medium">
+                <span class="truncate">{{ s.name }}</span>
+                <Badge v-if="s.systemAdmin" tone="done"><Shield />系統管理員</Badge>
+                <Badge v-if="s.email === user?.email">你自己</Badge>
+                <Badge v-if="!s.active">已停用</Badge>
+                <Badge v-if="s.locked" tone="danger"><Lock />密碼輸錯，已鎖定</Badge>
+                <Badge v-if="s.mustChangePassword" tone="warn">尚未換掉臨時密碼</Badge>
+              </p>
+              <p class="truncate text-sm text-ink-2">{{ s.email }}</p>
+              <p class="text-sm text-ink-2">{{ rolesText(s) || (s.systemAdmin ? '' : '尚未加入任何單位') }}</p>
+            </div>
+            <Button variant="outline" :aria-expanded="openStaff === s.id" @click="openStaff = openStaff === s.id ? null : s.id">
+              <Building2 />{{ openStaff === s.id ? '收合' : '單位與角色' }}
+            </Button>
+            <MoreMenu
+              :label="`${s.name} 的更多動作`"
+              :actions="s.email === user?.email ? [] : [
+                { label: '重設密碼', icon: KeyRound, run: () => resetPassword(s) },
+                s.active
+                  ? { label: '停用帳號', icon: Ban, run: () => toggleActive(s), danger: true }
+                  : { label: '重新啟用', icon: RotateCw, run: () => toggleActive(s) },
+                ...(!s.active ? [{ label: '永久刪除', icon: Trash2, run: () => deleteStaff(s), danger: true }] : []),
+              ]"
+            />
           </div>
-          <MoreMenu
-            :label="`${s.name} 的更多動作`"
-            :actions="s.email === user?.email ? [] : [
-              { label: '重設密碼', icon: KeyRound, run: () => resetPassword(s) },
-              s.active
-                ? { label: '停用帳號', icon: Ban, run: () => toggleActive(s), danger: true }
-                : { label: '重新啟用', icon: RotateCw, run: () => toggleActive(s) },
-              ...(!s.active ? [{ label: '永久刪除', icon: Trash2, run: () => deleteStaff(s), danger: true }] : []),
-            ]"
-          />
+          <div v-if="openStaff === s.id" class="border-t border-line bg-sunken/60 px-5 py-4 sm:px-6">
+            <StaffUnits :staff="s" :units="units" @changed="loadStaff" />
+          </div>
         </li>
         <li v-if="staffQuery.trim() && !shownStaff.length" class="px-5 py-6 text-[15px] text-ink-2 sm:px-6">找不到符合「{{ staffQuery.trim() }}」的教職員。</li>
       </ul>
@@ -630,7 +655,7 @@ watch(tab, load)
           </div>
 
           <div v-if="openUnit === u.id" class="border-t border-line bg-sunken/60 px-5 py-4 sm:px-6">
-            <UnitMembers :unit="u" />
+            <UnitMembers :unit="u" @changed="loadStaff" />
           </div>
         </li>
         <li v-if="!units.length && !loadError" class="px-5 py-6 text-[15px] text-ink-2 sm:px-6">還沒有任何單位。先新增一個，例如「招生組」。</li>

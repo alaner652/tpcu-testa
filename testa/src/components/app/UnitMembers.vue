@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { Plus, RotateCw, X } from 'lucide-vue-next'
+import { Plus, RotateCw, UserPlus, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import StaffPicker from '@/components/app/StaffPicker.vue'
+import TempPasswords, { type IssuedPassword } from '@/components/app/TempPasswords.vue'
 import Button from '@/components/ui/Button.vue'
-import { UNIT_ROLE_LABEL, type UnitRole } from '@/composables/useAuth'
+import { ROLE_CHOICES, UNIT_ROLE_LABEL, rolesOf, useAuth, type UnitRole } from '@/composables/useAuth'
 import { useConfirm } from '@/composables/useConfirm'
-import { api } from '@/lib/api'
+import { ApiError, api } from '@/lib/api'
 
 /** A unit's members and roles. Used by system administrators and the unit's owners. */
 const props = defineProps<{ unit: { id: number; name: string } }>()
+const emit = defineEmits<{ changed: [] }>()
 
 interface UnitMember {
   id: number
@@ -20,19 +23,16 @@ interface UnitMember {
 }
 
 const { confirm } = useConfirm()
+const { user } = useAuth()
 const members = ref<UnitMember[]>([])
 const loaded = ref(false)
 const error = ref('')
-/** The MVP combines the four roles into two common sets; single roles can still be assigned */
-const ROLE_CHOICES: { value: string; label: string; roles: UnitRole[] }[] = [
-  { value: 'officer', label: '承辦人（負責人＋監考）', roles: ['OWNER', 'PROCTOR'] },
-  { value: 'teacher', label: '教師（出題＋評分）', roles: ['AUTHOR', 'GRADER'] },
-  { value: 'OWNER', label: '只有負責人', roles: ['OWNER'] },
-  { value: 'AUTHOR', label: '只有出題', roles: ['AUTHOR'] },
-  { value: 'PROCTOR', label: '只有監考', roles: ['PROCTOR'] },
-  { value: 'GRADER', label: '只有評分', roles: ['GRADER'] },
-]
 const draft = reactive({ email: '', choice: 'teacher' })
+/** The email has no account yet: administrators can create it here, owners are told whom to ask */
+const missingAccount = ref('')
+const newName = ref('')
+const issued = ref<IssuedPassword[]>([])
+const busy = ref(false)
 const url = () => `/units/${props.unit.id}/members`
 
 async function load() {
@@ -60,17 +60,41 @@ const grouped = () => {
 
 async function add() {
   const email = draft.email.trim()
-  if (!email) return
-  const choice = ROLE_CHOICES.find((c) => c.value === draft.choice)!
-  const have = new Set(members.value.filter((m) => m.email === email.toLowerCase()).map((m) => m.role))
+  if (!email || busy.value) return
+  busy.value = true
+  missingAccount.value = ''
   try {
-    for (const role of choice.roles) {
-      if (!have.has(role)) await api(url(), { method: 'POST', body: { email, role } })
-    }
+    await api(url(), { method: 'POST', body: { email, roles: rolesOf(draft.choice) } })
     draft.email = ''
     toast.success(`已將 ${email} 加入「${props.unit.name}」`)
+    emit('changed')
+  } catch (e) {
+    if (e instanceof ApiError && e.code === 'unknown_staff' && email.includes('@')) missingAccount.value = email
+    else toast.error((e as Error).message)
+  } finally {
+    busy.value = false
+  }
+  await load()
+}
+
+async function createAndAdd() {
+  const name = newName.value.trim()
+  if (!name || busy.value) return
+  busy.value = true
+  try {
+    const res = await api<{ staff: { name: string; email: string }; temporaryPassword: string }>('/admin/staff', {
+      method: 'POST',
+      body: { email: missingAccount.value, name, memberships: [{ unitId: props.unit.id, roles: rolesOf(draft.choice) }] },
+    })
+    issued.value = [{ name: res.staff.name, email: res.staff.email, password: res.temporaryPassword }]
+    missingAccount.value = ''
+    newName.value = ''
+    draft.email = ''
+    emit('changed')
   } catch (e) {
     toast.error((e as Error).message)
+  } finally {
+    busy.value = false
   }
   await load()
 }
@@ -82,8 +106,9 @@ const missing = (roles: UnitMember[]) => ALL_ROLES.filter((r) => !roles.some((m)
 
 async function grant(row: { name: string; email: string; roles: UnitMember[] }, role: UnitRole) {
   try {
-    await api(url(), { method: 'POST', body: { email: row.email, role } })
+    await api(url(), { method: 'POST', body: { email: row.email, roles: [role] } })
     toast.success(`已給 ${row.name}「${UNIT_ROLE_LABEL[role]}」角色`)
+    emit('changed')
     if (missing(row.roles).length <= 1) addingFor.value = null
   } catch (e) {
     toast.error((e as Error).message)
@@ -103,6 +128,7 @@ async function remove(m: UnitMember) {
     await api(`${url()}/${m.id}`, { method: 'DELETE' })
     members.value = members.value.filter((x) => x.id !== m.id)
     toast.success(`已移除 ${m.name} 的「${UNIT_ROLE_LABEL[m.role]}」角色`)
+    emit('changed')
   } catch (e) {
     toast.error((e as Error).message)
   }
@@ -119,12 +145,13 @@ async function remove(m: UnitMember) {
     <template v-else>
       <p v-if="!members.length" class="text-[15px] text-ink-2">這個單位還沒有成員。先加入一位承辦人。</p>
       <ul v-else class="space-y-2">
-        <li v-for="row in grouped()" :key="row.email" class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <p class="min-w-0 basis-52 text-[15px]">
-            <span class="font-medium">{{ row.name }}</span>
-            <span class="ml-2 text-sm text-ink-2">{{ row.email }}</span>
-            <span v-if="!row.active" class="ml-2 text-sm text-grade">帳號已停用</span>
-          </p>
+        <li v-for="row in grouped()" :key="row.email" class="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          <div class="min-w-0 flex-1 basis-full sm:basis-56">
+            <p class="truncate text-[15px] font-medium">
+              {{ row.name }}<span v-if="!row.active" class="ml-2 text-sm font-normal text-grade">帳號已停用</span>
+            </p>
+            <p class="truncate text-sm text-ink-2">{{ row.email }}</p>
+          </div>
           <span v-for="m in row.roles" :key="m.id" class="inline-flex h-8 items-center gap-1 rounded-full bg-paper pr-1 pl-3 text-sm shadow-card">
             {{ UNIT_ROLE_LABEL[m.role] }}
             <button
@@ -161,12 +188,27 @@ async function remove(m: UnitMember) {
         </li>
       </ul>
       <form class="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_14rem_auto]" novalidate @submit.prevent="add">
-        <input v-model="draft.email" type="email" class="field" placeholder="教職員的 Email" aria-label="教職員的 Email" />
+        <StaffPicker v-model="draft.email" :unit-id="unit.id" :exclude="members.map((m) => m.email)" />
         <select v-model="draft.choice" class="field" aria-label="角色">
           <option v-for="c in ROLE_CHOICES" :key="c.value" :value="c.value">{{ c.label }}</option>
         </select>
-        <Button variant="primary" size="md" type="submit" :disabled="!draft.email.trim()"><Plus />加入</Button>
+        <Button variant="primary" size="md" type="submit" :disabled="!draft.email.trim() || busy"><Plus />加入</Button>
       </form>
+
+      <div v-if="missingAccount" class="mt-3 rounded-control bg-paper px-4 py-3 shadow-card" role="alert">
+        <template v-if="user?.role === 'admin'">
+          <p class="text-[15px]"><span class="font-medium">{{ missingAccount }}</span> 還沒有帳號。輸入姓名，直接建立帳號並加入「{{ unit.name }}」。</p>
+          <form class="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]" novalidate @submit.prevent="createAndAdd">
+            <input v-model="newName" class="field" placeholder="姓名" aria-label="姓名" />
+            <Button size="md" @click="missingAccount = ''"><X />取消</Button>
+            <Button variant="primary" size="md" type="submit" :disabled="!newName.trim() || busy"><UserPlus />建立並加入</Button>
+          </form>
+        </template>
+        <p v-else class="text-[15px]">
+          <span class="font-medium">{{ missingAccount }}</span> 還沒有帳號。請系統管理員先建立帳號，之後就能在這裡加入。
+        </p>
+      </div>
+      <TempPasswords v-if="issued.length" class="mt-3 rounded-control" :items="issued" @close="issued = []" />
     </template>
   </div>
 </template>

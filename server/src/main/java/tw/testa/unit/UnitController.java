@@ -1,8 +1,10 @@
 package tw.testa.unit;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -37,14 +40,16 @@ public class UnitController {
     private final UnitRepository unitRepo;
     private final UnitRoleRepository roleRepo;
     private final StaffRepository staffRepo;
+    private final MembershipService memberships;
     private final AuditService audit;
     private final AccessGuard access;
 
     public UnitController(UnitRepository unitRepo, UnitRoleRepository roleRepo, StaffRepository staffRepo,
-            AuditService audit, AccessGuard access) {
+            MembershipService memberships, AuditService audit, AccessGuard access) {
         this.unitRepo = unitRepo;
         this.roleRepo = roleRepo;
         this.staffRepo = staffRepo;
+        this.memberships = memberships;
         this.audit = audit;
         this.access = access;
     }
@@ -58,8 +63,18 @@ public class UnitController {
 
     public record MemberDto(Long id, Long staffId, String email, String name, boolean active, Role role) {}
 
-    public record AddMemberRequest(@NotBlank(message = "請輸入教職員的 Email。") String email,
-            @NotNull(message = "請選擇角色。") Role role) {}
+    /** One role ({@code role}) or several at once ({@code roles}); roles the person already holds are skipped. */
+    public record AddMemberRequest(@NotBlank(message = "請輸入教職員的 Email。") String email, Role role, List<Role> roles) {
+        List<Role> all() {
+            List<Role> list = new ArrayList<>(roles == null ? List.of() : roles);
+            if (role != null) list.add(role);
+            list.removeIf(java.util.Objects::isNull);
+            return list;
+        }
+    }
+
+    /** What a unit owner may see when picking a colleague: name and email only. */
+    public record StaffOption(Long id, String name, String email) {}
 
     /** System administrators see every unit; others only units where they hold a role. */
     @GetMapping
@@ -114,20 +129,31 @@ public class UnitController {
         return roleRepo.findByUnitIdWithStaff(unitId).stream().map(UnitController::toDto).toList();
     }
 
+    /** Finds active colleagues by name or email so owners do not have to type an exact address. */
+    @GetMapping("/{unitId}/staff-search")
+    @PreAuthorize("@access.canManageUnit(#unitId)")
+    @Transactional(readOnly = true)
+    public List<StaffOption> searchStaff(@PathVariable Long unitId, @RequestParam(defaultValue = "") String q) {
+        String text = q.trim().toLowerCase(java.util.Locale.ROOT);
+        if (text.isEmpty()) return List.of();
+        return staffRepo.searchActive(text, PageRequest.of(0, 10)).stream()
+                .map(s -> new StaffOption(s.getId(), s.getName(), s.getEmail())).toList();
+    }
+
     @PostMapping("/{unitId}/members")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("@access.canManageUnit(#unitId)")
     @Transactional
-    public MemberDto addMember(@PathVariable Long unitId, @Valid @RequestBody AddMemberRequest body) {
+    public List<MemberDto> addMember(@PathVariable Long unitId, @Valid @RequestBody AddMemberRequest body) {
         Unit u = find(unitId);
+        if (body.all().isEmpty()) throw ApiException.badRequest("validation", "請選擇角色。");
         Staff s = staffRepo.findByEmail(Staff.normalizeEmail(body.email())).filter(Staff::isActive)
                 .orElseThrow(() -> ApiException.badRequest("unknown_staff", "找不到這個 Email 的教職員帳號，請先請系統管理員建立。"));
-        if (roleRepo.existsByUnitIdAndStaffIdAndRole(unitId, s.getId(), body.role())) {
+        List<UnitRole> added = memberships.grant(u, s, body.all());
+        if (added.isEmpty()) {
             throw ApiException.conflict("already_member", "這位教職員已經有這個角色了。");
         }
-        UnitRole r = roleRepo.save(new UnitRole(u, s, body.role()));
-        audit.record("UNIT_ROLE_GRANTED", "staff", s.getId(), unitId, null, body.role().name());
-        return toDto(r);
+        return added.stream().map(UnitController::toDto).toList();
     }
 
     @DeleteMapping("/{unitId}/members/{memberId}")

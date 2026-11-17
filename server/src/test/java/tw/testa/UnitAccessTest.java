@@ -121,4 +121,97 @@ class UnitAccessTest extends IntegrationTestBase {
         mvc.perform(json(post("/api/admin/staff"), "{\"email\":\"not-an-email\",\"name\":\"x\"}").session(admin))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors.email").exists());
     }
+
+    @Test
+    void accountsCanJoinUnitsWhenCreated() throws Exception {
+        MockHttpSession admin = adminSession();
+        long unit = createUnit(admin, "建立即加入");
+
+        mvc.perform(json(post("/api/admin/staff"), """
+                {"email":"joined@test.tw","name":"一步到位","memberships":[{"unitId":%d,"roles":["OWNER","PROCTOR"]}]}
+                """.formatted(unit)).session(admin))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.staff.roles.length()").value(2))
+                .andExpect(jsonPath("$.temporaryPassword").isString());
+        mvc.perform(get("/api/units/" + unit + "/members").session(admin))
+                .andExpect(jsonPath("$.length()").value(2));
+
+        // An unknown unit creates nothing
+        mvc.perform(json(post("/api/admin/staff"),
+                "{\"email\":\"lost@test.tw\",\"name\":\"x\",\"memberships\":[{\"unitId\":999999,\"roles\":[\"AUTHOR\"]}]}")
+                .session(admin)).andExpect(status().isNotFound());
+        mvc.perform(get("/api/units/" + unit + "/staff-search").param("q", "lost@").session(admin))
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void batchCreationIsAllOrNothing() throws Exception {
+        MockHttpSession admin = adminSession();
+        long unit = createUnit(admin, "批次單位");
+        createStaff(admin, "batch-taken@test.tw", "已有帳號");
+
+        mvc.perform(json(post("/api/admin/staff/batch"), """
+                {"people":[{"email":"batch-1@test.tw","name":"一號"},{"email":"BATCH-1@test.tw","name":"重複"},
+                {"email":"batch-taken@test.tw","name":"已有"}]}
+                """).session(admin))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("batch_invalid"))
+                .andExpect(jsonPath("$.errors['people[1].email']").exists())
+                .andExpect(jsonPath("$.errors['people[2].email']").exists());
+        mvc.perform(json(post("/api/admin/staff/batch"), "{\"people\":[{\"email\":\"bad\",\"name\":\"x\"}]}")
+                .session(admin)).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors['people[0].email']").exists());
+        mvc.perform(get("/api/units/" + unit + "/staff-search").param("q", "batch-1").session(admin))
+                .andExpect(jsonPath("$.length()").value(0));
+
+        var r = mvc.perform(json(post("/api/admin/staff/batch"), """
+                {"people":[{"email":"batch-1@test.tw","name":"一號"},{"email":"batch-2@test.tw","name":"二號"}],
+                "memberships":[{"unitId":%d,"roles":["AUTHOR","GRADER"]}]}
+                """.formatted(unit)).session(admin))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[1].staff.roles.length()").value(2)).andReturn();
+        // Each new account can sign in with its own temporary password
+        login("batch-2@test.tw", read(r, "$[1].temporaryPassword"));
+        mvc.perform(get("/api/units/" + unit + "/members").session(admin))
+                .andExpect(jsonPath("$.length()").value(4));
+        mvc.perform(json(post("/api/admin/staff/batch"), "{\"people\":[]}").session(admin))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void ownersFindColleaguesAndGrantSeveralRoles() throws Exception {
+        MockHttpSession admin = adminSession();
+        long unit = createUnit(admin, "搜尋單位");
+        long other = createUnit(admin, "別人的單位");
+        Object[] owner = createStaff(admin, "search-owner@test.tw", "搜尋負責人");
+        createStaff(admin, "search-teacher@test.tw", "蔡搜尋");
+        Object[] gone = createStaff(admin, "search-gone@test.tw", "蔡停用");
+        grant(admin, unit, "search-owner@test.tw", "OWNER");
+        mvc.perform(json(patch("/api/admin/staff/" + gone[0]), "{\"active\":false}").session(admin))
+                .andExpect(status().isOk());
+        MockHttpSession ownerS = login("search-owner@test.tw", (String) owner[1]);
+
+        // By name or email, active accounts only, name and email only
+        mvc.perform(get("/api/units/" + unit + "/staff-search").param("q", "蔡").session(ownerS))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].email").value("search-teacher@test.tw"))
+                .andExpect(jsonPath("$[0].systemAdmin").doesNotExist());
+        mvc.perform(get("/api/units/" + unit + "/staff-search").param("q", "SEARCH-TEACHER").session(ownerS))
+                .andExpect(jsonPath("$.length()").value(1));
+        mvc.perform(get("/api/units/" + other + "/staff-search").param("q", "蔡").session(ownerS))
+                .andExpect(status().isForbidden());
+
+        // Several roles in one request; held roles are skipped, all held is a conflict
+        mvc.perform(json(post("/api/units/" + unit + "/members"),
+                "{\"email\":\"search-teacher@test.tw\",\"roles\":[\"AUTHOR\",\"GRADER\"]}").session(ownerS))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.length()").value(2));
+        mvc.perform(json(post("/api/units/" + unit + "/members"),
+                "{\"email\":\"search-teacher@test.tw\",\"roles\":[\"GRADER\",\"PROCTOR\"]}").session(ownerS))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.length()").value(1));
+        mvc.perform(json(post("/api/units/" + unit + "/members"),
+                "{\"email\":\"search-teacher@test.tw\",\"roles\":[\"AUTHOR\"]}").session(ownerS))
+                .andExpect(status().isConflict());
+        mvc.perform(json(post("/api/units/" + unit + "/members"),
+                "{\"email\":\"search-teacher@test.tw\"}").session(ownerS))
+                .andExpect(status().isBadRequest());
+    }
 }
