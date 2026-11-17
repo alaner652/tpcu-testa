@@ -138,7 +138,7 @@ docker compose -f docker-compose.prod.yml -f deploy/https.yml up -d
 ```bash
 docker compose -f docker-compose.prod.yml restart backup     # 先建立新備份
 git pull
-./deploy/render-media.sh videos                              # 選用：在隔離示範環境重錄手冊影片
+./deploy/render-media.sh videos                              # 修改介面後：在隔離示範環境重錄手冊影片
 docker compose -f docker-compose.prod.yml up -d --build       # 啟動時由 Flyway 更新資料庫
 docker compose -f docker-compose.prod.yml ps                  # 等待 server 與 web 變成 healthy
 ```

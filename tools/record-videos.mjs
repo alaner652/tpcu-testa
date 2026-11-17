@@ -145,7 +145,7 @@ const clips = {
     await rec.click('建立草稿', { after: 1500 })
     await rec.click({ css: 'a', text: name }, { after: 1500 })
     await rec.upload('匯入名單', roster)
-    await rec.click(`匯入 ${rows.length} 位考生`, { after: 2000 })
+    await rec.click({ css: 'button', text: '位考生' }, { after: 2000 })
     await rec.click('登入單', { after: 2000 })
     await rec.click('考試', { after: 1500 })
     await rec.click({ text: '發布', in: name }, { after: 1200 })
