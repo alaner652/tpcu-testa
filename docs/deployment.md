@@ -125,7 +125,7 @@ To arrange with the network administrators:
 
 Cutting the Internet does not make the exam secure on its own: candidates on the internal network can still reach each other and other internal services, so lab isolation is the school's responsibility; the application enforces sign-in, timing and access on the server.
 
-How candidates sit the exam is up to each unit: in a lab, in a lab with the Internet blocked (the VM then only needs NTP), or online from home. For online exams the host name needs a public DNS record and TCP 443 open from the Internet; autosave, resume and extra time cover unstable home connections. Testa has no video proctoring or lockdown browser and only counts how often a candidate leaves the window, so a unit relying on online exams for high-stakes results has to arrange its own supervision.
+How candidates sit the exam is up to each unit: in a lab, in a lab whose PCs are blocked from the Internet (the server can stay online; the PCs only need to reach it over the internal network), or online from home. For online exams the host name needs a public DNS record and TCP 443 open from the Internet; autosave, resume and extra time cover unstable home connections. Testa has no video proctoring or lockdown browser and only counts how often a candidate leaves the window, so a unit relying on online exams for high-stakes results has to arrange its own supervision.
 
 ## AI question import (optional)
 
