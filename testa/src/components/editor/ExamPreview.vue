@@ -262,7 +262,7 @@ function jump(index: number) {
 <template>
   <div>
     <!-- Status bar. After a real exam is submitted the card below says it all -->
-    <div v-if="!(remote && submitted)" class="sticky top-0 z-10 border-b border-line bg-paper">
+    <div v-if="!(remote && submitted)" class="sticky top-0 z-10 bg-paper">
       <div class="mx-auto flex h-14 max-w-[1040px] items-center gap-3 px-4 sm:gap-5 md:px-6">
         <template v-if="!submitted">
           <p

@@ -104,7 +104,7 @@ const clips = {
     await pause(2000)
     await rec.click('操作紀錄', { after: 1200 })
     await rec.type({ field: '搜尋操作紀錄' }, '王承辦')
-    await rec.click('最近 7 天', { after: 1500 })
+    await rec.click('7 天內', { after: 1500 })
     // The newest entry, at the top of the list
     await rec.click({ css: 'section > ul:first-of-type > li:first-child > button[aria-expanded]' }, { after: 2500 })
   },

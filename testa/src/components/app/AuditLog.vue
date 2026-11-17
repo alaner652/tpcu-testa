@@ -198,8 +198,7 @@ async function exportCsv() {
           v-for="r in RANGES"
           :key="r.value"
           type="button"
-          class="h-8 rounded-full px-3 text-sm transition-colors"
-          :class="range === r.value ? 'bg-brand-soft font-medium text-brand-strong' : 'text-ink-2 hover:bg-ink/[0.06]'"
+          class="pill-tab h-8 px-3 text-sm"
           :aria-pressed="range === r.value"
           @click="range = r.value"
         >

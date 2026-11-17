@@ -93,7 +93,6 @@ const starters = computed(() => [
 <template>
   <div class="space-y-6">
     <PageHeader
-      class="!mb-0"
       :title="`${user?.name}，你好`"
       :hint="user?.units?.length ? undefined : '你還沒有被加入任何單位。請單位負責人或系統管理員把你加進單位。'"
     />

@@ -57,7 +57,7 @@ const PRINCIPLES = [
 
     <main class="thin-scroll min-h-0 flex-1 overflow-y-auto">
       <!-- What Testa is -->
-      <section class="border-b border-line bg-gradient-to-b from-brand-soft/70 to-desk">
+      <section class="border-b border-line">
         <div class="mx-auto grid max-w-[1080px] items-center gap-10 px-4 py-12 md:grid-cols-[1fr_auto] md:px-6 md:py-16">
           <div>
             <p class="text-sm font-medium tracking-wide text-brand">出題・考試・閱卷・放榜</p>
