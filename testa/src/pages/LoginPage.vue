@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { CircleAlert, LoaderCircle, LogIn } from 'lucide-vue-next'
 import Logo from '@/components/app/Logo.vue'
 import Button from '@/components/ui/Button.vue'
@@ -11,8 +11,20 @@ import { api } from '@/lib/api'
 /** One login page, two identities: candidates use candidate number + login code, staff use account and password. */
 const { login, loginCandidate } = useAuth()
 const router = useRouter()
+const route = useRoute()
 
-const who = ref<'candidate' | 'staff'>('candidate')
+/** Which identity this browser signed in as last time; /login?staff (a link for teachers) always opens the staff tab. */
+const LAST_IDENTITY = 'testa.login-as'
+function lastIdentity(): 'candidate' | 'staff' {
+  if (route.query.staff !== undefined) return 'staff'
+  try {
+    return localStorage.getItem(LAST_IDENTITY) === 'staff' ? 'staff' : 'candidate'
+  } catch {
+    return 'candidate'
+  }
+}
+
+const who = ref<'candidate' | 'staff'>(lastIdentity())
 const ticket = ref('')
 const code = ref('')
 const email = ref('')
@@ -44,6 +56,11 @@ async function submit() {
   loading.value = true
   try {
     const user = candidate ? await loginCandidate(ticket.value, code.value) : await login(email.value, password.value)
+    try {
+      localStorage.setItem(LAST_IDENTITY, who.value)
+    } catch {
+      // Private mode: just not remembered
+    }
     await router.push({ name: user.role === 'student' ? 'student' : 'home' })
   } catch (e) {
     error.value = (e as Error).message

@@ -181,6 +181,8 @@ export async function api(page, path, method = 'GET', body) {
 
 export async function clearSession(page) {
   await page.send('Network.clearBrowserCookies')
+  // The login page remembers the last identity in localStorage; every clip starts from a fresh browser
+  await page.send('Storage.clearDataForOrigin', { origin: new URL(APP).origin, storageTypes: 'local_storage' })
   await visit(page, '/login', '登入')
 }
 
