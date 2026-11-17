@@ -148,20 +148,54 @@ until psql -h db -U testa -d testa -Atc "select 1 from flyway_schema_history lim
   sleep 5
 done
 
-next_run=0
+# Next automatic backup, as epoch seconds; 0 when automatic backups are off.
+# The backend writes "enabled seconds anchor" to schedule, anchor being one past slot; without it, daily from now.
+next_slot() {
+  enabled=1 every=86400 anchor=$started
+  if [ -f "$control/schedule" ]; then read -r enabled every anchor < "$control/schedule" || true; fi
+  for value in "$enabled" "$every" "$anchor"; do
+    case "$value" in
+      ''|*[!0-9]*) enabled=1 every=86400 anchor=$started ;;
+    esac
+  done
+  if [ "$every" -lt 3600 ]; then every=86400; fi
+  if [ "$enabled" != 1 ]; then
+    rm -f "$control/next-run"
+    echo 0
+    return
+  fi
+  now=$(date +%s)
+  slot=$((anchor + ((now - anchor) / every + 1) * every))
+  printf '%s\n' "$slot" > "$control/next-run"
+  echo "$slot"
+}
+
+started=$(date +%s)
+schedule=$(cat "$control/schedule" 2>/dev/null || true)
+# A new site gets its first backup at once; otherwise wait for the next slot
+if ls /backups/testa-*.sql.gz >/dev/null 2>&1; then
+  next_run=$(next_slot)
+else
+  next_run=$started
+fi
 while true; do
   now=$(date +%s)
+  current=$(cat "$control/schedule" 2>/dev/null || true)
+  if [ "$current" != "$schedule" ]; then
+    schedule=$current
+    next_run=$(next_slot)
+  fi
   if [ -f "$control/restore-request" ]; then
     run_restore
   elif [ -f "$control/delete-request" ]; then
     run_delete
-  elif [ "$next_run" -eq 0 ] || [ -f "$control/request" ] || [ "$now" -ge "$next_run" ]; then
+  elif [ -f "$control/request" ] || { [ "$next_run" -gt 0 ] && [ "$now" -ge "$next_run" ]; }; then
     kind=auto
     if [ -f "$control/request" ]; then kind=manual; fi
     rm -f "$control/request"
     run_backup "$kind"
-    next_run=$((now + 86400))
-    printf '%s\n' "$next_run" > "$control/next-run"
+    # A manual backup does not move the schedule
+    if [ "$kind" = auto ]; then next_run=$(next_slot); fi
   fi
   sleep 2
 done

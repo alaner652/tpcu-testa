@@ -38,6 +38,8 @@ testa:
   login:
     max-failures: 5
     lock-minutes: 15
+    # Staff sign-in expires after this long without activity (adjustable in System settings)
+    idle-minutes: 480
   # The dump directory stays read-only to the backend. A separate control directory lets administrators request a backup.
   backup-dir: ${TESTA_BACKUP_PATH:}
   backup-control-dir: ${TESTA_BACKUP_CONTROL_PATH:}

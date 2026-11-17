@@ -9,7 +9,7 @@ flowchart LR
     P["School reverse proxy<br/>(optional)"] --> W["web<br/>Nginx :80 / :443"]
     W -->|/api| S["server<br/>Spring Boot"]
     S --> D[("db<br/>PostgreSQL")]
-    K["backup<br/>daily pg_dump"] --> D
+    K["backup<br/>scheduled pg_dump"] --> D
     K --> F["./backups"]
     S -.read-only.-> F
 ```
@@ -81,7 +81,7 @@ A single Linux VM running Docker Engine is enough. The full list to request from
 | CPU type (Proxmox/QEMU) | `host` or `x86-64-v3` | The image build runs Vite and Tailwind native binaries, which crash with "Illegal instruction" on the default QEMU CPU model |
 | Disk | 64 GB or more | The database is small; most space is backups |
 | Network | A fixed internal IP reachable from the labs | See [Network and offline exams](#network-and-offline-exams) |
-| Backup | The daily `pg_dump` plus VM-level backups (for example vzdump or Proxmox Backup Server) | One restores data, the other the whole machine |
+| Backup | The scheduled `pg_dump` plus VM-level backups (for example vzdump or Proxmox Backup Server) | One restores data, the other the whole machine |
 
 ## HTTPS
 
@@ -154,7 +154,7 @@ docker compose -f docker-compose.prod.yml restart web
 
 ## Backup and restore
 
-- The database is backed up daily to `TESTA_BACKUP_DIR`. Backups older than the retention period are removed; it starts at `BACKUP_KEEP_DAYS` (default 30) and is changed in Admin > System settings.
+- The database is backed up to `TESTA_BACKUP_DIR`, daily at 02:00 by default. The schedule (on or off, every 6 or 12 hours, daily or weekly, and the hour) and the retention period are set in Admin > Backups; retention starts at `BACKUP_KEEP_DAYS` (default 30). A new site gets its first backup as soon as the backup container starts.
 - In Admin > Backups, an administrator can take a backup now, download, delete or restore one. Delete asks for confirmation; restore also asks the administrator to type 「還原」. Every action is audited. A dump contains papers and personal data, so store downloaded copies securely.
 - The backend never writes dumps. It leaves a request in a small control volume, and the separate `backup` container does the work.
 

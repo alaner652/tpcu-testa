@@ -25,6 +25,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import tw.testa.settings.SettingsService;
 import tw.testa.staff.Staff;
 
 @RestController
@@ -34,10 +35,12 @@ public class AuthController {
     private final AccessGuard access;
     private final SecurityContextRepository contextRepo;
     private final SetupService setup;
+    private final SettingsService settings;
 
     public AuthController(AuthService auth, AccessGuard access, SecurityContextRepository contextRepo,
-            SetupService setup) {
+            SetupService setup, SettingsService settings) {
         this.auth = auth;
+        this.settings = settings;
         this.setup = setup;
         this.access = access;
         this.contextRepo = contextRepo;
@@ -109,5 +112,7 @@ public class AuthController {
                 UsernamePasswordAuthenticationToken.authenticated(StaffPrincipal.of(staff), null, authorities));
         SecurityContextHolder.setContext(context);
         contextRepo.saveContext(context, request, response);
+        // Staff only: candidates keep the server's session timeout, which outlasts any exam
+        request.getSession().setMaxInactiveInterval(settings.staffIdleMinutes() * 60);
     }
 }

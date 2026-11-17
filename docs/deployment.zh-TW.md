@@ -9,7 +9,7 @@ flowchart LR
     P["校方反向代理<br/>（選用）"] --> W["web<br/>Nginx :80 / :443"]
     W -->|/api| S["server<br/>Spring Boot"]
     S --> D[("db<br/>PostgreSQL")]
-    K["backup<br/>每日 pg_dump"] --> D
+    K["backup<br/>定時 pg_dump"] --> D
     K --> F["./backups"]
     S -.唯讀.-> F
 ```
@@ -81,7 +81,7 @@ Session 儲存在資料庫的 `spring_session`，因此重新啟動後端不會�
 | CPU 類型（Proxmox/QEMU） | `host` 或 `x86-64-v3` | 使用 QEMU 預設 CPU 類型時，Vite 與 Tailwind 原生程式可能因 Illegal instruction 而中止 |
 | 硬碟 | 64 GB 以上 | 資料庫很小，空間主要用於備份 |
 | 網路 | 一個電腦教室能連到的固定內部 IP | 詳見[網路與斷網考試](#網路與斷網考試) |
-| 備份 | 每日 `pg_dump` 加上 VM 層級備份（例如 vzdump 或 Proxmox Backup Server） | 一份還原資料，另一份還原整台 VM |
+| 備份 | 定時 `pg_dump` 加上 VM 層級備份（例如 vzdump 或 Proxmox Backup Server） | 一份還原資料，另一份還原整台 VM |
 
 ## HTTPS
 
@@ -156,7 +156,7 @@ docker compose -f docker-compose.prod.yml restart web
 
 ## 備份與還原
 
-- 資料庫每天備份到 `TESTA_BACKUP_DIR`，超過保留天數的備份會自動刪除。保留天數預設為 `BACKUP_KEEP_DAYS`（30 天），之後在「管理 → 系統設定」調整。
+- 資料庫備份到 `TESTA_BACKUP_DIR`，預設每天 02:00。排程（開關、每 6 或 12 小時、每天或每週、幾點）和保留天數在「管理 → 備份」調整；保留天數一開始是 `BACKUP_KEEP_DAYS`（30 天）。新架好的站，備份容器一啟動就會先備份一次。
 - 管理員可在「管理 → 備份」立即備份，以及下載、刪除或還原任一份備份。刪除需要再次確認；還原除了確認，還要輸入「還原」兩個字。每個操作都會留下操作紀錄。備份包含考卷與個人資料，下載後必須妥善保管。
 - 後端不會直接寫入備份檔，只在一個小的控制目錄留下要求，由獨立的 `backup` 容器執行。
 

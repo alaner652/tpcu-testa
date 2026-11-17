@@ -5,6 +5,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -33,6 +34,9 @@ class BackupTest extends IntegrationTestBase {
 
     @Autowired
     JdbcTemplate jdbc;
+
+    @Autowired
+    tw.testa.settings.SettingsService settings;
 
     static {
         try {
@@ -123,6 +127,66 @@ class BackupTest extends IntegrationTestBase {
             Files.deleteIfExists(CONTROL.resolve("next-run"));
             Files.deleteIfExists(CONTROL.resolve("history"));
         }
+    }
+
+    @Test
+    void scheduleIsSavedAuditedAndHandedToTheBackupContainer() throws Exception {
+        var admin = adminSession();
+        try {
+            mvc.perform(get("/api/admin/backups").session(admin)).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.schedule.enabled").value(true)).andExpect(jsonPath("$.schedule.everyHours").value(24))
+                    .andExpect(jsonPath("$.schedule.hour").value(2)).andExpect(jsonPath("$.keepDaysDefault").value(30));
+            assertThat(Files.readString(CONTROL.resolve("schedule"))).startsWith("1 86400 ");
+
+            mvc.perform(put("/api/admin/settings/backup").with(csrf()).session(admin).contentType("application/json")
+                    .content("{\"enabled\":true,\"everyHours\":168,\"hour\":23,\"weekday\":3,\"keepDays\":60}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.everyHours").value(168)).andExpect(jsonPath("$.keepDays").value(60));
+            String[] schedule = Files.readString(CONTROL.resolve("schedule")).split(" ");
+            assertThat(schedule[1]).isEqualTo("604800");
+            var slot = Instant.ofEpochSecond(Long.parseLong(schedule[2])).atZone(java.time.ZoneId.systemDefault());
+            assertThat(slot.getDayOfWeek()).isEqualTo(java.time.DayOfWeek.WEDNESDAY);
+            assertThat(slot.getHour()).isEqualTo(23);
+            assertThat(slot.toInstant()).isBefore(Instant.now());
+            assertThat(Files.readString(CONTROL.resolve("keep-days"))).isEqualTo("60");
+            mvc.perform(get("/api/admin/audit-logs").param("action", "SETTINGS_CHANGED").session(admin))
+                    .andExpect(jsonPath("$.items[0].detail").value("自動備份時間 每天 02:00 改為 每週三 23:00；備份保留天數 30 天 改為 60 天"));
+
+            // Off: the container gets enabled = 0 and the page shows no next run
+            mvc.perform(put("/api/admin/settings/backup").with(csrf()).session(admin).contentType("application/json")
+                    .content("{\"enabled\":false,\"everyHours\":168,\"hour\":23,\"weekday\":3,\"keepDays\":60}"))
+                    .andExpect(status().isOk());
+            Files.writeString(CONTROL.resolve("next-run"), "1795000000\n");
+            assertThat(Files.readString(CONTROL.resolve("schedule"))).startsWith("0 ");
+            mvc.perform(get("/api/admin/backups").session(admin)).andExpect(jsonPath("$.nextRunAt").isEmpty());
+
+            mvc.perform(put("/api/admin/settings/backup").with(csrf()).session(admin).contentType("application/json")
+                    .content("{\"enabled\":true,\"everyHours\":5,\"hour\":2,\"weekday\":7,\"keepDays\":30}"))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("backup_interval_invalid"));
+        } finally {
+            jdbc.update("delete from app_setting where key like 'backup.%'");
+            settings.reload();
+            Files.deleteIfExists(CONTROL.resolve("next-run"));
+        }
+    }
+
+    @Test
+    void checkTellsACompleteDumpFromABrokenOne() throws Exception {
+        var admin = adminSession();
+        String good = "testa-20261101-020000.sql.gz", cut = "testa-20261102-020000.sql.gz", junk = "testa-20261103-020000.sql.gz";
+        Files.write(DIR.resolve(good), gzip("SET x;\n" + "-".repeat(200_000) + "\n--\n-- PostgreSQL database dump complete\n--\n"));
+        Files.write(DIR.resolve(cut), gzip("SET x;\nCOPY public.answer"));
+        Files.write(DIR.resolve(junk), new byte[] { 1, 2, 3 });
+        mvc.perform(get("/api/admin/backups/" + good + "/check").session(admin)).andExpect(jsonPath("$.ok").value(true));
+        mvc.perform(get("/api/admin/backups/" + cut + "/check").session(admin)).andExpect(jsonPath("$.ok").value(false));
+        mvc.perform(get("/api/admin/backups/" + junk + "/check").session(admin)).andExpect(jsonPath("$.ok").value(false));
+    }
+
+    private static byte[] gzip(String text) throws java.io.IOException {
+        var out = new java.io.ByteArrayOutputStream();
+        try (var zip = new java.util.zip.GZIPOutputStream(out)) {
+            zip.write(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        return out.toByteArray();
     }
 
     @Test

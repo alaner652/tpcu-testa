@@ -88,7 +88,7 @@ class SettingsTest extends IntegrationTestBase {
     }
 
     private static String body(boolean aiEnabled, String aiUrl, String aiKey, int flag, int years, int failures, int minutes) {
-        return "{\"aiEnabled\":%s,\"aiBaseUrl\":\"%s\",\"aiModel\":\"qwen3-4b\",\"aiApiKey\":%s,\"flagPercent\":%d,\"retentionYears\":%d,\"loginMaxFailures\":%d,\"loginLockMinutes\":%d,\"backupKeepDays\":30}"
+        return "{\"aiEnabled\":%s,\"aiBaseUrl\":\"%s\",\"aiModel\":\"qwen3-4b\",\"aiApiKey\":%s,\"flagPercent\":%d,\"retentionYears\":%d,\"loginMaxFailures\":%d,\"loginLockMinutes\":%d,\"staffIdleMinutes\":480,\"aiTimeoutSeconds\":300}"
                 .formatted(aiEnabled, aiUrl, aiKey == null ? "null" : "\"" + aiKey + "\"", flag, years, failures, minutes);
     }
 
@@ -98,7 +98,7 @@ class SettingsTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.ai.enabled").value(false)).andExpect(jsonPath("$.ai.apiKeySet").value(false))
                 .andExpect(jsonPath("$.flagPercent").value(20)).andExpect(jsonPath("$.retentionYears").value(1))
                 .andExpect(jsonPath("$.loginMaxFailures").value(3)).andExpect(jsonPath("$.loginLockMinutes").value(15))
-                .andExpect(jsonPath("$.backupKeepDays").value(30));
+                .andExpect(jsonPath("$.staffIdleMinutes").value(480)).andExpect(jsonPath("$.aiTimeoutSeconds").value(300));
 
         MvcResult r = mvc.perform(json(put("/api/admin/settings"), body(true, url(), KEY, 15, 2, 5, 10)).session(admin))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.ai.enabled").value(true))
@@ -125,9 +125,17 @@ class SettingsTest extends IntegrationTestBase {
         // The page shows the defaults next to each field and who changed the settings last
         mvc.perform(get("/api/admin/settings").session(admin)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.defaults.flagPercent").value(20)).andExpect(jsonPath("$.defaults.loginMaxFailures").value(3))
-                .andExpect(jsonPath("$.defaults.backupKeepDays").value(30))
+                .andExpect(jsonPath("$.defaults.staffIdleMinutes").value(480))
                 .andExpect(jsonPath("$.lastChange.by").value("Admin"))
                 .andExpect(jsonPath("$.lastChange.detail").value(org.hamcrest.Matchers.containsString("評分差距提醒 20% 改為 15%")));
+    }
+
+    @Test
+    void staffSignInFollowsTheIdleSetting() throws Exception {
+        assertThat(admin.getMaxInactiveInterval()).isEqualTo(480 * 60);
+        mvc.perform(json(put("/api/admin/settings"), body(false, "", null, 20, 1, 3, 15).replace("\"staffIdleMinutes\":480", "\"staffIdleMinutes\":30"))
+                .session(admin)).andExpect(status().isOk()).andExpect(jsonPath("$.staffIdleMinutes").value(30));
+        assertThat(adminSession().getMaxInactiveInterval()).isEqualTo(30 * 60);
     }
 
     @Test
@@ -149,7 +157,7 @@ class SettingsTest extends IntegrationTestBase {
         mvc.perform(json(put("/api/admin/settings"), body(false, "", null, 20, 1, 1, 15)).session(admin))
                 .andExpect(status().isBadRequest());
         mvc.perform(json(put("/api/admin/settings"), body(false, "", null, 20, 1, 3, 15)
-                .replace("\"backupKeepDays\":30", "\"backupKeepDays\":0")).session(admin))
+                .replace("\"staffIdleMinutes\":480", "\"staffIdleMinutes\":0")).session(admin))
                 .andExpect(status().isBadRequest());
     }
 

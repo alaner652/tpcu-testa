@@ -15,7 +15,7 @@ Testa's first target is a school admission exam: a few hundred candidates in com
 | Results | Done | Score sheet, publishing, Excel and CSV export, optional candidate access |
 | Data lifecycle | Done | Archiving, retention period, deletion with a reason |
 | Emergency access | Done | An exam owner grants one administrator time-limited, read-only access; every view is audited |
-| Deployment | Done | Docker Compose with Nginx, HTTPS option, daily backups, health checks, smoke test |
+| Deployment | Done | Docker Compose with Nginx, HTTPS option, scheduled backups (set in the admin pages), health checks, smoke test |
 | Backups in the admin panel | Done | Take, download, delete and restore backups; retention in System settings; restore puts the site in maintenance, backs up the current data first, needs a typed confirmation, and is refused during an exam or for a dump from another schema version; the page shows the next scheduled backup, recent runs (written by `deploy/backup.sh`), free disk space and a reminder to keep a copy off the server |
 | Operation manual | Done | `/help`, open without signing in: a chapter per role written in Markdown (`testa/src/manual`) with short recorded clips, numbered steps and tables, printable candidate notice, FAQ that opens one answer at a time; Chinese only. `/about` gives non-technical readers the exam flow, why it is safe and the credits. Clips are re-recorded with `tools/record-videos.mjs` |
 | AI question import | Experimental, off by default | A local model drafts questions from a Word, PDF or text exam paper; the author confirms each one. See [AI features](ai.md#question-import) |
@@ -32,7 +32,7 @@ Testa's first target is a school admission exam: a few hundred candidates in com
 | HTTPS | Both TLS at a reverse proxy (with real client IPs and forged `X-Forwarded-For` ignored) and TLS on the VM (`deploy/https.yml`) |
 | Backup | Daily dump restored into an emptied database |
 | Browser | Every page in Chromium at 1440 px and 390 px (candidate pages also at 320 px); see [Screenshots](screenshots.md) |
-| Automated tests | 59 backend integration tests against real PostgreSQL (Testcontainers) and 23 frontend unit tests, run by GitHub Actions on every push |
+| Automated tests | 65 backend integration tests against real PostgreSQL (Testcontainers) and 25 frontend unit tests, run by GitHub Actions on every push |
 
 ## Before production
 

@@ -22,5 +22,6 @@ public record TestaProperties(@DefaultValue Login login,
     /** years: exam data is kept until the end of (year the exam ended + years); after that an archived exam can be deleted. */
     public record Retention(@DefaultValue("1") int years) {}
 
-    public record Login(@DefaultValue("5") int maxFailures, @DefaultValue("15") int lockMinutes) {}
+    /** idleMinutes: staff are signed out after this long without a request (candidates keep the server's session timeout). */
+    public record Login(@DefaultValue("5") int maxFailures, @DefaultValue("15") int lockMinutes, @DefaultValue("480") int idleMinutes) {}
 }

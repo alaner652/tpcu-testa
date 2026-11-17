@@ -54,12 +54,14 @@ public class BackupController {
     private final AttemptRepository attempts;
     private final AuditService audit;
     private final AuditLogRepository auditLog;
+    private final int keepDaysDefault;
 
     public BackupController(TestaProperties props, BackupMaintenanceService maintenance, SettingsService settings,
             AttemptRepository attempts, AuditService audit, AuditLogRepository auditLog) {
         this.attempts = attempts;
         this.auditLog = auditLog;
         this.dir = props.backupDir();
+        this.keepDaysDefault = props.backupKeepDays();
         this.maintenance = maintenance;
         this.settings = settings;
         this.audit = audit;
@@ -79,7 +81,10 @@ public class BackupController {
      */
     public record Backups(boolean configured, boolean triggerSupported, boolean running, boolean lastFailed,
             boolean maintenance, String operation, int keepDays, List<BackupFile> items, long totalSize, Disk disk,
-            Instant nextRunAt, List<Run> history, Instant lastDownloadAt) {}
+            Instant nextRunAt, List<Run> history, Instant lastDownloadAt, SettingsService.BackupSchedule schedule, int keepDaysDefault) {}
+
+    /** ok: the file unpacks to the end and pg_dump finished writing it. */
+    public record Check(boolean ok, String message) {}
 
     public record RestoreRequest(String confirmation) {}
 
@@ -92,13 +97,15 @@ public class BackupController {
                 || Files.exists(control.resolve("delete-request")) || Files.exists(control.resolve("restore-request"))
                 || operation.equals("backup") || operation.equals("deleting") || operation.equals("restoring"));
         boolean lastFailed = triggerSupported && operation.equals("error");
-        int keepDays = settings.backupKeepDays();
-        Instant nextRunAt = triggerSupported ? nextRun(control) : null;
+        SettingsService.BackupSchedule schedule = settings.backupSchedule();
+        int keepDays = schedule.keepDays();
+        int keepDaysDefault = this.keepDaysDefault;
+        Instant nextRunAt = triggerSupported && schedule.enabled() ? nextRun(control) : null;
         List<Run> history = triggerSupported ? history(control) : List.of();
         Instant lastDownloadAt = auditLog.findFirstByActionOrderByIdDesc("BACKUP_DOWNLOADED").map(a -> a.getAt()).orElse(null);
         Path path = dir.isBlank() ? null : Path.of(dir);
         if (path == null || !Files.isDirectory(path)) return new Backups(false, triggerSupported, running, lastFailed,
-                maintenance.active(), operation, keepDays, List.of(), 0, null, nextRunAt, history, lastDownloadAt);
+                maintenance.active(), operation, keepDays, List.of(), 0, null, nextRunAt, history, lastDownloadAt, schedule, keepDaysDefault);
         try (Stream<Path> files = Files.list(path)) {
             List<BackupFile> all = files
                     .filter(f -> f.getFileName().toString().matches("testa-.*\\.sql\\.gz") && Files.isRegularFile(f))
@@ -107,10 +114,10 @@ public class BackupController {
                     .toList();
             long totalSize = all.stream().mapToLong(BackupFile::size).sum();
             return new Backups(true, triggerSupported, running, lastFailed, maintenance.active(), operation, keepDays,
-                    all.stream().limit(MAX_ITEMS).toList(), totalSize, disk(path), nextRunAt, history, lastDownloadAt);
+                    all.stream().limit(MAX_ITEMS).toList(), totalSize, disk(path), nextRunAt, history, lastDownloadAt, schedule, keepDaysDefault);
         } catch (IOException | java.io.UncheckedIOException e) {
             return new Backups(false, triggerSupported, running, lastFailed, maintenance.active(), operation, keepDays,
-                    List.of(), 0, null, nextRunAt, history, lastDownloadAt);
+                    List.of(), 0, null, nextRunAt, history, lastDownloadAt, schedule, keepDaysDefault);
         }
     }
 
@@ -189,6 +196,27 @@ public class BackupController {
         String label = staff.email().replace("\r", "").replace("\n", "");
         writeSignal(control, "restore-request", name + "\n" + label + "\n");
         audit.record("BACKUP_RESTORE_REQUESTED", "backup", name);
+    }
+
+    /** For the backup console: reads the whole dump, as a restore would. */
+    @GetMapping("/{name:.+}/check")
+    public Check check(@PathVariable String name) {
+        Path file = backupFile(name);
+        // pg_dump ends with a "dump complete" comment; the last two reads always hold it
+        String previous = "", last = "";
+        try (java.io.InputStream in = new java.util.zip.GZIPInputStream(Files.newInputStream(file), 65536)) {
+            byte[] buffer = new byte[65536];
+            for (int n; (n = in.readNBytes(buffer, 0, buffer.length)) > 0;) {
+                previous = last;
+                last = new String(buffer, 0, n, java.nio.charset.StandardCharsets.ISO_8859_1);
+            }
+        } catch (IOException e) {
+            return new Check(false, "檔案損毀，無法解壓縮，不能用來還原。");
+        }
+        String tail = previous + last;
+        boolean complete = tail.substring(Math.max(0, tail.length() - 512)).contains("PostgreSQL database dump complete");
+        return complete ? new Check(true, "檔案完整，可以用來還原。")
+                : new Check(false, "檔案不完整（備份可能中途中斷），不能用來還原。");
     }
 
     @GetMapping("/{name:.+}")
