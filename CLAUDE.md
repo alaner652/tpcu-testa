@@ -31,6 +31,7 @@ choice and fill-in questions are auto-graded, essays are graded anonymously by o
 
 - The people who run Testa are not engineers: anything a site may need to adjust (AI endpoint, grading and retention rules, sign-in lockout) is changed in Admin > System settings (`SettingsService`), in plain words, never by editing a file on the server. New adjustable values go there too.
 - Keep the UI simple: one primary button per row, rarely used actions in the "..." menu (`MoreMenu.vue`), Lucide icons on buttons and tabs, short text.
+- The same kind of UI uses the same shared component (`NavCapsule`, `BottomBar`, `PageHeader`, `CardHeader`, `TabBar`, `EmptyNote`, `ErrorNote`, `FormError`, `SettingRow`; list in `testa/README.md`). Check UI changes with the `ui-review` skill.
 - Graders are one to many per exam; one person may hold several roles in a unit.
 - No video proctoring, no lockdown browser. AI is off by default: question import (`ai` package) appears only after an administrator turns it on in the system settings, the model's output is checked by code and confirmed by the author, and candidate data never goes to a model (`docs/ai.md`).
 - Single VM, not distributed (recommended 2026-11-15): one VM handles the expected load; resilience comes from restart, extra time, backups and a rehearsed restore.
@@ -55,7 +56,7 @@ Work in milestones. For each one:
    ```
    UI changes are checked in a real browser (no component tests). Deployment changes are checked by building the production images and running `python3 deploy/smoke-test.py` against them (set `TESTA_COOKIE_SECURE=false` for plain HTTP).
 3. Update existing docs where needed (`docs/status.md` for scope or test changes).
-4. Review the diff and commit on `main` with a plain, descriptive message. Never push unless asked.
+4. Review the diff and commit on `main` with a Conventional Commits message (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`, ...) and an English subject. Never push unless asked.
 
 ## Running locally
 
