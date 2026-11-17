@@ -88,4 +88,4 @@ Defaults agreed with the first deploying school. Those marked "System settings" 
 - Login codes are stored in plain text, not hashed, so slips can be reprinted.
 - Spring Boot 4.1 instead of 3, which is out of open-source support; the target is still Java 21.
 - Whether candidates can check their own published scores is a per-exam option, off by default.
-- The exam form has no delivery-mode field (lab or online); it had no effect. The column remains for future online exams.
+- The exam form has no delivery-mode field (lab or online); it had no effect. Where candidates sit is up to each unit: a lab, a lab with the Internet blocked, or online from home all work (see [Deployment](deployment.md#network-and-offline-exams)).

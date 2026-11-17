@@ -125,6 +125,8 @@ To arrange with the network administrators:
 
 Cutting the Internet does not make the exam secure on its own: candidates on the internal network can still reach each other and other internal services, so lab isolation is the school's responsibility; the application enforces sign-in, timing and access on the server.
 
+How candidates sit the exam is up to each unit: in a lab, in a lab with the Internet blocked (the VM then only needs NTP), or online from home. For online exams the host name needs a public DNS record and TCP 443 open from the Internet; autosave, resume and extra time cover unstable home connections. Testa has no video proctoring or lockdown browser and only counts how often a candidate leaves the window, so a unit relying on online exams for high-stakes results has to arrange its own supervision.
+
 ## AI question import (optional)
 
 Off until a system administrator turns it on in Admin > System settings and enters the address of an OpenAI-compatible endpoint (`TESTA_AI_URL` in `.env` presets it). Run the model on a separate VM. It is idle unless a teacher imports a paper; if that VM shares a physical host with the exam server, cap its CPU so an import during an exam cannot slow the exam down. Details and limits: [AI features](ai.md#question-import).
