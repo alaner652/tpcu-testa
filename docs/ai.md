@@ -57,12 +57,14 @@ llama-server -m qwen3-4b-instruct-q4_k_m.gguf --port 8090 -c 16384 --jinja
 | --- | --- | --- |
 | Read the file | `PaperText` | Text from .docx (paragraphs and tables), .pdf or .txt; up to 5 MB and 8,000 characters |
 | Ask the model | `ModelClient` | One chat completion with a JSON schema, so the answer is always a list of questions |
-| Check the answer | `QuestionDrafts` | Code, not the model, decides what is kept: answer letters must point at a choice, a single-choice question has one answer, blanks match answers, points are in range, and the stem must open with text found in the paper. Anything that fails is dropped or left empty with a note for the author, never guessed |
+| Check the answer | `QuestionDrafts` | Code, not the model, decides what is kept: answer letters must point at a choice, a single-choice question has one answer, blanks match answers, points are in range, an answer must be written in the paper (`AnswerKey` finds choice answers by rule: an answer table, "1.C 2.ACE", "答：C" or "（C）1."; blank answers must appear in the text), and the stem must open with text found in the paper. Anything that fails is dropped or left empty with a note for the author, never guessed |
 | Review | Bank editor | The author sees every draft with its notes, chooses which to add, then confirms each question |
 
 Imports run one at a time on a background thread and the browser polls for the result, so a slow model cannot hold a request open. Only authors of the unit can import, and only the person who started an import can read its result. Jobs are kept in memory for 30 minutes.
 
 **Measured** on an Apple M1 laptop with Qwen3 4B Instruct (Q4): a 15-question Word paper (single choice, multiple choice, fill-in and essay, with the answer key at the end) took 66 seconds, and all 15 questions, their points and all 13 answers were correct. One essay's word limit was missed.
+
+**Real exam papers** (2025 national civil service exams, Ministry of Examination open data): the Chinese paper (12 questions) imported in about 2 minutes with all types and points correct. Given the paper without its separate answer sheet, the model still filled in 9 of 10 choice answers correctly, which is why answers not found in the paper are now cleared and marked "原檔沒有附答案". With the answer table appended, all 10 were correct. Reading passages were lost (Testa has no question groups), a 25-question economics paper hit the 300-second limit, and two papers were over 8,000 characters.
 
 **Limits**
 - Scanned PDFs have no text to read. Word equation objects and automatic list numbers are not extracted; type math in the paper as text, or fix it after import.

@@ -11,6 +11,7 @@ import tw.testa.ai.AiDtos.Draft;
 /**
  * Turns the model's answer into drafts. The model is not trusted: code checks every field,
  * drops what cannot be right and leaves a note for the author instead of guessing.
+ * An answer is kept only when the paper itself holds it ({@link AnswerKey} for choices, the text for blanks).
  */
 final class QuestionDrafts {
     private static final Set<String> TYPES = Set.of("single", "multiple", "blank", "essay");
@@ -22,6 +23,7 @@ final class QuestionDrafts {
 
     static List<Draft> from(JsonNode out, String source) {
         String plainSource = source.replaceAll("\\s+", "");
+        Set<String> key = AnswerKey.of(source);
         List<Draft> drafts = new ArrayList<>();
         for (JsonNode q : out.path("questions")) {
             if (drafts.size() >= MAX_QUESTIONS) break;
@@ -66,6 +68,10 @@ final class QuestionDrafts {
                 } else if (type.equals("single") && correct.size() > 1) {
                     correct.clear();
                     notes.add("單選題卻有多個答案");
+                } else if (!key.contains(letters(correct))) {
+                    // The model's own guess: the author fills in the answer
+                    correct.clear();
+                    notes.add(key.isEmpty() ? "原檔沒有附答案" : "答案在原檔找不到");
                 }
             } else if (type.equals("blank")) {
                 for (JsonNode a : q.path("blankAnswers")) {
@@ -76,6 +82,9 @@ final class QuestionDrafts {
                 if (blanks.isEmpty()) {
                     blanks.add(List.of());
                     notes.add("找不到答案");
+                } else if (blanks.stream().anyMatch(b -> !plainSource.contains(b.get(0).replaceAll("\\s+", "")))) {
+                    blanks.replaceAll(b -> List.of());
+                    notes.add("答案在原檔找不到");
                 } else if (marks > 0 && marks != blanks.size()) {
                     notes.add("空格數和答案數不一致");
                 }
@@ -93,5 +102,11 @@ final class QuestionDrafts {
                     notes.isEmpty() ? null : String.join("、", notes) + "，請核對"));
         }
         return drafts;
+    }
+
+    private static String letters(List<Integer> correct) {
+        StringBuilder sb = new StringBuilder();
+        for (int i : correct) sb.append((char) ('A' + i));
+        return AnswerKey.sorted(sb.toString());
     }
 }

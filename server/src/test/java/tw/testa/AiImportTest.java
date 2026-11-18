@@ -147,6 +147,50 @@ class AiImportTest extends IntegrationTestBase {
         // A stem that is not in the paper, and points the model could not read
         assertThat((String) read(r, "$.questions[5].note")).contains("題目文字和原檔不同").contains("看不出配分");
         assertThat((Double) read(r, "$.questions[5].points")).isEqualTo(5.0);
+        // An answer the paper does not hold is the model's guess
+        assertThat((Object) read(r, "$.questions[5].correct")).hasToString("[]");
+        assertThat((String) read(r, "$.questions[5].note")).contains("答案在原檔找不到");
+    }
+
+    static final String GUESSED = """
+            {"questions":[
+             {"type":"single","stem":"下列何者為質數？","points":2,"choices":["21","27","29","33"],"correct":["C"],"blankAnswers":[],"wordLimit":null},
+             {"type":"single","stem":"甲公司於 X5 年購入設備","points":2,"choices":["甲","乙"],"correct":["B"],"blankAnswers":[],"wordLimit":null},
+             {"type":"blank","stem":"台灣最高的山是＿＿＿＿山。","points":2,"choices":[],"correct":[],"blankAnswers":["玉"],"wordLimit":null}
+            ]}""";
+
+    static final String NO_KEY = """
+            共3題，每題2分，須用2B鉛筆在試卡上依題號清楚劃記，請選出一個正確或最適當答案。
+            1 下列何者為質數？ (A)21 (B)27 (C)29 (D)33
+            2 甲公司於 X5 年購入設備，A 國 (A)甲 (B)乙
+            3 台灣最高的山是＿＿＿＿山。
+            """;
+
+    @Test
+    void paperWithoutAnswers_modelGuessesAreCleared() throws Exception {
+        ANSWER.set(GUESSED);
+        MvcResult r = finished(author, start(author, docx(NO_KEY)));
+        for (int i = 0; i < 2; i++) {
+            assertThat((Object) read(r, "$.questions[" + i + "].correct")).hasToString("[]");
+            assertThat((String) read(r, "$.questions[" + i + "].note")).contains("原檔沒有附答案");
+        }
+        assertThat((Object) read(r, "$.questions[2].blanks")).hasToString("[[]]");
+        assertThat((String) read(r, "$.questions[2].note")).contains("答案在原檔找不到");
+    }
+
+    @Test
+    void answerTableAfterThePaper_isMatched() throws Exception {
+        ANSWER.set(GUESSED.replace("\"correct\":[\"B\"]", "\"correct\":[\"A\"]"));
+        String keyed = NO_KEY + """
+                題號   第1題   第2題
+                答案    C       A
+                3.玉
+                """;
+        MvcResult r = finished(author, start(author, docx(keyed)));
+        assertThat((Object) read(r, "$.questions[0].correct")).hasToString("[2]");
+        assertThat((Object) read(r, "$.questions[0].note")).isNull();
+        assertThat((Object) read(r, "$.questions[1].correct")).hasToString("[0]");
+        assertThat((Object) read(r, "$.questions[2].blanks")).hasToString("[[\"玉\"]]");
     }
 
     @Test
