@@ -74,11 +74,11 @@ public class QuestionImportService {
         return new Status(model.configured());
     }
 
-    public Job start(Long unitId, String filename, byte[] bytes) {
+    public Job start(Long unitId, List<PaperText.Upload> files) {
         long me = access.current().id();
         access.requireUnitRole(unitId, Role.AUTHOR);
         if (!model.configured()) throw ApiException.badRequest("ai_disabled", "AI 匯入還沒有開啟，請系統管理員到「系統設定」設定。");
-        String text = PaperText.extract(filename, bytes);
+        String text = PaperText.extract(files);
 
         Instant now = Instant.now();
         jobs.values().removeIf(e -> e.created().isBefore(now.minus(KEEP)));

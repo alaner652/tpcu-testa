@@ -58,34 +58,49 @@ function formatSize(bytes: number) {
   return bytes > 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`
 }
 
-function accept(picked: File | undefined) {
-  if (!picked) return
-  if (!/\.(docx|pdf|txt)$/i.test(picked.name)) {
-    error.value = `無法讀取「${picked.name}」。請上傳 .docx、.pdf 或 .txt 檔案；舊版 .doc 請先另存成 .docx。`
+// The answer sheet goes after the paper, as if it were printed at the end
+const ANSWER_SHEET = /答案|解答|answer|key/i
+
+/** One paper, or a paper and its answer sheet. */
+function accept(list: FileList | null | undefined) {
+  const picked = [...(list ?? [])]
+  if (!picked.length) return
+  if (picked.length > 2) {
+    error.value = '一次最多 2 個檔案：考卷，以及另外的答案卷。'
     return
   }
-  if (picked.size > 5 * 1024 * 1024) {
-    error.value = '檔案超過 5 MB，請分成幾個檔案匯入。'
-    return
+  for (const f of picked) {
+    if (!/\.(docx|pdf|txt)$/i.test(f.name)) {
+      error.value = `無法讀取「${f.name}」。請上傳 .docx、.pdf 或 .txt 檔案；舊版 .doc 請先另存成 .docx。`
+      return
+    }
+    if (f.size > 5 * 1024 * 1024) {
+      error.value = `「${f.name}」超過 5 MB，請分成幾個檔案匯入。`
+      return
+    }
   }
+  picked.sort((a, b) => Number(ANSWER_SHEET.test(a.name)) - Number(ANSWER_SHEET.test(b.name)))
   void start(picked)
 }
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-async function start(picked: File) {
+async function start(picked: File[]) {
   const unitId = store.bank.value?.unitId
   if (!unitId) return
   const mine = ++run
   error.value = ''
-  file.value = { name: picked.name, size: formatSize(picked.size) }
+  file.value = {
+    name: picked.map((f) => f.name).join('、'),
+    size: formatSize(picked.reduce((sum, f) => sum + f.size, 0)),
+  }
   stage.value = 'processing'
   seconds.value = 0
   clearInterval(ticker)
   ticker = setInterval(() => (seconds.value += 1), 1000)
   try {
     const form = new FormData()
-    form.append('file', picked)
+    for (const f of picked) form.append('file', f)
     form.append('unitId', String(unitId))
     let job = await api<Job>('/ai/question-import', { method: 'POST', body: form })
     while (job.state === 'running' && mine === run) {
@@ -148,7 +163,7 @@ function confirm() {
 
 function onDrop(event: DragEvent) {
   dragging.value = false
-  accept(event.dataTransfer?.files[0])
+  accept(event.dataTransfer?.files)
 }
 </script>
 
@@ -173,12 +188,13 @@ function onDrop(event: DragEvent) {
         <input
           type="file"
           accept=".docx,.pdf,.txt"
+          multiple
           class="sr-only"
-          @change="accept(($event.target as HTMLInputElement).files?.[0])"
+          @change="accept(($event.target as HTMLInputElement).files)"
         />
         <Upload class="size-5 text-ink-2" />
-        <span class="mt-3 text-sm font-medium">把檔案拖到這裡，或點一下選擇檔案</span>
-        <span class="mt-1 text-xs text-ink-3">支援 Word（.docx）、PDF 與純文字，5 MB、約 8000 字以內</span>
+        <span class="mt-3 text-sm font-medium">把考卷拖到這裡，或點一下選擇檔案</span>
+        <span class="mt-1 text-xs text-ink-3">Word、PDF 或純文字，8000 字內；答案卷可一起選</span>
       </label>
 
       <FormError v-if="error" class="mt-3">{{ error }}</FormError>

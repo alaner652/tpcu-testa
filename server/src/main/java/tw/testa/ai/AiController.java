@@ -1,6 +1,8 @@
 package tw.testa.ai;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,11 +31,16 @@ public class AiController {
         return imports.status();
     }
 
-    /** Starts an import and returns at once; poll the job until it is done or failed. */
+    /**
+     * Starts an import and returns at once; poll the job until it is done or failed.
+     * A second "file" part is the answer sheet when the answers are not in the paper.
+     */
     @PostMapping("/question-import")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public Job start(@RequestParam Long unitId, @RequestParam("file") MultipartFile file) throws IOException {
-        return imports.start(unitId, file.getOriginalFilename(), file.getBytes());
+    public Job start(@RequestParam Long unitId, @RequestParam("file") List<MultipartFile> files) throws IOException {
+        List<PaperText.Upload> uploads = new ArrayList<>();
+        for (MultipartFile f : files) uploads.add(new PaperText.Upload(f.getOriginalFilename(), f.getBytes()));
+        return imports.start(unitId, uploads);
     }
 
     @GetMapping("/question-import/{id}")

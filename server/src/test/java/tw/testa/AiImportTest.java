@@ -180,7 +180,8 @@ class AiImportTest extends IntegrationTestBase {
 
     @Test
     void answerTableAfterThePaper_isMatched() throws Exception {
-        ANSWER.set(GUESSED.replace("\"correct\":[\"B\"]", "\"correct\":[\"A\"]"));
+        // The model says B for question 2 and the table says A: flagged, not changed
+        ANSWER.set(GUESSED);
         String keyed = NO_KEY + """
                 題號   第1題   第2題
                 答案    C       A
@@ -189,7 +190,8 @@ class AiImportTest extends IntegrationTestBase {
         MvcResult r = finished(author, start(author, docx(keyed)));
         assertThat((Object) read(r, "$.questions[0].correct")).hasToString("[2]");
         assertThat((Object) read(r, "$.questions[0].note")).isNull();
-        assertThat((Object) read(r, "$.questions[1].correct")).hasToString("[0]");
+        assertThat((Object) read(r, "$.questions[1].correct")).hasToString("[1]");
+        assertThat((String) read(r, "$.questions[1].note")).contains("答案和答案表不一致（答案表是 A）");
         assertThat((Object) read(r, "$.questions[2].blanks")).hasToString("[[\"玉\"]]");
     }
 
@@ -206,6 +208,28 @@ class AiImportTest extends IntegrationTestBase {
         MvcResult r = finished(author, id);
         assertThat((String) read(r, "$.state")).isEqualTo("failed");
         assertThat((String) read(r, "$.error")).contains("沒有從這份考卷辨識出題目");
+    }
+
+    @Test
+    void answerSheetInASecondFile_followsThePaper() throws Exception {
+        ANSWER.set(GUESSED);
+        var answers = new MockMultipartFile("file", "答案.txt", "text/plain",
+                "題號 第1題 第2題\n答案 C B\n3.玉\n公式 p \uF03D 120 \uF02D q".getBytes(StandardCharsets.UTF_8));
+        MvcResult r = mvc.perform(multipart("/api/ai/question-import").file(docx(NO_KEY)).file(answers)
+                .param("unitId", String.valueOf(unit)).with(csrf()).session(author))
+                .andExpect(status().isAccepted()).andReturn();
+        r = finished(author, read(r, "$.id"));
+        assertThat(LAST_REQUEST.get()).contains("下列何者為質數").contains("答案 C B")
+                // Equation editor symbols become plain punctuation
+                .contains("p = 120 - q");
+        assertThat((Object) read(r, "$.questions[0].correct")).hasToString("[2]");
+        assertThat((Object) read(r, "$.questions[1].correct")).hasToString("[1]");
+        assertThat((Object) read(r, "$.questions[2].blanks")).hasToString("[[\"玉\"]]");
+
+        var third = new MockMultipartFile("file", "第三個.txt", "text/plain", "x".getBytes(StandardCharsets.UTF_8));
+        mvc.perform(multipart("/api/ai/question-import").file(docx(NO_KEY)).file(answers).file(third)
+                .param("unitId", String.valueOf(unit)).with(csrf()).session(author))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("too_many_files"));
     }
 
     @Test

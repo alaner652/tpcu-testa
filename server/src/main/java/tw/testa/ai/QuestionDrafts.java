@@ -1,6 +1,7 @@
 package tw.testa.ai;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -23,13 +24,29 @@ final class QuestionDrafts {
 
     static List<Draft> from(JsonNode out, String source) {
         String plainSource = source.replaceAll("\\s+", "");
-        Set<String> key = AnswerKey.of(source);
-        List<Draft> drafts = new ArrayList<>();
+        List<JsonNode> kept = new ArrayList<>();
         for (JsonNode q : out.path("questions")) {
-            if (drafts.size() >= MAX_QUESTIONS) break;
+            if (kept.size() >= MAX_QUESTIONS) break;
+            if (TYPES.contains(q.path("type").asString("")) && !q.path("stem").asString("").isBlank()) kept.add(q);
+        }
+
+        // When the answer key lists exactly one answer per choice question and most agree with the model, they are
+        // compared by position and a difference is flagged (not changed: a table read out of order would change
+        // right answers); otherwise an answer only has to appear in the key.
+        List<String> keyList = AnswerKey.of(source);
+        Set<String> key = new HashSet<>(keyList);
+        List<String> modelAnswers = kept.stream().filter(QuestionDrafts::isChoice).map(QuestionDrafts::rawLetters).toList();
+        int disagree = 0;
+        if (modelAnswers.size() == keyList.size()) {
+            for (int i = 0; i < keyList.size(); i++) if (!keyList.get(i).equals(modelAnswers.get(i))) disagree++;
+        }
+        boolean byPosition = !keyList.isEmpty() && modelAnswers.size() == keyList.size() && disagree * 2 <= keyList.size();
+        int choiceIndex = 0;
+
+        List<Draft> drafts = new ArrayList<>();
+        for (JsonNode q : kept) {
             String type = q.path("type").asString("");
             String stem = q.path("stem").asString("").strip();
-            if (!TYPES.contains(type) || stem.isEmpty()) continue;
             if (stem.length() > 20000) stem = stem.substring(0, 20000);
             List<String> notes = new ArrayList<>();
 
@@ -60,6 +77,10 @@ final class QuestionDrafts {
                     }
                 }
                 if (choices.size() < 2) notes.add("選項不足");
+                if (byPosition && !unknown && !correct.isEmpty() && !keyList.get(choiceIndex).equals(letters(correct))) {
+                    notes.add("答案和答案表不一致（答案表是 " + keyList.get(choiceIndex) + "）");
+                }
+                choiceIndex++;
                 if (unknown) {
                     correct.clear();
                     notes.add("答案對不上選項");
@@ -68,7 +89,7 @@ final class QuestionDrafts {
                 } else if (type.equals("single") && correct.size() > 1) {
                     correct.clear();
                     notes.add("單選題卻有多個答案");
-                } else if (!key.contains(letters(correct))) {
+                } else if (!byPosition && !key.contains(letters(correct))) {
                     // The model's own guess: the author fills in the answer
                     correct.clear();
                     notes.add(key.isEmpty() ? "原檔沒有附答案" : "答案在原檔找不到");
@@ -102,6 +123,20 @@ final class QuestionDrafts {
                     notes.isEmpty() ? null : String.join("、", notes) + "，請核對"));
         }
         return drafts;
+    }
+
+    private static boolean isChoice(JsonNode q) {
+        String type = q.path("type").asString("");
+        return type.equals("single") || type.equals("multiple");
+    }
+
+    /** The model's answer letters as written, for lining up with the answer key. */
+    private static String rawLetters(JsonNode q) {
+        StringBuilder sb = new StringBuilder();
+        for (JsonNode c : q.path("correct")) {
+            for (char ch : c.asString("").toUpperCase().toCharArray()) if (ch >= 'A' && ch <= 'Z' && sb.indexOf(String.valueOf(ch)) < 0) sb.append(ch);
+        }
+        return AnswerKey.sorted(sb.toString());
     }
 
     private static String letters(List<Integer> correct) {
