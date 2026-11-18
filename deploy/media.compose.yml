@@ -45,6 +45,7 @@ services:
     environment:
       CHROMIUM: /usr/bin/chromium
       CHROMIUM_NO_SANDBOX: "1"
+      LANGUAGE: zh_TW
       TESTA_APP: http://web/
       MEDIA_UID: ${MEDIA_UID:-0}
       MEDIA_GID: ${MEDIA_GID:-0}
